@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Hostel Outpass Management System</title>
+  <meta name="description" content="A Next-Gen Relational Smart Hostel Outpass & Gate Management Platform">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="navbar-brand">
+        <div class="brand-logo-badge">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Smart Hostel</span>
+          <span class="brand-subtitle">Outpass & Gate Management</span>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <!-- Live System Status Widget -->
+        <div class="system-status-chip" id="systemStatusChip" title="Click to refresh system status">
+          <span class="status-dot pulsing" id="statusDot"></span>
+          <span class="status-label" id="statusLabel">Checking API...</span>
+          <span class="db-badge" id="dbBadge">DB: Checking</span>
+        </div>
+
+        <!-- Theme Toggle Button -->
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Dark/Light Mode" title="Toggle Dark/Light Mode">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-container">
+      <div class="auth-grid">
+        
+        <!-- Left Hero / Info Card -->
+        <section class="hero-card">
+          <div class="hero-badge">
+            <span class="sparkle-icon">✨</span> MySQL Relational Architecture
+          </div>
+          <h1 class="hero-title">
+            Secure, Instant & Multi-Tier Hostel Outpass Control
+          </h1>
+          <p class="hero-desc">
+            A comprehensive portal connecting Students, Parents, Wardens, Principals, Class Advisors, Caretakers, and Security Staff with real-time audit logs and automated verification.
+          </p>
+
+          <!-- Core Feature Pillars -->
+          <div class="feature-pills">
+            <div class="feature-pill">
+              <div class="pill-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+              </div>
+              <div class="pill-info">
+                <h4>Multi-Level Approvals</h4>
+                <p>Parent & Advisor consent before Warden authorization</p>
+              </div>
+            </div>
+
+            <div class="feature-pill">
+              <div class="pill-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </div>
+              <div class="pill-info">
+                <h4>Dynamic QR Token Verification</h4>
+                <p>One-time cryptographic gate pass for exit & return logging</p>
+              </div>
+            </div>
+
+            <div class="feature-pill">
+              <div class="pill-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="pill-info">
+                <h4>Real-Time Sync & Socket.IO</h4>
+                <p>Instant alerts on overstay and gate departure timestamps</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Test Bench Card -->
+          <div class="status-card" id="statusCard">
+            <div class="status-card-header">
+              <div class="status-card-title">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <span>Backend Diagnostics</span>
+              </div>
+              <button class="status-refresh-btn" id="btnTestApi" title="Re-test API Endpoints">
+                Refresh
+              </button>
+            </div>
+            <div class="diagnostics-grid">
+              <div class="diag-item">
+                <span class="diag-key">API Health:</span>
+                <span class="diag-val" id="diagHealth">Testing...</span>
+              </div>
+              <div class="diag-item">
+                <span class="diag-key">MySQL Connection:</span>
+                <span class="diag-val" id="diagDb">Testing...</span>
+              </div>
+              <div class="diag-item">
+                <span class="diag-key">Socket.IO:</span>
+                <span class="diag-val" id="diagSocket">Connecting...</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Portal Login Card -->
+        <section class="auth-card">
+          <div class="auth-card-header">
+            <div class="portal-badge" id="roleBadge">Student Portal</div>
+            <h2 class="auth-title" id="authTitle">Sign In to Outpass System</h2>
+            <p class="auth-subtitle" id="authSubtitle">Select your role to access your dedicated dashboard.</p>
+          </div>
+
+          <!-- Role Selector Navigation (7 Roles) -->
+          <div class="role-selector-wrapper">
+            <label class="role-label">Choose Role:</label>
+            <div class="role-tabs" id="roleTabs">
+              <button type="button" class="role-tab active" data-role="student" title="Student Access">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                <span>Student</span>
+              </button>
+              <button type="button" class="role-tab" data-role="parent" title="Parent Consent & Tracking">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <span>Parent</span>
+              </button>
+              <button type="button" class="role-tab" data-role="warden" title="Hostel Warden Portal">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Warden</span>
+              </button>
+              <button type="button" class="role-tab" data-role="principal" title="Principal Oversight">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                <span>Principal</span>
+              </button>
+              <button type="button" class="role-tab" data-role="class_advisor" title="Class Advisor Approval">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                <span>Class Advisor</span>
+              </button>
+              <button type="button" class="role-tab" data-role="caretaker" title="Hostel Caretaker">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+                <span>Caretaker</span>
+              </button>
+              <button type="button" class="role-tab" data-role="watchman" title="Gate Security Staff">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span>Watchman</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Login Form -->
+          <form class="login-form" id="loginForm" autocomplete="on">
+            <input type="hidden" id="selectedRole" name="role" value="student">
+
+            <!-- Identifier Field -->
+            <div class="form-group">
+              <label for="identifierInput" id="identifierLabel">Register / Roll Number</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg id="inputIconIdentifier" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+                <input 
+                  type="text" 
+                  id="identifierInput" 
+                  name="identifier" 
+                  placeholder="e.g. 21CS042" 
+                  required 
+                  autocomplete="username"
+                />
+              </div>
+            </div>
+
+            <!-- Password Field -->
+            <div class="form-group">
+              <div class="label-row">
+                <label for="passwordInput">Password</label>
+                <a href="#" class="forgot-link" id="forgotPasswordLink">Forgot Password?</a>
+              </div>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input 
+                  type="password" 
+                  id="passwordInput" 
+                  name="password" 
+                  placeholder="Enter your password" 
+                  required 
+                  autocomplete="current-password"
+                />
+                <button type="button" class="password-toggle-btn" id="togglePasswordBtn" aria-label="Toggle Password Visibility">
+                  <svg id="eyeIcon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Remember Me & Assistance -->
+            <div class="form-options">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="rememberMe">
+                <span class="checkmark"></span>
+                <span class="checkbox-text">Remember Credentials</span>
+              </label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="primary-btn" id="submitBtn">
+              <span class="btn-text" id="btnText">Sign In to Dashboard</span>
+              <span class="btn-spinner hidden" id="btnSpinner"></span>
+              <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+
+            <!-- Student Create Account Prompt (Shown when Student is selected) -->
+            <div class="student-auth-switch-section" id="studentCreateAccountBox" style="margin-top: 1.25rem;">
+              <div class="divider" style="position: relative; text-align: center; border-top: 1px solid var(--border-main); margin-bottom: 1rem;">
+                <span style="background: var(--bg-surface); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.82rem; position: relative; top: -0.65rem;">
+                  Don't have an account?
+                </span>
+              </div>
+              <button type="button" class="secondary-btn" id="btnStudentShowRegister" onclick="showStudentRegisterForm()" style="width: 100%; border-color: rgba(99, 102, 241, 0.4); color: var(--accent-primary, #6366f1); font-weight: 600;">
+                Create Account
+              </button>
+            </div>
+
+            <!-- Parent Create Account Prompt (Shown only when Parent is selected) -->
+            <div class="parent-auth-switch-section hidden" id="parentCreateAccountBox" style="margin-top: 1.25rem;">
+              <div class="divider" style="position: relative; text-align: center; border-top: 1px solid var(--border-main); margin-bottom: 1rem;">
+                <span style="background: var(--bg-surface); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.82rem; position: relative; top: -0.65rem;">
+                  Don't have an account?
+                </span>
+              </div>
+              <button type="button" class="secondary-btn" id="btnParentShowRegister" onclick="showParentRegisterForm()" style="width: 100%; border-color: rgba(245, 158, 11, 0.4); color: #f59e0b; font-weight: 600;">
+                Create Account
+              </button>
+            </div>
+          </form>
+
+          <!-- INLINE PARENT REGISTRATION FORM (SHOWN WHEN 'CREATE ACCOUNT' IS CLICKED) -->
+          <form class="login-form hidden" id="parentRegisterForm" autocomplete="on" onsubmit="handleParentInlineRegisterSubmit(event)">
+            <!-- Parent Name -->
+            <div class="form-group">
+              <label for="parentRegName">Parent/Guardian Name</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </span>
+                <input 
+                  type="text" 
+                  id="parentRegName" 
+                  placeholder="Enter your full name" 
+                  required 
+                />
+              </div>
+            </div>
+
+            <!-- Mobile Number -->
+            <div class="form-group">
+              <label for="parentRegMobile">Mobile Number</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                </span>
+                <input 
+                  type="tel" 
+                  id="parentRegMobile" 
+                  placeholder="Enter registered mobile number" 
+                  required 
+                  maxlength="15"
+                  autocomplete="tel"
+                />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+              <label for="parentRegPassword">Password</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input 
+                  type="password" 
+                  id="parentRegPassword" 
+                  placeholder="Minimum 6 characters" 
+                  required 
+                  minlength="6" 
+                  autocomplete="new-password"
+                />
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+              <label for="parentRegConfirmPassword">Confirm Password</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input 
+                  type="password" 
+                  id="parentRegConfirmPassword" 
+                  placeholder="Re-enter password" 
+                  required 
+                  minlength="6" 
+                  autocomplete="new-password"
+                />
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="primary-btn" id="btnParentRegisterSubmit">
+              <span class="btn-text">Create Account</span>
+              <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+
+            <div class="parent-auth-switch-section" style="margin-top: 1.25rem;">
+              <div class="divider" style="position: relative; text-align: center; border-top: 1px solid var(--border-main); margin-bottom: 1rem;">
+                <span style="background: var(--bg-surface); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.82rem; position: relative; top: -0.65rem;">
+                  Already have an account?
+                </span>
+              </div>
+              <button type="button" class="secondary-btn" onclick="showParentLoginForm()" style="width: 100%;">
+                Back to Login
+              </button>
+            </div>
+          </form>
+
+          <!-- INLINE STUDENT REGISTRATION FORM (SHOWN WHEN 'CREATE ACCOUNT' IS CLICKED FOR STUDENT) -->
+          <form class="login-form hidden" id="studentRegisterForm" autocomplete="on" onsubmit="handleStudentInlineRegisterSubmit(event)">
+            <!-- Student Full Name -->
+            <div class="form-group">
+              <label for="studentRegName">Full Name</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </span>
+                <input 
+                  type="text" 
+                  id="studentRegName" 
+                  placeholder="e.g. Priya Sharma" 
+                  required 
+                  autocomplete="name"
+                />
+              </div>
+            </div>
+
+            <!-- Register / Roll Number (Username) -->
+            <div class="form-group">
+              <label for="studentRegUsername">Username / Register Number</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                </span>
+                <input 
+                  type="text" 
+                  id="studentRegUsername" 
+                  placeholder="e.g. 21CS099" 
+                  required 
+                  autocomplete="username"
+                />
+              </div>
+            </div>
+
+            <!-- Email & Phone Grid -->
+            <div class="form-grid-2" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label for="studentRegEmail">College Email</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="email" 
+                    id="studentRegEmail" 
+                    placeholder="student@college.edu" 
+                    required 
+                    autocomplete="email"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="studentRegPhone">Mobile Number</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="tel" 
+                    id="studentRegPhone" 
+                    placeholder="10-digit mobile" 
+                    required 
+                    autocomplete="tel"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Department & Year Grid -->
+            <div class="form-grid-2" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label for="studentRegDept">Department</label>
+                <div class="input-wrapper">
+                  <select id="studentRegDept" style="width: 100%; background: var(--bg-surface, #1e293b); border: none; color: inherit; padding: 0.65rem 0.5rem; font-size: 0.88rem; outline: none; cursor: pointer;">
+                    <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                    <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                    <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                    <option value="Civil Engineering">Civil Engineering</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="studentRegYear">Year of Study</label>
+                <div class="input-wrapper">
+                  <select id="studentRegYear" style="width: 100%; background: var(--bg-surface, #1e293b); border: none; color: inherit; padding: 0.65rem 0.5rem; font-size: 0.88rem; outline: none; cursor: pointer;">
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3" selected>3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hostel Block & Room Number Grid -->
+            <div class="form-grid-2" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label for="studentRegBlock">Hostel Block</label>
+                <div class="input-wrapper">
+                  <select id="studentRegBlock" style="width: 100%; background: var(--bg-surface, #1e293b); border: none; color: inherit; padding: 0.65rem 0.5rem; font-size: 0.88rem; outline: none; cursor: pointer;">
+                    <option value="Block A">Block A</option>
+                    <option value="Block B">Block B</option>
+                    <option value="Block C">Block C</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="studentRegRoom">Room Number</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="text" 
+                    id="studentRegRoom" 
+                    placeholder="e.g. A-304" 
+                    required 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Parent / Guardian Information -->
+            <div class="form-grid-2" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label for="studentRegParentName">Parent Name</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="text" 
+                    id="studentRegParentName" 
+                    placeholder="e.g. Robert Doe" 
+                    required 
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="studentRegParentPhone">Parent Mobile</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="tel" 
+                    id="studentRegParentPhone" 
+                    placeholder="e.g. 9876543210" 
+                    required 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Password & Confirm Password -->
+            <div class="form-grid-2" style="margin-bottom: 0.75rem;">
+              <div class="form-group">
+                <label for="studentRegPassword">Password</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="password" 
+                    id="studentRegPassword" 
+                    placeholder="Min 6 characters" 
+                    required 
+                    minlength="6" 
+                    autocomplete="new-password"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="studentRegConfirmPassword">Confirm Password</label>
+                <div class="input-wrapper">
+                  <input 
+                    type="password" 
+                    id="studentRegConfirmPassword" 
+                    placeholder="Re-enter password" 
+                    required 
+                    minlength="6" 
+                    autocomplete="new-password"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="primary-btn" id="btnStudentRegisterSubmit">
+              <span class="btn-text">Create Account & Login</span>
+              <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
+
+            <!-- Back to Login -->
+            <div class="student-auth-switch-section" style="margin-top: 1.25rem;">
+              <div class="divider" style="position: relative; text-align: center; border-top: 1px solid var(--border-main); margin-bottom: 1rem;">
+                <span style="background: var(--bg-surface); padding: 0 0.75rem; color: var(--text-secondary); font-size: 0.82rem; position: relative; top: -0.65rem;">
+                  Already have an account?
+                </span>
+              </div>
+              <button type="button" class="secondary-btn" onclick="showStudentLoginForm()" style="width: 100%;">
+                Back to Login
+              </button>
+            </div>
+          </form>
+
+          <!-- Quick Autofill for Testing / Demo -->
+          <div class="quick-demo-box">
+            <span class="demo-box-label">Quick Test Autofill (Password: Password@123):</span>
+            <div class="demo-chips">
+              <button type="button" class="demo-chip" data-fill-role="student" data-fill-id="21CS042">🎓 Student</button>
+              <button type="button" class="demo-chip" data-fill-role="warden" data-fill-id="WRD-101">🛡️ Warden</button>
+              <button type="button" class="demo-chip" data-fill-role="principal" data-fill-id="PRC-001">🏛️ Principal</button>
+              <button type="button" class="demo-chip" data-fill-role="class_advisor" data-fill-id="ADV-204">📚 Advisor</button>
+              <button type="button" class="demo-chip" data-fill-role="caretaker" data-fill-id="CTK-305">🏠 Caretaker</button>
+              <button type="button" class="demo-chip" data-fill-role="watchman" data-fill-id="SEC-001">👮 Watchman</button>
+            </div>
+          </div>
+
+          <!-- Alert/Toast Notification Area -->
+          <div class="form-alert hidden" id="formAlert"></div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • MySQL Powered • Socket.IO Enabled</p>
+    </footer>
+  </div>
+
+  <!-- Socket.IO Client Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Frontend Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>

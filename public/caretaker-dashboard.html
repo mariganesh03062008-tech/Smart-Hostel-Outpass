@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caretaker Dashboard & Exit Scanner - Smart Hostel Outpass</title>
+  <meta name="description" content="Hostel Caretaker Gate Exit Scanner & Occupancy Management Portal">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/student-dashboard.css">
+  <link rel="stylesheet" href="css/caretaker-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Navbar -->
+    <header class="app-header navbar dashboard-navbar">
+      <div class="header-left navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="logo-icon-wrapper brand-logo-badge">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="logo-text brand-title">SmartHostel</span>
+          <span class="brand-subtitle">Caretaker Exit Portal</span>
+        </div>
+      </div>
+
+      <div class="header-right navbar-actions">
+        <div class="server-time-box" id="liveClockDisplay">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="liveClockTime">--:--:--</span>
+        </div>
+
+        <div class="header-notification-mount" id="headerNotificationMount"></div>
+
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <div class="nav-user-chip" id="navUserChip">
+          <div class="nav-user-avatar" id="navUserAvatar">C</div>
+          <span id="navUserName">Caretaker</span>
+        </div>
+
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+      <div class="dashboard-layout">
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- Sidebar Navigation Menu -->
+        <aside class="dashboard-sidebar" id="dashboardSidebar">
+          <!-- Caretaker Profile Card -->
+          <div class="student-profile-summary">
+            <div class="student-avatar-wrap">
+              <div class="student-avatar" id="caretakerAvatar">C</div>
+              <span class="online-indicator" title="Active Staff"></span>
+            </div>
+            <h3 class="student-name" id="caretakerName">Loading...</h3>
+            <p class="student-regno" id="caretakerStaffId">CTK-305</p>
+            <span class="portal-badge" style="background:rgba(59,130,246,0.15); color:#60a5fa; margin-top:0.35rem;">
+              Hostel Caretaker
+            </span>
+          </div>
+
+          <!-- Navigation Links -->
+          <nav class="dashboard-nav">
+            <button class="nav-item active" data-tab="overview">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Dashboard</span>
+            </button>
+
+            <button class="nav-item" data-tab="scan-qr">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              <span>Scan QR</span>
+              <span class="nav-badge" style="background:#2563eb; color:#ffffff;">Scanner</span>
+            </button>
+
+            <button class="nav-item" data-tab="students-outside">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              <span>Students Outside</span>
+              <span class="nav-badge" id="navOutsideCount" style="display:none; background:#f59e0b; color:#111827;">0</span>
+            </button>
+
+            <button class="nav-item" data-tab="checkout-list">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>Check-Out List</span>
+            </button>
+
+            <button class="nav-item" data-tab="daily-summary">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              <span>Daily Summary</span>
+            </button>
+
+            <button class="nav-item" data-tab="profile">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <span>Profile</span>
+            </button>
+          </nav>
+        </aside>
+
+        <!-- Main Body Panels -->
+        <div class="dashboard-main-panel">
+          
+          <!-- TAB 1: OVERVIEW -->
+          <section class="tab-section active" id="tab-overview">
+            
+            <!-- Caretaker 4-Metric Cards -->
+            <div class="caretaker-metric-grid">
+              <div class="caretaker-metric-card card-green">
+                <div class="card-top">
+                  <span class="metric-label">Students Inside</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statStudentsInside">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Currently in Hostel Blocks</small>
+              </div>
+
+              <div class="caretaker-metric-card card-orange" onclick="switchTab('students-outside')" style="cursor:pointer;">
+                <div class="card-top">
+                  <span class="metric-label">Students Outside</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statStudentsOutside" style="color:#f59e0b;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Checked out on valid passes</small>
+              </div>
+
+              <div class="caretaker-metric-card card-blue" onclick="switchTab('checkout-list')" style="cursor:pointer;">
+                <div class="card-top">
+                  <span class="metric-label">Today's Exits</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statTodayExits">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Gate checkout scans recorded</small>
+              </div>
+
+              <div class="caretaker-metric-card card-purple">
+                <div class="card-top">
+                  <span class="metric-label">Today's Returns</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statTodayReturns">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Gate returns recorded</small>
+              </div>
+            </div>
+
+            <!-- Quick Action Banner -->
+            <div class="form-card" style="background:linear-gradient(135deg, rgba(37,99,235,0.1), rgba(30,58,138,0.15)); border:1px solid rgba(59,130,246,0.3); margin-bottom:1.5rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                <div>
+                  <h3 style="font-family:'Outfit'; font-size:1.25rem; margin-bottom:0.25rem; color:var(--text-primary);">
+                    📷 Gate QR Scanner Ready
+                  </h3>
+                  <p style="font-size:0.85rem; color:var(--text-secondary);">
+                    Use your desktop or mobile camera to instantly scan and verify departing students.
+                  </p>
+                </div>
+                <button class="primary-btn" onclick="switchTab('scan-qr')" style="padding:0.6rem 1.25rem; font-size:0.9rem;">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                  <span>Open Live Scanner</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Recent Exits Table -->
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Recent Gate Checkout Activity</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Latest students scanned and cleared for exit.</p>
+                </div>
+                <button class="secondary-btn" onclick="refreshCaretakerData()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Sync Feeds</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Exit Time</th>
+                      <th>Student</th>
+                      <th>Room & Block</th>
+                      <th>Pass Code</th>
+                      <th>Destination</th>
+                      <th>Expected Return</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentExitsTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- TAB 2: DEDICATED QR SCANNER -->
+          <section class="tab-section" id="tab-scan-qr">
+            <div class="scanner-container-card">
+              
+              <div class="table-header-bar" style="border:none; padding:0 0 1rem 0; border-bottom:1px solid var(--border-color); margin-bottom:1.5rem;">
+                <div>
+                  <span class="portal-badge" style="background:rgba(37,99,235,0.15); color:#60a5fa; font-weight:700;">Live Gate Checkpoint</span>
+                  <h2 style="font-family:'Outfit'; font-size:1.45rem; margin-top:0.35rem;">Scan Student Outpass QR</h2>
+                  <p style="font-size:0.84rem; color:var(--text-secondary);">Point your device camera at the student's digital outpass QR code.</p>
+                </div>
+              </div>
+
+              <!-- Camera Viewport Card -->
+              <div class="scanner-viewport-box" id="scannerViewport">
+                <div class="scanner-corner-guide corner-tl"></div>
+                <div class="scanner-corner-guide corner-tr"></div>
+                <div class="scanner-corner-guide corner-bl"></div>
+                <div class="scanner-corner-guide corner-br"></div>
+                <div class="scan-laser-line" id="scanLaserLine"></div>
+                
+                <!-- html5-qrcode DOM Target Container -->
+                <div id="qrScannerReader"></div>
+
+                <!-- Camera Stopped Placeholder State -->
+                <div id="cameraStoppedState" style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
+                  <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" style="margin-bottom:0.75rem;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                  <h4 style="font-family:'Outfit'; font-size:1.1rem; color:#f3f4f6; margin-bottom:0.25rem;">Camera is Inactive</h4>
+                  <p style="font-size:0.8rem; color:#9ca3af; max-width:280px; margin:0 auto 1rem auto;">Click below to activate device webcam and begin continuous scanning.</p>
+                  <button class="primary-btn" id="btnStartCamera" onclick="startQrScanner()">
+                    <span>Start Camera Scanner</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Camera Controls Bar -->
+              <div style="display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+                <button class="secondary-btn" id="btnStopCamera" onclick="stopQrScanner()" style="display:none;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                  <span>Pause Camera</span>
+                </button>
+                <button class="secondary-btn" id="btnSwitchCamera" onclick="switchCameraFacing()" style="display:none;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                  <span>Switch Camera</span>
+                </button>
+              </div>
+
+              <!-- Manual Token Input Fallback (for barcode scanners / manual input) -->
+              <div style="max-width:520px; margin:0 auto; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem 1.25rem;">
+                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
+                  Manual Token / Barcode Gun Input
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                  <input type="text" id="qrManualTokenInput" placeholder="Enter or paste token e.g. HOSTEL-QR:qr_sec_..." style="flex:1; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.6rem 0.75rem; color:var(--text-primary); font-family:monospace; font-size:0.82rem;" />
+                  <button class="primary-btn" id="btnSubmitManualToken" onclick="handleManualTokenSubmit()" style="white-space:nowrap;">
+                    <span>Verify Exit</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live Scan Result Container -->
+              <div id="scanResultContainer" style="max-width:620px; margin:1.5rem auto 0 auto;">
+                <!-- Populated dynamically upon scan -->
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 3: STUDENTS OUTSIDE (GROUPED BY ACADEMIC YEAR) -->
+          <section class="tab-section" id="tab-students-outside">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">Occupancy Tracking</span>
+                  <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Students Currently Outside Hostel</h2>
+                  <p style="font-size:0.84rem; color:var(--text-secondary);">Live roster of all students checked out at the checkpoint grouped by academic year.</p>
+                </div>
+                <button class="secondary-btn" onclick="loadStudentsOutside()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh List</span>
+                </button>
+              </div>
+
+              <!-- Year Filter Tabs Bar -->
+              <div class="year-pills-bar">
+                <button class="year-pill-btn active" data-year-filter="all" onclick="filterStudentsByYear('all')">
+                  <span>All Years</span>
+                  <span class="year-pill-badge" id="pillCountAll">0</span>
+                </button>
+                <button class="year-pill-btn" data-year-filter="1" onclick="filterStudentsByYear(1)">
+                  <span>First Year (1st Yr)</span>
+                  <span class="year-pill-badge" id="pillCount1">0</span>
+                </button>
+                <button class="year-pill-btn" data-year-filter="2" onclick="filterStudentsByYear(2)">
+                  <span>Second Year (2nd Yr)</span>
+                  <span class="year-pill-badge" id="pillCount2">0</span>
+                </button>
+                <button class="year-pill-btn" data-year-filter="3" onclick="filterStudentsByYear(3)">
+                  <span>Third Year (3rd Yr)</span>
+                  <span class="year-pill-badge" id="pillCount3">0</span>
+                </button>
+                <button class="year-pill-btn" data-year-filter="4" onclick="filterStudentsByYear(4)">
+                  <span>Fourth Year (4th Yr)</span>
+                  <span class="year-pill-badge" id="pillCount4">0</span>
+                </button>
+              </div>
+
+              <!-- Table -->
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Roll Number</th>
+                      <th>Student Name</th>
+                      <th>Dept & Year</th>
+                      <th>Room & Block</th>
+                      <th>Exit Time</th>
+                      <th>Expected Return</th>
+                      <th>Return Status</th>
+                      <th>Outpass Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentsOutsideTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 4: CHECK-OUT LIST -->
+          <section class="tab-section" id="tab-checkout-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(37,99,235,0.15); color:#60a5fa; font-weight:700;">Gate Check-Out</span>
+                  <h3 style="margin-top:0.25rem;">Student Gate Check-Out List</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Real-time roster of all student departures recorded by Caretaker.</p>
+                </div>
+                <button class="secondary-btn" onclick="loadCheckoutList()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              <!-- Filter Bar -->
+              <div class="filter-bar">
+                <div class="filter-btn-group">
+                  <button class="filter-btn active" id="btnFilterToday" onclick="setCheckoutFilter('today')">Today</button>
+                  <button class="filter-btn" id="btnFilterYesterday" onclick="setCheckoutFilter('yesterday')">Yesterday</button>
+                  <button class="filter-btn" id="btnFilterAll" onclick="setCheckoutFilter('all')">All Records</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-left:auto;">
+                  <span style="font-size:0.78rem; color:var(--text-muted);">Pick Date:</span>
+                  <input type="date" class="filter-date-input" id="checkoutDateInput" onchange="setCheckoutCustomDate(this.value)" />
+                </div>
+              </div>
+
+              <!-- Check-Out Table -->
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Departure Date/Time</th>
+                      <th>Student Name</th>
+                      <th>Roll Number</th>
+                      <th>Outpass Type</th>
+                      <th>Destination</th>
+                      <th>Purpose</th>
+                      <th>Expected Return</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="checkoutListTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB: DAILY MOVEMENT SUMMARY -->
+          <section class="tab-section" id="tab-daily-summary">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">Hostel Day-End Audit</span>
+                  <h3 style="margin-top:0.25rem;">Daily Movement Summary</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Gate movement aggregation and occupancy audit derived from verified gate scans.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                  <input type="date" class="filter-date-input" id="dailySummaryDateInput" onchange="loadDailySummary(this.value)" />
+                  <button class="secondary-btn" onclick="loadDailySummary()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Summary Metric Cards -->
+              <div class="caretaker-metric-grid" style="margin-bottom:1.5rem;">
+                <div class="caretaker-metric-card card-blue">
+                  <div class="card-top">
+                    <span class="metric-label">Total Checked Out</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="sumTotalCheckedOut">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Exits recorded on date</small>
+                </div>
+
+                <div class="caretaker-metric-card card-green">
+                  <div class="card-top">
+                    <span class="metric-label">Total Checked In</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="sumTotalCheckedIn">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Returns recorded on date</small>
+                </div>
+
+                <div class="caretaker-metric-card card-orange">
+                  <div class="card-top">
+                    <span class="metric-label">Currently Outside (Date)</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="sumCurrentlyOutside" style="color:#f59e0b;">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Checkouts minus Returns</small>
+                </div>
+
+                <div class="caretaker-metric-card card-purple">
+                  <div class="card-top">
+                    <span class="metric-label">Hostel Total Outside</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="sumOverallOutside">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">All students outside right now</small>
+                </div>
+              </div>
+
+              <!-- Still Outside Students Section -->
+              <div style="margin-bottom:2rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                  <h4 style="font-family:'Outfit'; font-size:1.1rem; color:#f59e0b; display:flex; align-items:center; gap:0.5rem;">
+                    <span>⚠️ Students Still Outside</span>
+                    <span class="portal-badge" id="badgeStillOutsideCount" style="background:rgba(245,158,11,0.2); color:#f59e0b;">0</span>
+                  </h4>
+                </div>
+                <div style="overflow-x:auto;">
+                  <table class="requests-table">
+                    <thead>
+                      <tr>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Room & Block</th>
+                        <th>Exit Time</th>
+                        <th>Expected Return</th>
+                        <th>Destination</th>
+                        <th>Contact</th>
+                      </tr>
+                    </thead>
+                    <tbody id="summaryStillOutsideTableBody">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 5: PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <div class="profile-avatar-large" id="profAvatarLarge">C</div>
+                <div class="profile-header-info">
+                  <h2 id="profStaffName">Caretaker Staff</h2>
+                  <span class="portal-badge" style="background:rgba(59,130,246,0.15); color:#60a5fa;">Hostel Caretaker</span>
+                  <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;" id="profStaffIdTag">Staff ID: CTK-305</p>
+                </div>
+              </div>
+
+              <div class="profile-details-grid">
+                <div class="profile-field">
+                  <span class="field-label">Official Email</span>
+                  <span class="field-value" id="profStaffEmail">caretaker@hostel.edu</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Assigned Department / Shift</span>
+                  <span class="field-value" id="profStaffDept">Hostel Floor Administration</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Primary Mobile</span>
+                  <span class="field-value" id="profStaffPhone">9876543215</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Security Role</span>
+                  <span class="field-value">Hostel Gate & Floor Caretaker</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Caretaker Exit Scanner Module • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- QR Scanning Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/html5-qrcode.min.js"></script>
+  <script src="js/caretaker-dashboard.js"></script>
+</body>
+</html>

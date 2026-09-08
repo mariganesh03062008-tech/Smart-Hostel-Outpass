@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class Advisor Dashboard - Smart Hostel Outpass</title>
+  <meta name="description" content="Class Advisor Academic Clearance and One-Day Duty Verification Portal">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/warden-dashboard.css">
+  <link rel="stylesheet" href="css/advisor-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="navbar dashboard-navbar">
+      <div class="navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation" title="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="brand-logo-badge" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Smart Hostel</span>
+          <span class="brand-subtitle">Class Advisor Portal</span>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <!-- Live System Status Widget -->
+        <div class="system-status-chip" id="systemStatusChip" title="Backend Server Status">
+          <span class="status-dot online"></span>
+          <span class="status-label">System Online</span>
+          <span class="db-badge connected">MySQL Active</span>
+        </div>
+
+        <!-- Notification Bell Mount Point -->
+        <div id="headerNotificationMount" class="header-notification-mount"></div>
+
+        <!-- Theme Toggle Button -->
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="nav-user-chip" id="navUserChip" title="Logged in class advisor">
+          <div class="nav-user-avatar" id="navUserAvatar">A</div>
+          <span id="navUserName">Prof. Venkatesh</span>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-main">
+      
+      <!-- Advisor Profile Hero Header -->
+      <section class="advisor-hero-bar">
+        <div class="student-meta-left">
+          <div class="advisor-avatar" id="advisorAvatar">A</div>
+          <div class="student-details">
+            <h1 id="advisorName">Prof. S. Venkatesh</h1>
+            <div class="student-tags-row">
+              <span class="portal-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border-color:rgba(139,92,246,0.3); margin-bottom:0;">Class Advisor Portal</span>
+              <span class="student-tag" id="advisorStaffId">Faculty ID: ADV-204</span>
+              <span class="student-tag" id="advisorDept">Department: Computer Science & Engineering</span>
+              <span class="student-tag">Assigned: Year 3 (Batch 2023–27)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-meta-right">
+          <span class="auth-verified-chip" style="background:rgba(139,92,246,0.12); color:#c084fc; border:1px solid rgba(139,92,246,0.35); padding:0.35rem 0.85rem; font-weight:700;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Authorized Class Advisor
+          </span>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Department Academic Clearance</small>
+        </div>
+      </section>
+
+      <!-- Dashboard Layout: Sidebar + Tab Content -->
+      <div class="advisor-dashboard-layout">
+        <!-- Backdrop for mobile drawer -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="advisor-sidebar">
+          <span class="sidebar-heading">Navigation</span>
+          
+          <button class="advisor-nav-btn active" data-tab="overview">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Dashboard</span>
+          </button>
+
+          <button class="advisor-nav-btn" data-tab="duty-queue">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+            <span>Pending One-Day Duties</span>
+            <span class="nav-badge-pill purple" id="navBadgeDuty" style="display:none;">0</span>
+          </button>
+
+          <button class="advisor-nav-btn" data-tab="approved-list">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Approved Requests</span>
+          </button>
+
+          <button class="advisor-nav-btn" data-tab="rejected-list">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <span>Rejected Requests</span>
+          </button>
+
+          <span class="sidebar-heading" style="margin-top:0.6rem;">Account</span>
+
+          <button class="advisor-nav-btn" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profile</span>
+          </button>
+        </aside>
+
+        <!-- Main Tab Content Area -->
+        <div class="dash-tab-content">
+          
+          <!-- TAB 1: DASHBOARD OVERVIEW -->
+          <section class="tab-section active" id="tab-overview">
+            
+            <!-- Workflow Guidance Banner -->
+            <div class="advisor-flow-banner">
+              <div class="flow-step-item">
+                <div class="flow-step-num">1</div>
+                <span class="flow-step-text">Student Applies for One-Day Duty</span>
+              </div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-step-item active">
+                <div class="flow-step-num">2</div>
+                <span class="flow-step-text" style="color:#c084fc; font-weight:700;">Class Advisor Verification (You)</span>
+              </div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-step-item">
+                <div class="flow-step-num">3</div>
+                <span class="flow-step-text">Principal Final Approval</span>
+              </div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-step-item">
+                <div class="flow-step-num">4</div>
+                <span class="flow-step-text">Gate Pass Issued</span>
+              </div>
+            </div>
+
+            <!-- Overview Metric Cards -->
+            <div class="advisor-overview-grid">
+              <div class="advisor-metric-card card-purple" onclick="switchTab('duty-queue')">
+                <div class="card-top">
+                  <span class="metric-label">Pending OD Requests</span>
+                  <div class="metric-icon" style="background:rgba(168,85,247,0.15); color:#c084fc;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statPendingDuty">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Awaiting academic clearance</small>
+              </div>
+
+              <div class="advisor-metric-card card-green" onclick="switchTab('approved-list')">
+                <div class="card-top">
+                  <span class="metric-label">Approved Today</span>
+                  <div class="metric-icon" style="background:rgba(16,185,129,0.15); color:#10b981;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statApprovedToday" style="color:#10b981;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Cleared today</small>
+              </div>
+
+              <div class="advisor-metric-card card-red" onclick="switchTab('rejected-list')">
+                <div class="card-top">
+                  <span class="metric-label">Rejected Today</span>
+                  <div class="metric-icon" style="background:rgba(239,68,68,0.15); color:#ef4444;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statRejectedToday" style="color:#ef4444;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Denied today</small>
+              </div>
+
+              <div class="advisor-metric-card card-blue" onclick="switchTab('approved-list')">
+                <div class="card-top">
+                  <span class="metric-label">Total Cleared</span>
+                  <div class="metric-icon" style="background:rgba(59,130,246,0.15); color:#3b82f6;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statTotalApproved">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Lifetime OD approvals</small>
+              </div>
+            </div>
+
+            <!-- Recent Activity Table -->
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Recent Department Duty Applications</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Latest One-Day Duty requests submitted by students in your department.</p>
+                </div>
+                <button class="secondary-btn" onclick="refreshAdvisorData()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Sync Feeds</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Student</th>
+                      <th>Event / Duty Name</th>
+                      <th>Current Status</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentActivityTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 2: PENDING ONE-DAY DUTIES -->
+          <section class="tab-section" id="tab-duty-queue">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border-color:rgba(139,92,246,0.3);">Department Queue</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Pending One-Day Duty Requests</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Verify event details and attendance eligibility before granting clearance.</p>
+              </div>
+            </div>
+
+            <div class="queue-card-grid" id="dutyQueueContainer">
+              <!-- Populated dynamically via advisor-dashboard.js -->
+            </div>
+          </section>
+
+          <!-- TAB 3: APPROVED REQUESTS -->
+          <section class="tab-section" id="tab-approved-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Approved One-Day Duty Passes</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">History of requests granted academic clearance by you.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Student</th>
+                      <th>Event & Location</th>
+                      <th>Duty Schedule</th>
+                      <th>Status</th>
+                      <th>Cleared On</th>
+                    </tr>
+                  </thead>
+                  <tbody id="approvedTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 4: REJECTED REQUESTS -->
+          <section class="tab-section" id="tab-rejected-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Rejected Duty Requests</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">History of applications denied academic clearance with stated reason.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Student</th>
+                      <th>Event</th>
+                      <th>Rejection Reason</th>
+                      <th>Status</th>
+                      <th>Rejected On</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rejectedTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 5: PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-details-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Faculty Advisor Official Profile</span>
+                </div>
+                <span class="security-chip">Protected by JWT Auth</span>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Faculty Name</span>
+                  <span class="field-value" id="profAdvName">Prof. S. Venkatesh</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Faculty ID</span>
+                  <span class="field-value" id="profAdvId">ADV-204</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Department</span>
+                  <span class="field-value" id="profAdvDept">Computer Science & Engineering</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Designation</span>
+                  <span class="field-value">Associate Professor & Class Advisor</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Official Email</span>
+                  <span class="field-value" id="profAdvEmail">advisor@college.edu</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Contact Phone</span>
+                  <span class="field-value" id="profAdvPhone">9842112233</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Class Advisor Module • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- DETAILS MODAL -->
+  <div class="modal-overlay" id="detailsModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>One-Day Duty Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('detailsModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="detailsModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('detailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROVE CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="approveModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#8b5cf6;">Grant Academic Clearance</h3>
+        <button class="modal-close-btn" onclick="closeModal('approveModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="approveModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('approveModal')">Cancel</button>
+        <button class="btn-approve" id="btnConfirmApprove" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
+          Grant Clearance (Forward to Principal)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REJECT MODAL WITH REASON -->
+  <div class="modal-overlay" id="rejectModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#ef4444;">Reject One-Day Duty Request</h3>
+        <button class="modal-close-btn" onclick="closeModal('rejectModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:0.85rem; font-size:0.88rem; color:var(--text-secondary);">
+          Please state the academic reason for denying clearance (e.g. attendance shortage, lab exam, missing event invitation). The student will see this reason in their portal.
+        </p>
+        <div class="form-group">
+          <label for="rejectReasonInput">Academic Rejection Reason *</label>
+          <textarea id="rejectReasonInput" rows="3" placeholder="e.g. Attendance below 75% / Mid-semester assessment scheduled on duty date" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical;" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('rejectModal')">Cancel</button>
+        <button class="btn-reject" id="btnConfirmReject">Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/advisor-dashboard.js"></script>
+</body>
+</html>

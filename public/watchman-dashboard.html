@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watchman Dashboard & Return Scanner - Smart Hostel Outpass</title>
+  <meta name="description" content="Hostel Main Gate Security, Return Verification & Clearance Portal">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/student-dashboard.css">
+  <link rel="stylesheet" href="css/caretaker-dashboard.css">
+  <link rel="stylesheet" href="css/watchman-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Navbar -->
+    <header class="app-header navbar dashboard-navbar">
+      <div class="header-left navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="logo-icon-wrapper brand-logo-badge">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="logo-text brand-title">SmartHostel</span>
+          <span class="brand-subtitle">Main Gate Security Portal</span>
+        </div>
+      </div>
+
+      <div class="header-right navbar-actions">
+        <div class="server-time-box" id="liveClockDisplay">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="liveClockTime">--:--:--</span>
+        </div>
+
+        <div class="header-notification-mount" id="headerNotificationMount"></div>
+
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <div class="nav-user-chip" id="navUserChip">
+          <div class="nav-user-avatar" id="navUserAvatar">W</div>
+          <span id="navUserName">Watchman</span>
+        </div>
+
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+      <div class="dashboard-layout">
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+        <!-- Sidebar Navigation Menu -->
+        <aside class="dashboard-sidebar" id="dashboardSidebar">
+          <!-- Watchman Profile Card -->
+          <div class="student-profile-summary">
+            <div class="student-avatar-wrap">
+              <div class="student-avatar" id="watchmanAvatar" style="background:linear-gradient(135deg, #10b981, #047857);">W</div>
+              <span class="online-indicator" title="Active Security Guard"></span>
+            </div>
+            <h3 class="student-name" id="watchmanName">Loading...</h3>
+            <p class="student-regno" id="watchmanStaffId">GAT-401</p>
+            <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; margin-top:0.35rem;">
+              Gate Security Staff
+            </span>
+          </div>
+
+          <!-- Navigation Links -->
+          <nav class="dashboard-nav">
+            <button class="nav-item active" data-tab="overview">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Dashboard</span>
+            </button>
+
+            <button class="nav-item" data-tab="scan-return">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              <span>Scan Return QR</span>
+              <span class="nav-badge" style="background:#10b981; color:#ffffff;">Check-In</span>
+            </button>
+
+            <button class="nav-item" data-tab="students-outside">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              <span>Students Outside</span>
+              <span class="nav-badge" id="navOutsideCount" style="display:none; background:#f59e0b; color:#111827;">0</span>
+            </button>
+
+            <button class="nav-item" data-tab="checkin-list">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>Check-In List</span>
+            </button>
+
+            <button class="nav-item" data-tab="daily-summary">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+              <span>Daily Summary</span>
+            </button>
+
+            <button class="nav-item" data-tab="profile">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <span>Profile</span>
+            </button>
+          </nav>
+        </aside>
+
+        <!-- Main Body Panels -->
+        <div class="dashboard-main-panel">
+          
+          <!-- TAB 1: OVERVIEW -->
+          <section class="tab-section active" id="tab-overview">
+            
+            <!-- 4-Metric Cards -->
+            <div class="watchman-metric-grid">
+              <div class="watchman-metric-card card-orange" onclick="switchTab('students-outside')" style="cursor:pointer;">
+                <div class="card-top">
+                  <span class="metric-label">Students Currently Outside</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statStudentsOutside" style="color:#f59e0b;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Checked out awaiting gate return</small>
+              </div>
+
+              <div class="watchman-metric-card card-green" onclick="switchTab('checkin-list')" style="cursor:pointer;">
+                <div class="card-top">
+                  <span class="metric-label">Today's Returns</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statTodayReturns" style="color:#10b981;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Total verified returns today</small>
+              </div>
+
+              <div class="watchman-metric-card card-red">
+                <div class="card-top">
+                  <span class="metric-label">Late Returns</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statLateReturns" style="color:#ef4444;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Arrived past scheduled deadline</small>
+              </div>
+
+              <div class="watchman-metric-card card-blue">
+                <div class="card-top">
+                  <span class="metric-label">On-Time Returns</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statOnTimeReturns">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Returned within validity window</small>
+              </div>
+            </div>
+
+            <!-- Quick Action Return Banner -->
+            <div class="form-card" style="background:linear-gradient(135deg, rgba(16,185,129,0.1), rgba(6,78,59,0.15)); border:1px solid rgba(16,185,129,0.3); margin-bottom:1.5rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                <div>
+                  <h3 style="font-family:'Outfit'; font-size:1.25rem; margin-bottom:0.25rem; color:var(--text-primary);">
+                    🛡️ Main Gate Return Scanner Ready
+                  </h3>
+                  <p style="font-size:0.85rem; color:var(--text-secondary);">
+                    Scan returning students' outpass QR codes to officially verify entry and calculate timeliness.
+                  </p>
+                </div>
+                <button class="primary-btn" onclick="switchTab('scan-return')" style="background:linear-gradient(135deg, #10b981, #059669); padding:0.6rem 1.25rem; font-size:0.9rem;">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                  <span>Open Return Scanner</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Recent Returns Activity -->
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Recent Gate Return Check-ins</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Latest students scanned and cleared for return.</p>
+                </div>
+                <button class="secondary-btn" onclick="refreshWatchmanData()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Sync Feeds</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Return Time</th>
+                      <th>Student</th>
+                      <th>Room & Block</th>
+                      <th>Pass Code</th>
+                      <th>Expected Return</th>
+                      <th>Return Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentReturnsTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- TAB 2: DEDICATED RETURN QR SCANNER -->
+          <section class="tab-section" id="tab-scan-return">
+            <div class="scanner-container-card">
+              
+              <div class="table-header-bar" style="border:none; padding:0 0 1rem 0; border-bottom:1px solid var(--border-color); margin-bottom:1.5rem;">
+                <div>
+                  <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">Gate Return Clearance</span>
+                  <h2 style="font-family:'Outfit'; font-size:1.45rem; margin-top:0.35rem;">Scan Student QR for Return</h2>
+                  <p style="font-size:0.84rem; color:var(--text-secondary);">Point your device camera at the returning student's outpass QR code.</p>
+                </div>
+              </div>
+
+              <!-- Camera Viewport Card -->
+              <div class="return-scanner-box" id="returnScannerViewport">
+                <div class="scanner-corner-guide corner-tl" style="border-color:#10b981;"></div>
+                <div class="scanner-corner-guide corner-tr" style="border-color:#10b981;"></div>
+                <div class="scanner-corner-guide corner-bl" style="border-color:#10b981;"></div>
+                <div class="scanner-corner-guide corner-br" style="border-color:#10b981;"></div>
+                <div class="return-laser-line" id="returnScanLaserLine"></div>
+                
+                <!-- html5-qrcode DOM Target Container -->
+                <div id="returnQrScannerReader"></div>
+
+                <!-- Camera Stopped Placeholder State -->
+                <div id="returnCameraStoppedState" style="text-align:center; padding:2.5rem 1rem; color:#9ca3af;">
+                  <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" style="margin-bottom:0.75rem;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                  <h4 style="font-family:'Outfit'; font-size:1.1rem; color:#f3f4f6; margin-bottom:0.25rem;">Camera is Inactive</h4>
+                  <p style="font-size:0.8rem; color:#9ca3af; max-width:280px; margin:0 auto 1rem auto;">Click below to activate device webcam and begin continuous return check-in.</p>
+                  <button class="primary-btn" id="btnStartReturnCamera" onclick="startReturnQrScanner()" style="background:linear-gradient(135deg, #10b981, #059669);">
+                    <span>Start Return Scanner</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Camera Controls Bar -->
+              <div style="display:flex; justify-content:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+                <button class="secondary-btn" id="btnStopReturnCamera" onclick="stopReturnQrScanner()" style="display:none;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                  <span>Pause Camera</span>
+                </button>
+                <button class="secondary-btn" id="btnSwitchReturnCamera" onclick="switchReturnCameraFacing()" style="display:none;">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                  <span>Switch Camera</span>
+                </button>
+              </div>
+
+              <!-- Manual Token Input Fallback -->
+              <div style="max-width:520px; margin:0 auto; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem 1.25rem;">
+                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">
+                  Manual Token / Barcode Gun Input
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                  <input type="text" id="qrReturnManualTokenInput" placeholder="Enter or paste token e.g. HOSTEL-QR:qr_sec_..." style="flex:1; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.6rem 0.75rem; color:var(--text-primary); font-family:monospace; font-size:0.82rem;" />
+                  <button class="primary-btn" id="btnSubmitReturnManualToken" onclick="handleManualReturnTokenSubmit()" style="background:linear-gradient(135deg, #10b981, #059669); white-space:nowrap;">
+                    <span>Verify Return</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live Return Scan Result Container -->
+              <div id="returnScanResultContainer" style="max-width:620px; margin:1.5rem auto 0 auto;">
+                <!-- Populated dynamically upon scan -->
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 3: STUDENTS OUTSIDE -->
+          <section class="tab-section" id="tab-students-outside">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#f59e0b;">Live Gate Roster</span>
+                  <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Students Currently Outside Hostel</h2>
+                  <p style="font-size:0.84rem; color:var(--text-secondary);">Students checked out on valid passes awaiting check-in return.</p>
+                </div>
+                <button class="secondary-btn" onclick="loadWatchmanStudentsOutside()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh List</span>
+                </button>
+              </div>
+
+              <!-- Table -->
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Roll Number</th>
+                      <th>Student Name</th>
+                      <th>Dept & Year</th>
+                      <th>Room & Block</th>
+                      <th>Exit Time</th>
+                      <th>Expected Return</th>
+                      <th>Return Status</th>
+                      <th>Outpass Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="watchmanStudentsOutsideTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 4: CHECK-IN / RETURN LIST -->
+          <section class="tab-section" id="tab-checkin-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">Gate Check-In</span>
+                  <h3 style="margin-top:0.25rem;">Student Gate Check-In List</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Real-time roster of all student returns recorded by Watchman.</p>
+                </div>
+                <button class="secondary-btn" onclick="loadCheckinList()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              <!-- Filter Bar -->
+              <div class="filter-bar">
+                <div class="filter-btn-group">
+                  <button class="filter-btn active" id="btnReturnFilterToday" onclick="setCheckinFilter('today')">Today</button>
+                  <button class="filter-btn" id="btnReturnFilterYesterday" onclick="setCheckinFilter('yesterday')">Yesterday</button>
+                  <button class="filter-btn" id="btnReturnFilterAll" onclick="setCheckinFilter('all')">All Records</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.5rem; margin-left:auto;">
+                  <span style="font-size:0.78rem; color:var(--text-muted);">Pick Date:</span>
+                  <input type="date" class="filter-date-input" id="checkinDateInput" onchange="setCheckinCustomDate(this.value)" />
+                </div>
+              </div>
+
+              <!-- Check-In Table -->
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Return Time</th>
+                      <th>Student Name</th>
+                      <th>Roll Number</th>
+                      <th>Destination</th>
+                      <th>Departure Time</th>
+                      <th>Expected Return</th>
+                      <th>Return Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="checkinListTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB: DAILY MOVEMENT SUMMARY -->
+          <section class="tab-section" id="tab-daily-summary">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">Main Gate Audit</span>
+                  <h3 style="margin-top:0.25rem;">Daily Movement Summary</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Gate movement aggregation and return audit derived from verified gate scans.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                  <input type="date" class="filter-date-input" id="watchmanDailySummaryDateInput" onchange="loadWatchmanDailySummary(this.value)" />
+                  <button class="secondary-btn" onclick="loadWatchmanDailySummary()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Summary Metric Cards -->
+              <div class="watchman-metric-grid" style="margin-bottom:1.5rem;">
+                <div class="watchman-metric-card card-blue">
+                  <div class="card-top">
+                    <span class="metric-label">Total Checked Out</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="wSumTotalCheckedOut">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Exits recorded on date</small>
+                </div>
+
+                <div class="watchman-metric-card card-green">
+                  <div class="card-top">
+                    <span class="metric-label">Total Checked In</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="wSumTotalCheckedIn">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Returns recorded on date</small>
+                </div>
+
+                <div class="watchman-metric-card card-orange">
+                  <div class="card-top">
+                    <span class="metric-label">Currently Outside (Date)</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="wSumCurrentlyOutside" style="color:#f59e0b;">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">Checkouts minus Returns</small>
+                </div>
+
+                <div class="watchman-metric-card card-purple">
+                  <div class="card-top">
+                    <span class="metric-label">Hostel Total Outside</span>
+                    <div class="metric-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                    </div>
+                  </div>
+                  <div class="metric-count" id="wSumOverallOutside">0</div>
+                  <small style="color:var(--text-muted); font-size:0.75rem;">All students outside right now</small>
+                </div>
+              </div>
+
+              <!-- Still Outside Students Section -->
+              <div style="margin-bottom:2rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                  <h4 style="font-family:'Outfit'; font-size:1.1rem; color:#f59e0b; display:flex; align-items:center; gap:0.5rem;">
+                    <span>⚠️ Students Still Outside</span>
+                    <span class="portal-badge" id="wBadgeStillOutsideCount" style="background:rgba(245,158,11,0.2); color:#f59e0b;">0</span>
+                  </h4>
+                </div>
+                <div style="overflow-x:auto;">
+                  <table class="requests-table">
+                    <thead>
+                      <tr>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Room & Block</th>
+                        <th>Exit Time</th>
+                        <th>Expected Return</th>
+                        <th>Destination</th>
+                        <th>Contact</th>
+                      </tr>
+                    </thead>
+                    <tbody id="wSummaryStillOutsideTableBody">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 5: PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-card">
+              <div class="profile-card-header">
+                <div class="profile-avatar-large" id="profAvatarLarge" style="background:linear-gradient(135deg, #10b981, #047857);">W</div>
+                <div class="profile-header-info">
+                  <h2 id="profStaffName">Watchman Security</h2>
+                  <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981;">Gate Security Staff</span>
+                  <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;" id="profStaffIdTag">Security ID: GAT-401</p>
+                </div>
+              </div>
+
+              <div class="profile-details-grid">
+                <div class="profile-field">
+                  <span class="field-label">Official Email</span>
+                  <span class="field-value" id="profStaffEmail">watchman@hostel.edu</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Assigned Checkpoint / Post</span>
+                  <span class="field-value" id="profStaffDept">Hostel Main Gate Security Post</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Primary Mobile</span>
+                  <span class="field-value" id="profStaffPhone">9876543216</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Security Role</span>
+                  <span class="field-value">Gate Checkpoint Officer & Return Auditor</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Watchman Return Scanner Module • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- QR Scanning Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/html5-qrcode.min.js"></script>
+  <script src="js/watchman-dashboard.js"></script>
+</body>
+</html>

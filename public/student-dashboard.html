@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - Smart Hostel Outpass</title>
+  <meta name="description" content="Student Outpass Portal Dashboard and Application System">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/student-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="navbar dashboard-navbar">
+      <div class="navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation" title="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="brand-logo-badge">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Smart Hostel</span>
+          <span class="brand-subtitle">Student Outpass Portal</span>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <!-- Live System Status Widget -->
+        <div class="system-status-chip" id="systemStatusChip" title="Backend Server Status">
+          <span class="status-dot online"></span>
+          <span class="status-label">System Online</span>
+          <span class="db-badge connected">MySQL Active</span>
+        </div>
+
+        <!-- Notification Bell Mount Point -->
+        <div id="headerNotificationMount" class="header-notification-mount"></div>
+
+        <!-- Theme Toggle Button -->
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="nav-user-chip" id="navUserChip" title="Logged in student profile">
+          <div class="nav-user-avatar" id="navUserAvatar">S</div>
+          <span id="navUserName">Student</span>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-main">
+      
+      <!-- Student Profile Hero Header -->
+      <section class="student-hero-bar">
+        <div class="student-meta-left">
+          <div class="student-avatar" id="studentAvatar">S</div>
+          <div class="student-details">
+            <h1 id="studentName">Loading Student Profile...</h1>
+            <div class="student-tags-row">
+              <span class="portal-badge" style="margin-bottom:0;">Student Portal</span>
+              <span class="student-tag" id="studentRegNo">Roll: 21CS042</span>
+              <span class="student-tag" id="studentDept">CSE</span>
+              <span class="student-tag" id="studentYearSem">Year 3 • Sem 6</span>
+              <span class="student-tag" id="studentBlockRoom">Block A • Room A-304</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-meta-right">
+          <span class="hostel-status-pill inside" id="hostelStatusBadge">
+            <span class="status-dot online"></span>
+            <span id="hostelStatusText">Inside Hostel</span>
+          </span>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Verified Student Identity</small>
+        </div>
+      </section>
+
+      <!-- Live GPS Location Security Guard Banner -->
+      <section class="student-gps-bar" id="studentGpsBar" style="margin: 0.75rem 1.5rem 0.25rem 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.85rem;">
+          <div id="gpsIconContainer" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(59, 130, 246, 0.12); color: #3b82f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line></svg>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong style="font-size: 0.92rem; color: var(--text-primary);">Live GPS Location Guard</strong>
+              <span id="gpsStatusPill" class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;">Checking GPS...</span>
+            </div>
+            <p id="gpsStatusSubtext" style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.2rem 0 0 0;">
+              Parent approval requires your device GPS location refreshed within the last 5 minutes (5-meter proximity guard).
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <div id="gpsCoordsContainer" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 0.45rem 0.85rem; font-size: 0.78rem; line-height: 1.45;">
+            <!-- Human-Readable Location derived from actual coordinates -->
+            <div id="gpsPlaceRow" style="display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.25rem; font-weight: 600;">
+              <span style="font-size: 0.85rem;">📍</span>
+              <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);">Current Location:</span>
+              <strong id="gpsPlaceName" style="color: #10b981; font-size: 0.82rem;">Detecting place...</strong>
+            </div>
+            <div style="font-family: monospace; color: var(--text-primary); font-weight: 600;">
+              <span>Lat: <strong id="gpsLatText" style="color:#10b981;">--</strong></span> • <span>Lng: <strong id="gpsLngText" style="color:#10b981;">--</strong></span>
+            </div>
+            <div style="font-size: 0.74rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; margin-top: 0.15rem;">
+              <span>Accuracy: <strong id="gpsAccuracyText" style="color: #10b981;">--</strong></span>
+              <span style="color: var(--border-color);">|</span>
+              <span>Updated: <strong id="gpsTimeText" style="color: var(--text-primary);">--</strong></span>
+            </div>
+          </div>
+          <span id="gpsCoordsText" style="font-size: 0.78rem; font-family: monospace; color: var(--text-muted); display: none;"></span>
+          <button type="button" id="btnRefreshStudentLocation" class="secondary-btn" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.9rem; font-size: 0.82rem;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <span id="btnRefreshLocLabel">Update My Location</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Dashboard Layout: Sidebar + Tab Content -->
+      <div class="student-dashboard-layout">
+        <!-- Backdrop for mobile drawer -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="dash-sidebar">
+          <span class="sidebar-heading">Navigation</span>
+          <button class="sidebar-nav-btn active" data-tab="new-outpass">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>New Outpass Request</span>
+          </button>
+
+          <button class="sidebar-nav-btn" data-tab="my-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span>My Requests</span>
+            <span class="nav-badge-count" id="navPendingCount" style="display:none;">0</span>
+          </button>
+
+          <button class="sidebar-nav-btn" data-tab="request-status">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Request Status</span>
+          </button>
+
+          <button class="sidebar-nav-btn" data-tab="active-outpass">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Active Outpass</span>
+          </button>
+
+          <span class="sidebar-heading" style="margin-top:0.6rem;">Account</span>
+          <button class="sidebar-nav-btn" data-tab="notifications">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <span>Notifications</span>
+          </button>
+
+          <button class="sidebar-nav-btn" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profile</span>
+          </button>
+        </aside>
+
+        <!-- Main Tab Content Area -->
+        <div class="dash-tab-content">
+          
+          <!-- TAB 1: NEW OUTPASS REQUEST FORM -->
+          <section class="tab-section active" id="tab-new-outpass">
+            <div class="form-card">
+              <div class="form-card-header">
+                <h2>Create Outpass Request</h2>
+                <p>Fill in your departure details below. Normal outpasses require Warden approval; One-Day Duty passes require Class Advisor & Warden approvals.</p>
+              </div>
+
+              <!-- Readonly Auto-Filled Student Context -->
+              <div class="autofill-context-grid">
+                <div class="autofill-item">
+                  <span class="autofill-label">Student Name</span>
+                  <span class="autofill-val" id="afName">Loading...</span>
+                </div>
+                <div class="autofill-item">
+                  <span class="autofill-label">Roll Number</span>
+                  <span class="autofill-val" id="afRegNo">Loading...</span>
+                </div>
+                <div class="autofill-item">
+                  <span class="autofill-label">Department</span>
+                  <span class="autofill-val" id="afDept">Loading...</span>
+                </div>
+                <div class="autofill-item">
+                  <span class="autofill-label">Year & Semester</span>
+                  <span class="autofill-val" id="afYearSem">Loading...</span>
+                </div>
+                <div class="autofill-item">
+                  <span class="autofill-label">Hostel & Room</span>
+                  <span class="autofill-val" id="afRoom">Loading...</span>
+                </div>
+                <div class="autofill-item">
+                  <span class="autofill-label">Registered Phone</span>
+                  <span class="autofill-val" id="afPhone">Loading...</span>
+                </div>
+              </div>
+
+              <!-- The Outpass Form -->
+              <form id="outpassForm" autocomplete="off">
+                
+                <!-- Request Type Selection -->
+                <div class="type-selector-wrapper">
+                  <label class="type-selector-label">Select Outpass Request Type *</label>
+                  <div class="type-radio-group">
+                    <div class="type-card-option selected" id="typeOptionNormal">
+                      <input type="radio" name="request_type" id="typeNormal" value="normal" checked>
+                      <div class="type-card-content">
+                        <h4>🏠 Normal Outpass</h4>
+                        <p>Personal errands, home visits, or weekend leaves. Routes directly to Warden.</p>
+                      </div>
+                    </div>
+
+                    <div class="type-card-option" id="typeOptionDuty">
+                      <input type="radio" name="request_type" id="typeDuty" value="one_day_duty">
+                      <div class="type-card-content">
+                        <h4>🎓 One-Day Duty (OD)</h4>
+                        <p>Official symposiums, expos, or competitions. Routes to Class Advisor → Warden.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Conditional One-Day Duty Fields Box -->
+                <div class="duty-fields-box hidden" id="dutyFieldsBox">
+                  <div class="duty-fields-header">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                    <span>One-Day Duty Event Information</span>
+                  </div>
+
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="eventNameInput">Duty / Event Name *</label>
+                      <input type="text" id="eventNameInput" placeholder="e.g. National Symposium / Student Expo / Workshop" />
+                    </div>
+                    <div class="form-group">
+                      <label for="eventLocationInput">Event Location / Organization Venue *</label>
+                      <input type="text" id="eventLocationInput" placeholder="e.g. MIT Campus, Anna University, Chennai" />
+                    </div>
+                  </div>
+
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="dutyDateInput">Duty Date *</label>
+                      <input type="date" id="dutyDateInput" />
+                    </div>
+                    <div class="form-group">
+                      <label for="dutyDescInput">Duty Description / Purpose</label>
+                      <input type="text" id="dutyDescInput" placeholder="e.g. Paper Presentation & Project Exhibition" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- General Place & Purpose Fields -->
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="destinationInput">Address / Place of Visit *</label>
+                    <div class="input-wrapper">
+                      <span class="input-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      </span>
+                      <input type="text" id="destinationInput" placeholder="e.g. Native Residence / Gandhipuram, Coimbatore" required />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="phoneInput">Contact Phone Number *</label>
+                    <div class="input-wrapper">
+                      <span class="input-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      </span>
+                      <input type="tel" id="phoneInput" placeholder="e.g. 9876543210" required />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="reasonInput">Purpose of Visit / Reason *</label>
+                  <div class="input-wrapper">
+                    <span class="input-icon">
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    </span>
+                    <input type="text" id="reasonInput" placeholder="e.g. Family function / Medical appointment / Weekend hometown visit" required />
+                  </div>
+                </div>
+
+                <!-- Departure & Return Date/Time Grid -->
+                <div class="form-grid-2" style="margin-top:1rem;">
+                  <div class="form-group">
+                    <label for="leavingDateInput">Leaving Date *</label>
+                    <input type="date" id="leavingDateInput" required />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="leavingTimeInput">Leaving Time *</label>
+                    <input type="time" id="leavingTimeInput" required />
+                  </div>
+                </div>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="returnDateInput">Expected Return Date *</label>
+                    <input type="date" id="returnDateInput" required />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="returnTimeInput">Expected Return Time *</label>
+                    <input type="time" id="returnTimeInput" required />
+                  </div>
+                </div>
+
+                <!-- Advance Request Time Requirement & Validation Banner -->
+                <div id="advanceTimeNoticeBox" class="advance-notice-box" style="margin: 1rem 0; padding: 0.85rem 1.1rem; border-radius: 8px; font-size: 0.86rem; border: 1px solid rgba(56, 189, 248, 0.35); background: rgba(56, 189, 248, 0.08); display: flex; align-items: flex-start; gap: 0.75rem; transition: all 0.25s ease;">
+                  <div id="advanceNoticeIcon" style="flex-shrink: 0; margin-top: 2px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#38bdf8" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                  <div style="flex: 1;">
+                    <div id="advanceNoticeTitle" style="font-weight: 600; color: var(--text-primary, #f8fafc); margin-bottom: 0.2rem;">
+                      Advance Notice Required
+                    </div>
+                    <div id="advanceNoticeText" style="color: var(--text-secondary, #94a3b8); line-height: 1.4;">
+                      Normal outpass requests must be submitted at least 18 hours before departure.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Workflow Visualizer Box -->
+                <div class="workflow-visualizer-box">
+                  <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);" id="workflowTitle">
+                    Approval Workflow Routing (Normal Outpass: Student → Parent → Warden → QR)
+                  </div>
+                  <div class="workflow-steps">
+                    <div class="step-node active">
+                      <div class="step-circle">1</div>
+                      <span class="step-label">Student Submission</span>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step-node" id="stepMiddleNode">
+                      <div class="step-circle">2</div>
+                      <span class="step-label" id="stepMiddleLabel">Parent Consent</span>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step-node" id="stepFinalNode">
+                      <div class="step-circle">3</div>
+                      <span class="step-label" id="stepFinalLabel">Warden Final Approval</span>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step-node">
+                      <div class="step-circle">4</div>
+                      <span class="step-label">Gate Pass Issued</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="primary-btn" id="btnSubmitOutpass" style="width:100%; margin-top:1.5rem;">
+                  <span id="submitBtnText">Submit Outpass Request</span>
+                  <span class="btn-spinner hidden" id="submitSpinner"></span>
+                  <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </button>
+
+                <!-- Location Required Helper Message -->
+                <div id="submitLocationNotice" class="submit-location-notice" style="margin-top:0.65rem; padding:0.65rem 0.9rem; border-radius:var(--radius-sm); font-size:0.82rem; display:none; align-items:center; gap:0.5rem; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); color:#ef4444;">
+                  <span style="font-size:1rem; flex-shrink:0;">⚠️</span>
+                  <span id="submitLocationNoticeText">Location access is required before submitting an outpass.</span>
+                </div>
+
+                <div class="form-alert hidden" id="formMessage"></div>
+              </form>
+            </div>
+          </section>
+
+          <!-- TAB 2: MY REQUESTS -->
+          <section class="tab-section" id="tab-my-requests">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Submitted Outpass History</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Track status of all your submitted outpasses and duty passes.</p>
+                </div>
+                <button class="secondary-btn" id="btnRefreshRequests">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Type</th>
+                      <th>Destination & Purpose</th>
+                      <th>Leaving Date/Time</th>
+                      <th>Return Date/Time</th>
+                      <th>Current Status</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="requestsTableBody">
+                    <!-- Populated dynamically via student-dashboard.js -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Empty State Container -->
+              <div class="empty-state-box hidden" id="requestsEmptyState">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+                <h4 class="empty-title">No Outpass Requests Found</h4>
+                <p class="empty-desc">You haven't submitted any outpasses yet. Click the button below to submit a new outpass request.</p>
+                <button class="primary-btn" onclick="switchTab('new-outpass')" style="margin-top:0.5rem;">
+                  <span>Create New Outpass</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 3: REQUEST STATUS SUMMARY -->
+          <section class="tab-section" id="tab-request-status">
+            <!-- Stats Summary Cards -->
+            <div class="stats-summary-grid">
+              <div class="stat-metric-card">
+                <span class="stat-label">Total Outpasses</span>
+                <span class="stat-count" id="statTotal">0</span>
+              </div>
+              <div class="stat-metric-card" style="border-left: 3px solid #f59e0b;">
+                <span class="stat-label">Pending Approval</span>
+                <span class="stat-count" id="statPending" style="color:#f59e0b;">0</span>
+              </div>
+              <div class="stat-metric-card" style="border-left: 3px solid #10b981;">
+                <span class="stat-label">Approved Passes</span>
+                <span class="stat-count" id="statApproved" style="color:#10b981;">0</span>
+              </div>
+              <div class="stat-metric-card" style="border-left: 3px solid #ef4444;">
+                <span class="stat-label">Rejected Requests</span>
+                <span class="stat-count" id="statRejected" style="color:#ef4444;">0</span>
+              </div>
+              <div class="stat-metric-card" style="border-left: 3px solid #3b82f6;">
+                <span class="stat-label">Completed Passes</span>
+                <span class="stat-count" id="statCompleted" style="color:#3b82f6;">0</span>
+              </div>
+            </div>
+
+            <!-- Workflow Guidance Card -->
+            <div class="form-card">
+              <h3 style="font-family:'Outfit'; margin-bottom:0.5rem;">Understanding Outpass Workflow Stages</h3>
+              <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.6; margin-bottom:1.25rem;">
+                Each outpass request follows strict hostel security protocols to ensure student safety and academic accountability:
+              </p>
+
+              <div class="diagnostics-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="feature-pill">
+                  <div class="pill-icon" style="background:rgba(245, 158, 11, 0.15); color:#f59e0b;">1</div>
+                  <div class="pill-info">
+                    <h4>Normal Outpass: Student → Parent → Warden</h4>
+                    <p>Status: <span class="status-badge status-pending-parent" style="padding:0.1rem 0.4rem;">Pending Parent</span> → <span class="status-badge status-pending-warden" style="padding:0.1rem 0.4rem;">Pending Warden</span>. Requires parental consent before Warden authorization.</p>
+                  </div>
+                </div>
+
+                <div class="feature-pill">
+                  <div class="pill-icon" style="background:rgba(168, 85, 247, 0.15); color:#c084fc;">2</div>
+                  <div class="pill-info">
+                    <h4>One-Day Duty: Student → Class Advisor → Principal</h4>
+                    <p>Status: <span class="status-badge status-pending-advisor" style="padding:0.1rem 0.4rem;">Pending Advisor</span> → <span class="status-badge status-pending-principal" style="padding:0.1rem 0.4rem;">Pending Principal</span>. Academic clearance with Principal final sign-off.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 4: ACTIVE OUTPASS -->
+          <section class="tab-section" id="tab-active-outpass">
+            <div id="activePassContainer">
+              <!-- Populated dynamically -->
+            </div>
+          </section>
+
+          <!-- TAB 5: NOTIFICATIONS -->
+          <section class="tab-section" id="tab-notifications">
+            <div class="form-card">
+              <div class="form-card-header">
+                <h2>System Notifications & Status Updates</h2>
+                <p>Audit updates regarding your outpass requests and warden actions.</p>
+              </div>
+
+              <div class="feature-pills">
+                <div class="feature-pill">
+                  <div class="pill-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                  </div>
+                  <div class="pill-info">
+                    <h4>Outpass Submission System Ready</h4>
+                    <p>Your student profile is active. You can now submit Normal and One-Day Duty outpasses anytime.</p>
+                  </div>
+                </div>
+
+                <div class="feature-pill">
+                  <div class="pill-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </div>
+                  <div class="pill-info">
+                    <h4>Important Gate Policy</h4>
+                    <p>Expected return time must be strictly observed. Late returns will be automatically logged at the gate checkpoint.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 6: PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <!-- VIEW MODE -->
+            <div class="profile-details-card" id="profileViewContainer">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Student Relational Profile</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <span class="security-chip">Protected by JWT Auth</span>
+                  <button type="button" class="primary-btn" id="btnOpenEditProfile" onclick="toggleProfileEditMode(true)" style="padding: 0.4rem 0.9rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Student Name</span>
+                  <span class="field-value" id="profName">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Register / Roll Number</span>
+                  <span class="field-value" id="profReg">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Department</span>
+                  <span class="field-value" id="profDept">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Year & Semester</span>
+                  <span class="field-value" id="profYearSem">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Hostel Block</span>
+                  <span class="field-value" id="profBlockName">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Room Number</span>
+                  <span class="field-value" id="profRoomNo">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Registered College Email</span>
+                  <span class="field-value" id="profEmail">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Primary Mobile</span>
+                  <span class="field-value" id="profPhone">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Parent / Guardian Name</span>
+                  <span class="field-value" id="profParent">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Parent Mobile</span>
+                  <span class="field-value" id="profParentPhone">Loading...</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Relationship with Student</span>
+                  <span class="field-value" id="profRelationship">Father</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Profile Status</span>
+                  <span class="field-value" id="profStatusBadge" style="color: #10b981; font-weight: 600;">✓ Completed</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- EDIT MODE (Initially Hidden) -->
+            <div class="form-card hidden" id="profileEditContainer" style="margin-top: 0;">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <div class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-size: 1.25rem;">✏️</span>
+                  <h3 style="margin: 0; font-family: 'Outfit'; font-size: 1.15rem;">Edit Student Profile</h3>
+                </div>
+                <button type="button" class="secondary-btn" onclick="toggleProfileEditMode(false)" style="padding: 0.35rem 0.8rem; font-size: 0.8rem;">
+                  Cancel
+                </button>
+              </div>
+
+              <form id="studentProfileEditForm" onsubmit="handleProfileEditSubmit(event)">
+                <div id="profileEditAlert" class="form-alert hidden" style="margin-bottom: 1rem;"></div>
+
+                <div class="profile-locked-notice" style="margin-bottom:1rem; padding:0.75rem 1rem; border-radius:var(--radius-sm); background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.25); display:flex; align-items:center; gap:0.65rem;">
+                  <span style="font-size:1.25rem;">🔒</span>
+                  <div style="font-size:0.8rem; color:var(--text-secondary);">
+                    <strong style="color:var(--text-primary);">Identity Fields Locked:</strong> Student Name, Department, Student Mobile, Parent Name, and Parent Mobile are permanent identity records set during initial setup and cannot be modified.
+                  </div>
+                </div>
+
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem;">
+                  🎓 Academic & Hostel Information
+                </h4>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="editProfName">Student Full Name <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
+                    <input type="text" id="editProfName" required />
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Permanent student identity record.</small>
+                  </div>
+                  <div class="form-group">
+                    <label for="editProfReg">Register Number (Protected) <span class="identity-lock-badge" title="Permanent roll number">🔒</span></label>
+                    <input type="text" id="editProfReg" disabled style="opacity: 0.7; cursor: not-allowed; background: var(--bg-surface);" />
+                    <small style="color: var(--text-muted); font-size: 0.72rem;">Permanent institutional roll number cannot be changed.</small>
+                  </div>
+                </div>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="editProfDept">Department <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
+                    <select id="editProfDept" required>
+                      <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                      <option value="Information Technology">Information Technology</option>
+                      <option value="Mechanical Engineering">Mechanical Engineering</option>
+                      <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+                      <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                      <option value="Civil Engineering">Civil Engineering</option>
+                    </select>
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Permanent academic department record.</small>
+                  </div>
+                  <div class="form-group">
+                    <label for="editProfYear">Year of Study *</label>
+                    <select id="editProfYear" onchange="autoPopulateSemester(this.value, 'editProfSem')" required>
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="editProfSem">Semester *</label>
+                    <select id="editProfSem" required>
+                      <option value="Semester 1">Semester 1</option>
+                      <option value="Semester 2">Semester 2</option>
+                      <option value="Semester 3">Semester 3</option>
+                      <option value="Semester 4">Semester 4</option>
+                      <option value="Semester 5">Semester 5</option>
+                      <option value="Semester 6">Semester 6</option>
+                      <option value="Semester 7">Semester 7</option>
+                      <option value="Semester 8">Semester 8</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="editProfPhone">Student Mobile Number <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
+                    <input type="tel" id="editProfPhone" placeholder="10-digit mobile" />
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Registered student contact number.</small>
+                  </div>
+                </div>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="editProfBlock">Hostel Block *</label>
+                    <select id="editProfBlock" required>
+                      <option value="Block A">Block A</option>
+                      <option value="Block B">Block B</option>
+                      <option value="Block C">Block C</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="editProfRoom">Room Number *</label>
+                    <input type="text" id="editProfRoom" placeholder="e.g. A-304" required />
+                  </div>
+                </div>
+
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 1.25rem 0 0.75rem 0;">
+                  👨‍👩‍👧 Parent / Guardian Details
+                </h4>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="editProfParentName">Parent / Guardian Name <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
+                    <input type="text" id="editProfParentName" placeholder="e.g. Robert Doe" required />
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Verified parent identity.</small>
+                  </div>
+                  <div class="form-group">
+                    <label for="editProfParentPhone">Parent Mobile Number <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
+                    <input type="tel" id="editProfParentPhone" placeholder="10-digit mobile number" required />
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Authoritative number for consent & GPS.</small>
+                  </div>
+                </div>
+
+                <div class="form-group" style="max-width: 50%;">
+                  <label for="editProfRelationship">Relationship with Student *</label>
+                  <select id="editProfRelationship" required>
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Guardian">Guardian</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                  <button type="button" class="secondary-btn" onclick="toggleProfileEditMode(false)">Cancel</button>
+                  <button type="submit" class="primary-btn" id="btnSaveProfileEdit">
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Student Dashboard Module • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- EMERGENCY TIME EXTENSION MODAL -->
+  <div class="modal-overlay" id="extensionModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div class="modal-container" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); width:90%; max-width:520px; box-shadow:var(--shadow-lg); overflow:hidden; animation:fadeIn 0.25s ease;">
+      
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.3rem;">⏱️</span>
+          <h3 style="font-family:'Outfit'; margin:0; font-size:1.2rem; color:var(--text-primary);">Request Emergency Time Extension</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeExtensionModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem;">
+          ✕
+        </button>
+      </div>
+
+      <form id="extensionRequestForm" onsubmit="handleExtensionFormSubmit(event)" style="padding:1.5rem;">
+        
+        <!-- Current Schedule Context -->
+        <div style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.85rem 1rem; margin-bottom:1.25rem;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Current Scheduled Return:</div>
+          <div id="extCurrentReturnDisplay" style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0.25rem;">Loading...</div>
+        </div>
+
+        <!-- Extension Datetime Selection -->
+        <div class="form-grid-2" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label for="extNewReturnDate" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">New Return Date *</label>
+            <input type="date" id="extNewReturnDate" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+          <div class="form-group">
+            <label for="extNewReturnTime" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">New Return Time *</label>
+            <input type="time" id="extNewReturnTime" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+        </div>
+
+        <!-- Quick Extension Buttons -->
+        <div style="margin-bottom:1.25rem;">
+          <label style="display:block; font-size:0.78rem; font-weight:600; color:var(--text-muted); margin-bottom:0.4rem;">Quick Add Duration:</label>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="secondary-btn" onclick="addQuickExtensionHours(1)" style="padding:0.35rem 0.75rem; font-size:0.78rem;">+1 Hour</button>
+            <button type="button" class="secondary-btn" onclick="addQuickExtensionHours(2)" style="padding:0.35rem 0.75rem; font-size:0.78rem;">+2 Hours</button>
+            <button type="button" class="secondary-btn" onclick="addQuickExtensionHours(4)" style="padding:0.35rem 0.75rem; font-size:0.78rem;">+4 Hours</button>
+            <button type="button" class="secondary-btn" onclick="addQuickExtensionHours(8)" style="padding:0.35rem 0.75rem; font-size:0.78rem;">+8 Hours</button>
+          </div>
+        </div>
+
+        <!-- Reason Dropdown & Custom Textarea -->
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label for="extReasonSelect" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Reason Category *</label>
+          <select id="extReasonSelect" onchange="handleExtReasonChange(this.value)" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+            <option value="" disabled selected>Select emergency reason...</option>
+            <option value="Transport delay (Bus / Train / Traffic congestion)">🚌 Transport delay (Bus / Train / Traffic)</option>
+            <option value="Medical / Health emergency appointment">🏥 Medical / Health emergency appointment</option>
+            <option value="Official college / academic competition delay">🎓 Official college / academic activity delay</option>
+            <option value="Family urgency / Unexpected travel delay">🏠 Family urgency / Unexpected travel delay</option>
+            <option value="Severe weather / Monsoon road blockage">🌧️ Severe weather / Road blockage</option>
+            <option value="custom">✏️ Other reason (Custom specification)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label for="extReasonText" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Detailed Explanation *</label>
+          <textarea id="extReasonText" rows="3" placeholder="Provide details explaining why the extension is required..." required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary); resize:vertical; font-family:inherit; font-size:0.85rem;"></textarea>
+        </div>
+
+        <div id="extModalAlert" class="form-alert hidden" style="margin-bottom:1rem;"></div>
+
+        <!-- Modal Footer Actions -->
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" class="secondary-btn" onclick="closeExtensionModal()" style="padding:0.55rem 1.2rem;">Cancel</button>
+          <button type="submit" class="primary-btn" id="btnSubmitExtension" style="background:linear-gradient(135deg, #f59e0b, #d97706); padding:0.55rem 1.25rem;">
+            <span>Submit Extension Request</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- FIRST-TIME STUDENT PROFILE SETUP MODAL -->
+  <div class="modal-overlay" id="firstTimeProfileModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; backdrop-filter:blur(6px); align-items:center; justify-content:center; overflow-y:auto; padding:1.5rem 1rem;">
+    <div class="modal-container" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); width:100%; max-width:600px; box-shadow:var(--shadow-lg); overflow:hidden; animation:fadeIn 0.25s ease; margin:auto;">
+      
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid var(--border-color); background:rgba(59, 130, 246, 0.05);">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="font-size:1.4rem;">🎓</span>
+          <div>
+            <h3 style="font-family:'Outfit'; margin:0; font-size:1.2rem; color:var(--text-primary);">Complete Your Student Profile</h3>
+            <p style="margin:0.2rem 0 0 0; font-size:0.78rem; color:var(--text-secondary);">Verify your academic and parent details to activate your outpass dashboard.</p>
+          </div>
+        </div>
+        <button type="button" class="secondary-btn" onclick="clearAuthAndRedirect()" style="padding:0.35rem 0.75rem; font-size:0.75rem;" title="Sign Out & Exit Setup">
+          Exit & Sign Out
+        </button>
+      </div>
+
+      <form id="firstTimeProfileForm" onsubmit="handleFirstTimeProfileSubmit(event)" style="padding:1.5rem;">
+        
+        <div id="firstSetupAlert" class="form-alert hidden" style="margin-bottom:1rem;"></div>
+
+        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.75rem;">
+          Academic & Room Assignment
+        </h4>
+
+        <div class="form-grid-2" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label for="firstSetupName" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Full Name *</label>
+            <input type="text" id="firstSetupName" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+          <div class="form-group">
+            <label for="firstSetupRegNo" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Register Number (Verified)</label>
+            <input type="text" id="firstSetupRegNo" disabled style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-surface); color:var(--text-secondary); cursor:not-allowed;" />
+          </div>
+        </div>
+
+        <div class="form-grid-2" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label for="firstSetupDept" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Department *</label>
+            <select id="firstSetupDept" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+              <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+              <option value="Information Technology">Information Technology</option>
+              <option value="Mechanical Engineering">Mechanical Engineering</option>
+              <option value="Electrical & Electronics Engineering">Electrical & Electronics Engineering</option>
+              <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+              <option value="Civil Engineering">Civil Engineering</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="firstSetupYear" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Year *</label>
+            <select id="firstSetupYear" onchange="autoPopulateSemester(this.value, 'firstSetupSem')" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3" selected>3rd Year</option>
+              <option value="4">4th Year</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label for="firstSetupSem" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Semester *</label>
+            <select id="firstSetupSem" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+              <option value="Semester 1">Semester 1</option>
+              <option value="Semester 2">Semester 2</option>
+              <option value="Semester 3">Semester 3</option>
+              <option value="Semester 4">Semester 4</option>
+              <option value="Semester 5">Semester 5</option>
+              <option value="Semester 6" selected>Semester 6</option>
+              <option value="Semester 7">Semester 7</option>
+              <option value="Semester 8">Semester 8</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="firstSetupPhone" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Student Mobile *</label>
+            <input type="tel" id="firstSetupPhone" placeholder="10-digit mobile" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+        </div>
+
+        <div class="form-grid-2" style="margin-bottom:1.25rem;">
+          <div class="form-group">
+            <label for="firstSetupBlock" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Hostel Block *</label>
+            <select id="firstSetupBlock" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+              <option value="Block A">Block A</option>
+              <option value="Block B">Block B</option>
+              <option value="Block C">Block C</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="firstSetupRoom" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Room Number *</label>
+            <input type="text" id="firstSetupRoom" placeholder="e.g. A-304" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+        </div>
+
+        <h4 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:0.75rem;">
+          👨‍👩‍👧 Parent / Guardian Verification
+        </h4>
+
+        <div class="form-grid-2" style="margin-bottom:0.75rem;">
+          <div class="form-group">
+            <label for="firstSetupParentName" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Parent / Guardian Name *</label>
+            <input type="text" id="firstSetupParentName" placeholder="e.g. Robert Doe" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+          <div class="form-group">
+            <label for="firstSetupParentPhone" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Parent Mobile Number *</label>
+            <input type="tel" id="firstSetupParentPhone" placeholder="10-digit mobile number" required style="width:100%; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label for="firstSetupRelationship" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Relationship with Student *</label>
+          <select id="firstSetupRelationship" required style="width:100%; max-width:280px; padding:0.6rem; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary);">
+            <option value="Father">Father</option>
+            <option value="Mother">Mother</option>
+            <option value="Guardian">Guardian</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem; border-top:1px solid var(--border-color); padding-top:1rem;">
+          <button type="submit" class="primary-btn" id="btnSaveFirstSetup" style="padding:0.65rem 1.5rem; background:linear-gradient(135deg, #3b82f6, #1d4ed8); font-weight:600;">
+            <span>Save Profile & Enter Dashboard</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/student-dashboard.js"></script>
+</body>
+</html>

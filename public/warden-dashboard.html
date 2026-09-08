@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warden Dashboard - Smart Hostel Outpass</title>
+  <meta name="description" content="Hostel Warden Authorization and Administration Portal">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/warden-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="navbar dashboard-navbar">
+      <div class="navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation" title="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="brand-logo-badge" style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">Smart Hostel</span>
+          <span class="brand-subtitle">Warden Administration Portal</span>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <!-- Live System Status Widget -->
+        <div class="system-status-chip" id="systemStatusChip" title="Backend Server Status">
+          <span class="status-dot online"></span>
+          <span class="status-label">System Online</span>
+          <span class="db-badge connected">MySQL Active</span>
+        </div>
+
+        <!-- Notification Bell Mount Point -->
+        <div id="headerNotificationMount" class="header-notification-mount"></div>
+
+        <!-- Theme Toggle Button -->
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="nav-user-chip" id="navUserChip" title="Logged in chief warden">
+          <div class="nav-user-avatar" id="navUserAvatar">W</div>
+          <span id="navUserName">Dr. Ramesh</span>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-main">
+      
+      <!-- Warden Profile Hero Header -->
+      <section class="warden-hero-bar">
+        <div class="student-meta-left">
+          <div class="warden-avatar" id="wardenAvatar">W</div>
+          <div class="student-details">
+            <h1 id="wardenName">Dr. Ramesh Kumar</h1>
+            <div class="student-tags-row">
+              <span class="portal-badge" style="background:rgba(14,165,233,0.15); color:#38bdf8; border-color:rgba(14,165,233,0.3); margin-bottom:0;">Warden Portal</span>
+              <span class="student-tag" id="wardenStaffId">Staff ID: WRD-101</span>
+              <span class="student-tag" id="wardenDept">Hostel Administration</span>
+              <span class="student-tag" id="wardenBlock">Assigned: Blocks A, B, C</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-meta-right">
+          <span class="auth-verified-chip" style="background:rgba(14,165,233,0.12); color:#38bdf8; border:1px solid rgba(14,165,233,0.35); padding:0.35rem 0.85rem; font-weight:700;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Active Chief Warden Authority
+          </span>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Authorized Decision Maker</small>
+        </div>
+      </section>
+
+      <!-- Dashboard Layout: Sidebar + Tab Content -->
+      <div class="warden-dashboard-layout">
+        <!-- Backdrop for mobile drawer -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="warden-sidebar">
+          <span class="sidebar-heading">Navigation</span>
+          
+          <button class="warden-nav-btn active" data-tab="overview">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Dashboard</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="normal-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>Normal Outpass Requests</span>
+            <span class="nav-badge-pill amber" id="navBadgeNormal" style="display:none;">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="duty-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+            <span>One-Day Duty Requests</span>
+            <span class="nav-badge-pill purple" id="navBadgeDuty" style="display:none;">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="active-passes">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Active Outpasses</span>
+          </button>
+
+          <span class="sidebar-heading" style="margin-top:0.6rem;">Administration</span>
+
+          <button class="warden-nav-btn" data-tab="extension-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span>Extension Requests</span>
+            <span class="nav-badge-pill amber" id="navBadgeExtension" style="display:none;">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="reports">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span>Reports</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profile</span>
+          </button>
+        </aside>
+
+        <!-- Main Tab Content Area -->
+        <div class="dash-tab-content">
+          
+          <!-- TAB 1: DASHBOARD OVERVIEW -->
+          <section class="tab-section active" id="tab-overview">
+            
+            <!-- 6 Overview Metric Cards -->
+            <div class="warden-overview-grid">
+              <div class="warden-metric-card card-amber" onclick="switchTab('normal-requests')">
+                <div class="card-top">
+                  <span class="metric-label">Pending Normal</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statPendingNormal">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Awaiting your approval</small>
+              </div>
+
+              <div class="warden-metric-card card-purple" onclick="switchTab('duty-requests')">
+                <div class="card-top">
+                  <span class="metric-label">Pending OD Duty</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statPendingDuty">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Advisor verified</small>
+              </div>
+
+              <div class="warden-metric-card card-green" onclick="switchTab('active-passes')">
+                <div class="card-top">
+                  <span class="metric-label">Approved Total</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statApprovedTotal">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Authorized gate passes</small>
+              </div>
+
+              <div class="warden-metric-card card-red">
+                <div class="card-top">
+                  <span class="metric-label">Rejected Requests</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statRejectedTotal">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Denied with reason</small>
+              </div>
+
+              <div class="warden-metric-card card-blue" onclick="switchTab('active-passes')">
+                <div class="card-top">
+                  <span class="metric-label">Active Outpasses</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statActiveOutpasses">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Currently valid passes</small>
+              </div>
+
+              <div class="warden-metric-card card-cyan">
+                <div class="card-top">
+                  <span class="metric-label">Students Outside</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statStudentsOutside">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Checked out at gate</small>
+              </div>
+            </div>
+
+            <!-- Recent Activity Table -->
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Recent Outpass Activity</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Latest requests received across all hostel blocks.</p>
+                </div>
+                <button class="secondary-btn" onclick="refreshAllData()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Sync Feeds</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Student</th>
+                      <th>Type</th>
+                      <th>Destination</th>
+                      <th>Status</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentActivityTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 2: NORMAL OUTPASS REQUESTS -->
+          <section class="tab-section" id="tab-normal-requests">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge">Warden Review Queue</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Pending Normal Outpasses</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Review student requests and provide official authorization or rejection.</p>
+              </div>
+            </div>
+
+            <div class="queue-card-grid" id="normalQueueContainer">
+              <!-- Populated dynamically via warden-dashboard.js -->
+            </div>
+          </section>
+
+          <!-- TAB 3: ONE-DAY DUTY REQUESTS -->
+          <section class="tab-section" id="tab-duty-requests">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(168,85,247,0.15); color:#c084fc; border-color:rgba(168,85,247,0.3);">Academic Duty Queue</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">One-Day Duty Requests (Advisor Approved)</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">These requests have been pre-approved by Class Advisors and await Warden final sign-off.</p>
+              </div>
+            </div>
+
+            <div class="queue-card-grid" id="dutyQueueContainer">
+              <!-- Populated dynamically via warden-dashboard.js -->
+            </div>
+          </section>
+
+          <!-- TAB 4: ACTIVE OUTPASSES -->
+          <section class="tab-section" id="tab-active-passes">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Approved & Active Outpasses</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">All approved passes valid for departure or currently checked out at the security gate.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Student</th>
+                      <th>Room</th>
+                      <th>Destination</th>
+                      <th>Expected Return</th>
+                      <th>Gate Status</th>
+                      <th>Digital Security QR</th>
+                      <th>Approved At</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activeOutpassTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 6: EXTENSION REQUESTS -->
+          <section class="tab-section" id="tab-extension-requests">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>⏱️ Pending Emergency Time Extension Requests</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Students currently outside requesting late return validity extensions.</p>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                  <button class="secondary-btn" onclick="loadWardenPendingExtensions()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Student Details</th>
+                      <th>Room & Block</th>
+                      <th>Current Return Time</th>
+                      <th>Requested Return Time</th>
+                      <th>Extension Reason</th>
+                      <th>Requested At</th>
+                      <th>Decision Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="extensionPendingTableBody">
+                    <!-- Populated dynamically via JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Empty State Container for Pending -->
+              <div class="empty-state-box hidden" id="extensionPendingEmpty">
+                <div class="empty-icon" style="background:rgba(16,185,129,0.1); color:#10b981;">
+                  <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <h4 class="empty-title">No Pending Extensions</h4>
+                <p class="empty-desc">There are no emergency return extension requests awaiting your review.</p>
+              </div>
+            </div>
+
+            <!-- Extension History Table -->
+            <div class="table-container" style="margin-top:2rem;">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Extension Audit History</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Historical log of all approved and rejected time extensions.</p>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                  <button class="filter-chip active" id="extFilterAll" onclick="filterWardenExtensions('all')">All</button>
+                  <button class="filter-chip" id="extFilterApproved" onclick="filterWardenExtensions('approved')">Approved</button>
+                  <button class="filter-chip" id="extFilterRejected" onclick="filterWardenExtensions('rejected')">Rejected</button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Pass Code</th>
+                      <th>Student</th>
+                      <th>Requested Return</th>
+                      <th>Approved Return</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Reviewed At</th>
+                    </tr>
+                  </thead>
+                  <tbody id="extensionHistoryTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="extensionHistoryEmpty">
+                <h4 class="empty-title">No Extension History Found</h4>
+                <p class="empty-desc">No extension records match the selected filter.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 7: WARDEN REPORTS & ANALYTICS -->
+          <section class="tab-section" id="tab-reports">
+            <div class="reports-dashboard">
+
+              <!-- 1. Report Header Panel -->
+              <div class="report-header-card">
+                <div class="report-header-top">
+                  <div>
+                    <h2 class="report-header-title">Warden Reports</h2>
+                    <p class="report-header-subtitle">Hostel movement, outpass activity and actions requiring attention</p>
+                  </div>
+                  <div class="report-header-actions">
+                    <button type="button" class="btn-report-action" id="btnPrintReport" onclick="printWardenReport()">
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                      <span>Print Report</span>
+                    </button>
+                    <button type="button" class="btn-report-action btn-primary-action" id="btnExportCsv" onclick="exportWardenReportsCsv()">
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                      <span>Export CSV</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Date Filter Toolbar -->
+                <div class="report-filter-bar">
+                  <div class="filter-bar-label">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span>Date Range:</span>
+                  </div>
+                  <div class="filter-btn-group">
+                    <button type="button" class="report-filter-btn active" id="btnFilterToday" onclick="setReportDateFilter('today')">Today</button>
+                    <button type="button" class="report-filter-btn" id="btnFilterYesterday" onclick="setReportDateFilter('yesterday')">Yesterday</button>
+                    <button type="button" class="report-filter-btn" id="btnFilterCustom" onclick="setReportDateFilter('custom')">Custom Date</button>
+                  </div>
+
+                  <div id="customDateRangeBox" class="custom-date-box" style="display:none;">
+                    <label for="repStartDate">From:</label>
+                    <input type="date" id="repStartDate" />
+                    <label for="repEndDate">To:</label>
+                    <input type="date" id="repEndDate" />
+                    <button type="button" id="btnApplyRepFilter" onclick="applyCustomDateFilter()">Apply</button>
+                  </div>
+
+                  <div id="activeFilterBadge" class="filter-active-chip">
+                    <span>Showing:</span> <strong id="reportDateRangeLabel">Today</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Action Required Panel (Immediate Attention) -->
+              <div class="report-action-card" id="repActionRequiredCard">
+                <div class="action-card-header">
+                  <div class="section-title-row">
+                    <span class="action-alert-pulse"></span>
+                    <h3 class="section-title">ACTION REQUIRED</h3>
+                  </div>
+                  <span class="section-badge-counter badge-count-overdue" id="actionReqCountBadge">Attention Needed</span>
+                </div>
+                <p class="section-subtitle">Requests and student movements requiring Warden attention</p>
+                
+                <div id="repActionItemsContainer" class="action-items-grid">
+                  <!-- Dynamically populated by renderActionRequired() -->
+                </div>
+              </div>
+
+              <!-- 3. Summary Metric Cards (6 Primary Cards) -->
+              <div class="summary-cards-grid">
+                <div class="summary-card card-blue">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">TOTAL REQUESTS</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#3b82f6" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  </div>
+                  <div class="metric-count" id="repTotalOutpasses">0</div>
+                  <div class="metric-desc">Outpass requests in selected period</div>
+                </div>
+
+                <div class="summary-card card-amber">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">PENDING APPROVAL</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#f59e0b" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  </div>
+                  <div class="metric-count" id="repPendingRequests">0</div>
+                  <div class="metric-desc">Waiting for Warden action</div>
+                </div>
+
+                <div class="summary-card card-cyan">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">CURRENTLY OUTSIDE</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#06b6d4" stroke-width="2" fill="none"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  </div>
+                  <div class="metric-count" id="repCurrentlyOutside">0</div>
+                  <div class="metric-desc">Students currently outside hostel</div>
+                </div>
+
+                <div class="summary-card card-green">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">RETURNED TODAY</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#10b981" stroke-width="2" fill="none"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                  </div>
+                  <div class="metric-count" id="repReturnedStudents">0</div>
+                  <div class="metric-desc">Students who returned</div>
+                </div>
+
+                <div class="summary-card card-red">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">LATE RETURNS</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#ef4444" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </div>
+                  <div class="metric-count" id="repLateReturns">0</div>
+                  <div class="metric-desc">Returned after deadline</div>
+                </div>
+
+                <div class="summary-card card-purple">
+                  <div class="summary-card-accent"></div>
+                  <div class="card-top">
+                    <span class="metric-label">EMERGENCY EXTENSIONS</span>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="#a855f7" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline><path d="M12 2v2"></path></svg>
+                  </div>
+                  <div class="metric-count" id="repEmergencyExtensions">0</div>
+                  <div class="metric-desc">Extension requests</div>
+                </div>
+              </div>
+
+              <!-- 4. Students Currently Outside Panel (High Priority) -->
+              <div class="report-section-card" id="cardCurrentlyOutside">
+                <div class="section-title-row">
+                  <div>
+                    <h3 class="section-title" style="color:#22d3ee;">
+                      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      CURRENTLY OUTSIDE
+                    </h3>
+                    <p class="section-subtitle">Students who have exited the hostel and have not yet returned.</p>
+                  </div>
+                  <span id="currentlyOutsideBadge" class="section-badge-counter badge-count-outside">0 Students Outside</span>
+                </div>
+                
+                <div class="report-table-container">
+                  <table id="tableCurrentlyOutside">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Roll No</th>
+                        <th>Department</th>
+                        <th>Outpass Type</th>
+                        <th>Destination</th>
+                        <th>Expected Return</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="repCurrentlyOutsideTableBody">
+                      <tr><td colspan="7" class="empty-state-cell"><div class="empty-state-content"><svg width="28" height="28" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg><span>✓ All students have returned.</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 5. Late Returns Warning Panel -->
+              <div class="report-section-card" id="cardLateReturns">
+                <div class="section-title-row">
+                  <div>
+                    <h3 class="section-title" style="color:#f87171;">
+                      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                      LATE RETURNS
+                    </h3>
+                    <p class="section-subtitle">Students who returned after their scheduled return deadline</p>
+                  </div>
+                  <span id="lateReturnBadge" class="section-badge-counter badge-count-overdue">0 Overdue</span>
+                </div>
+
+                <div class="report-table-container">
+                  <table id="tableLateReturns">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Roll No</th>
+                        <th>Expected Return</th>
+                        <th>Actual Return</th>
+                        <th>Late By</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="repLateReturnTableBody">
+                      <tr><td colspan="6" class="empty-state-cell"><div class="empty-state-content"><svg width="28" height="28" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg><span>✓ No late returns for this period.</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 6. Emergency Extensions Panel -->
+              <div class="report-section-card" id="cardEmergencyExtensions">
+                <div class="section-title-row">
+                  <div>
+                    <h3 class="section-title" style="color:#c084fc;">
+                      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline><path d="M12 2v2"></path></svg>
+                      EMERGENCY EXTENSIONS
+                    </h3>
+                    <p class="section-subtitle">Extension requests submitted by students</p>
+                  </div>
+                  <button type="button" class="btn-secondary-link" onclick="switchTab('extensions')">
+                    <span>Go to Extensions</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                  </button>
+                </div>
+
+                <div class="report-table-container">
+                  <table id="tableEmergencyExtensions">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Request Time</th>
+                        <th>Previous Return</th>
+                        <th>Requested Extension</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="repEmergencyExtensionsTableBody">
+                      <tr><td colspan="7" class="empty-state-cell"><div class="empty-state-content"><svg width="28" height="28" fill="none" stroke="#10b981" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg><span>✓ No emergency extension requests for this period.</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 7. Department Summary Panel -->
+              <div class="report-section-card" id="cardDeptSummary">
+                <div class="section-title-row">
+                  <div>
+                    <h3 class="section-title">
+                      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                      DEPARTMENT SUMMARY
+                    </h3>
+                    <p class="section-subtitle">Outpass activity by academic department</p>
+                  </div>
+                  <span class="section-badge-counter badge-count-outside" id="deptSummaryBadge">0 Depts</span>
+                </div>
+
+                <div class="report-table-container">
+                  <table id="tableDeptSummary">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th style="text-align:center;">Requests</th>
+                        <th style="text-align:center;">Approved</th>
+                        <th style="text-align:center;">Pending</th>
+                        <th style="text-align:center;">Outside</th>
+                      </tr>
+                    </thead>
+                    <tbody id="repDeptSummaryTableBody">
+                      <tr><td colspan="5" class="empty-state-cell"><div class="empty-state-content"><span>Loading department summary...</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 8. Outpass Status Breakdown Panel -->
+              <div class="report-section-card" id="cardOutpassStatus">
+                <div class="section-title-row">
+                  <div>
+                    <h3 class="section-title">
+                      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                      OUTPASS STATUS
+                    </h3>
+                    <p class="section-subtitle">Distribution of outpasses and complete operational movement records</p>
+                  </div>
+                  <span class="section-badge-counter badge-count-outside" id="outpassRecordsCountBadge">0 Records</span>
+                </div>
+
+                <!-- Status Distribution Cards with Progress Bars -->
+                <div class="rep-status-grid" id="repStatusDistributionGrid">
+                  <div class="rep-status-card">
+                    <div class="rep-status-header">
+                      <span class="rep-status-label">Pending Parent</span>
+                      <span class="rep-status-count" id="statPendingParentCount">0</span>
+                    </div>
+                    <div class="status-track"><div class="status-fill fill-pending-parent" id="fillPendingParent" style="width: 0%;"></div></div>
+                  </div>
+                  <div class="rep-status-card">
+                    <div class="rep-status-header">
+                      <span class="rep-status-label">Pending Warden</span>
+                      <span class="rep-status-count" id="statPendingWardenCount">0</span>
+                    </div>
+                    <div class="status-track"><div class="status-fill fill-pending-warden" id="fillPendingWarden" style="width: 0%;"></div></div>
+                  </div>
+                  <div class="rep-status-card">
+                    <div class="rep-status-header">
+                      <span class="rep-status-label">Approved</span>
+                      <span class="rep-status-count" id="repApprovedRequests">0</span>
+                    </div>
+                    <div class="status-track"><div class="status-fill fill-approved" id="fillApproved" style="width: 0%;"></div></div>
+                  </div>
+                  <div class="rep-status-card">
+                    <div class="rep-status-header">
+                      <span class="rep-status-label">Rejected</span>
+                      <span class="rep-status-count" id="repRejectedRequests">0</span>
+                    </div>
+                    <div class="status-track"><div class="status-fill fill-rejected" id="fillRejected" style="width: 0%;"></div></div>
+                  </div>
+                  <div class="rep-status-card">
+                    <div class="rep-status-header">
+                      <span class="rep-status-label">Completed</span>
+                      <span class="rep-status-count" id="statCompletedCount">0</span>
+                    </div>
+                    <div class="status-track"><div class="status-fill fill-completed" id="fillCompleted" style="width: 0%;"></div></div>
+                  </div>
+                </div>
+
+                <!-- Operational Table inside .report-table-container -->
+                <div class="report-table-container">
+                  <table id="tableOutpassStatus">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Roll No</th>
+                        <th>Department</th>
+                        <th>Type</th>
+                        <th>Schedule (From - To)</th>
+                        <th>Status</th>
+                        <th>Movement Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="repOutpassStatusTableBody">
+                      <tr><td colspan="7" class="empty-state-cell"><div class="empty-state-content"><span>Loading outpass status report...</span></div></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+
+          <!-- TAB 8: WARDEN PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-details-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Warden Administrative Credentials</span>
+                </div>
+                <span class="security-chip">Protected by JWT Auth</span>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Warden Name</span>
+                  <span class="field-value" id="profWardenName">Dr. Ramesh Kumar</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Staff ID</span>
+                  <span class="field-value" id="profWardenId">WRD-101</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Department</span>
+                  <span class="field-value" id="profWardenDept">Hostel Administration</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Hostel Jurisdiction</span>
+                  <span class="field-value" id="profWardenBlock">Blocks A, B, C</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Official Email</span>
+                  <span class="field-value" id="profWardenEmail">warden@hostel.edu</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Primary Mobile</span>
+                  <span class="field-value" id="profWardenPhone">9443322110</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Warden Administration Module • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- DETAILS MODAL -->
+  <div class="modal-overlay" id="detailsModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>Outpass Request Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('detailsModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="detailsModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('detailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROVE CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="approveModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#10b981;">Confirm Outpass Authorization</h3>
+        <button class="modal-close-btn" onclick="closeModal('approveModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="approveModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('approveModal')">Cancel</button>
+        <button class="btn-approve" id="btnConfirmApprove">Confirm & Authorize</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REJECT MODAL WITH REASON -->
+  <div class="modal-overlay" id="rejectModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#ef4444;">Reject Outpass Request</h3>
+        <button class="modal-close-btn" onclick="closeModal('rejectModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:0.85rem; font-size:0.88rem; color:var(--text-secondary);">
+          Please state the reason for rejecting this outpass request. The student and parents will be notified of this reason.
+        </p>
+        <div class="form-group">
+          <label for="rejectReasonInput">Rejection Reason *</label>
+          <textarea id="rejectReasonInput" rows="3" placeholder="e.g. Incomplete leave details / Lab examination scheduled / Parent consent pending" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical;" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('rejectModal')">Cancel</button>
+        <button class="btn-reject" id="btnConfirmReject">Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROVE EXTENSION MODAL -->
+  <div class="modal-overlay" id="approveExtModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#10b981;">⏱️ Authorize Emergency Return Extension</h3>
+        <button class="modal-close-btn" onclick="closeModal('approveExtModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="approveExtModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('approveExtModal')">Cancel</button>
+        <button class="btn-approve" id="btnConfirmApproveExt" style="background:#10b981; color:#fff; border:none; padding:0.6rem 1.25rem; border-radius:var(--radius-sm); font-weight:700; cursor:pointer;">
+          Grant Extension & Update QR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REJECT EXTENSION MODAL -->
+  <div class="modal-overlay" id="rejectExtModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#ef4444;">Decline Extension Request</h3>
+        <button class="modal-close-btn" onclick="closeModal('rejectExtModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:0.85rem; font-size:0.88rem; color:var(--text-secondary);">
+          State the reason for rejecting this time extension. The original return deadline will remain active.
+        </p>
+        <div class="form-group">
+          <label for="rejectExtReasonInput" style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:0.35rem;">Rejection Reason *</label>
+          <textarea id="rejectExtReasonInput" rows="3" placeholder="e.g. Excessive delay / Curfew violation / Contact Warden office directly" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical;" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('rejectExtModal')">Cancel</button>
+        <button class="btn-reject" id="btnConfirmRejectExt" style="background:#ef4444; color:#fff; border:none; padding:0.6rem 1.25rem; border-radius:var(--radius-sm); font-weight:700; cursor:pointer;">
+          Decline Extension
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR CODE PREVIEW MODAL -->
+  <div class="modal-overlay" id="qrPreviewModal">
+    <div class="modal-container" style="max-width: 440px; text-align: center;">
+      <div class="modal-header">
+        <h3 style="color:#3b82f6;">Active Security QR Pass</h3>
+        <button class="modal-close-btn" onclick="closeModal('qrPreviewModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="qrPreviewModalBody" style="padding: 1.5rem 1rem;">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer" style="justify-content: center;">
+        <button class="secondary-btn" onclick="closeModal('qrPreviewModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVOKE QR MODAL -->
+  <div class="modal-overlay" id="revokeQrModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#ef4444;">Revoke Active QR Pass</h3>
+        <button class="modal-close-btn" onclick="closeModal('revokeQrModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:0.85rem; font-size:0.88rem; color:var(--text-secondary);">
+          Revoking this QR will immediately invalidate the gate pass token. The student will NOT be able to scan at security checkpoints.
+        </p>
+        <div class="form-group">
+          <label for="revokeReasonInput">Revocation Reason *</label>
+          <textarea id="revokeReasonInput" rows="3" placeholder="e.g. Disciplinary hold / Emergency campus lockdown / Revoked on student request" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical;" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('revokeQrModal')">Cancel</button>
+        <button class="btn-reject" id="btnConfirmRevokeQr">Confirm Revocation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/warden-dashboard.js"></script>
+</body>
+</html>

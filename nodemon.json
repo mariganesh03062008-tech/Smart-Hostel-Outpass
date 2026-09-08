@@ -1,0 +1,19 @@
+{
+  "watch": [
+    "server.js",
+    "controllers",
+    "routes",
+    "middleware",
+    "utils"
+  ],
+  "ignore": [
+    "public",
+    "database/test_*.js",
+    "node_modules",
+    ".git",
+    ".gemini",
+    "*.md"
+  ],
+  "ext": "js,json",
+  "delay": 500
+}

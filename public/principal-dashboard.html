@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Principal Monitoring & Executive Portal | Smart Hostel Outpass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/warden-dashboard.css" />
+  <link rel="stylesheet" href="css/principal-dashboard.css" />
+  <link rel="stylesheet" href="css/notifications.css" />
+  <!-- Chart.js CDN for interactive analytics visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="principal-body">
+  
+  <!-- Principal App Shell -->
+  <div class="warden-app-shell">
+    
+    <!-- Top Header Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation" title="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="logo-icon-wrapper" style="background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="#ffffff" stroke-width="2.2" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+          </svg>
+        </div>
+        <div>
+          <span class="logo-text">SmartHostel <span style="color:#818cf8;">Executive</span></span>
+          <span class="portal-badge" style="background:rgba(99,102,241,0.18); color:#a5b4fc; border-color:rgba(99,102,241,0.35);">Principal Portal</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Live System Clock -->
+        <div class="server-time-box" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.4rem 0.85rem; font-size:0.8rem; display:flex; align-items:center; gap:0.5rem;">
+          <span class="pulse-dot" style="background:#10b981; width:8px; height:8px; border-radius:50%; display:inline-block;"></span>
+          <span id="principalClock" style="font-family:'Outfit', monospace; color:var(--text-primary); font-weight:700;">Loading...</span>
+        </div>
+
+        <!-- Notification Bell Mount Point -->
+        <div id="headerNotificationMount" class="header-notification-mount"></div>
+
+        <!-- Theme Toggle Button -->
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="nav-user-chip" id="navUserChip" title="Logged in principal">
+          <div class="nav-user-avatar" id="navUserAvatar">P</div>
+          <span id="navUserName">Dr. Sharma</span>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-main">
+      
+      <!-- Principal Hero Banner -->
+      <section class="warden-hero-bar" style="border-left: 4px solid #6366f1;">
+        <div class="student-meta-left">
+          <div class="warden-avatar" id="principalAvatar" style="background: linear-gradient(135deg, #6366f1, #4f46e5); color:#fff; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
+            P
+          </div>
+          <div class="student-details">
+            <h1 id="principalName" style="font-family:'Outfit';">Dr. A. Sharma</h1>
+            <div class="student-tags-row">
+              <span class="portal-badge" style="background:rgba(99,102,241,0.15); color:#818cf8; border-color:rgba(99,102,241,0.3); margin-bottom:0;">Principal & Chief Executive</span>
+              <span class="student-tag" id="principalStaffId">Staff ID: PRC-001</span>
+              <span class="student-tag">Office of the Principal</span>
+              <span class="student-tag" style="background:rgba(16,185,129,0.12); color:#10b981; border-color:rgba(16,185,129,0.3);">OD Final Approval & Normal Pass Monitoring</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-meta-right">
+          <span class="auth-verified-chip" style="background:rgba(99,102,241,0.12); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); padding:0.4rem 0.95rem; font-weight:700;">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            Executive Authority Mode
+          </span>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Normal Pass = Monitor Only • OD = Final Approver</small>
+        </div>
+      </section>
+
+      <!-- Dashboard Layout: Sidebar + Tab Content -->
+      <div class="warden-dashboard-layout">
+        <!-- Backdrop for mobile drawer -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        
+        <!-- Sidebar Navigation (8 Sections as requested) -->
+        <aside class="warden-sidebar">
+          <span class="sidebar-heading">Principal Menu</span>
+          
+          <button class="warden-nav-btn active" data-tab="overview">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>Dashboard</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="normal-monitoring">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span>Normal Outpass Monitoring</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="one-day-permission">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>One-Day Permission</span>
+            <span class="nav-badge-pill amber" id="navBadgePendingOD" style="display:none;">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="students-outside">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Students Outside</span>
+            <span class="nav-badge-pill amber" id="navBadgeOutside" style="display:none;">0</span>
+          </button>
+
+          <span class="sidebar-heading" style="margin-top:0.6rem;">Institutional Oversight</span>
+
+          <button class="warden-nav-btn" data-tab="reports">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>Reports</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="analytics">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span>Analytics</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profile</span>
+          </button>
+        </aside>
+
+        <!-- Main Tab Content Area -->
+        <div class="dash-tab-content">
+          
+          <!-- TAB 1: DASHBOARD OVERVIEW -->
+          <section class="tab-section active" id="tab-overview">
+            
+            <!-- 11 Real-Time Executive Summary Metric Cards -->
+            <div class="stats-summary-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+              
+              <div class="stat-metric-card" style="border-left: 3px solid #6366f1;">
+                <span class="stat-label">Total Students</span>
+                <span class="stat-count" id="statTotalStudents" style="color:#818cf8;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Registered in Hostel</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #10b981;">
+                <span class="stat-label">Students Inside</span>
+                <span class="stat-count" id="statStudentsInside" style="color:#10b981;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Inside Hostel</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #f59e0b;">
+                <span class="stat-label">Students Outside</span>
+                <span class="stat-count" id="statStudentsOutside" style="color:#f59e0b;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Outside Hostel</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #3b82f6;">
+                <span class="stat-label">Pending Normal Passes</span>
+                <span class="stat-count" id="statPendingNormal" style="color:#60a5fa;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Parent / Warden Queue</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #f97316;">
+                <span class="stat-label">Pending One-Day Permissions</span>
+                <span class="stat-count" id="statPendingOneDay" style="color:#f97316;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Awaiting Principal Approval</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #10b981;">
+                <span class="stat-label">Approved Outpasses</span>
+                <span class="stat-count" id="statApprovedOutpasses" style="color:#10b981;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Total Approved</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #ef4444;">
+                <span class="stat-label">Rejected Outpasses</span>
+                <span class="stat-count" id="statRejectedOutpasses" style="color:#ef4444;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Total Declined</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #06b6d4;">
+                <span class="stat-label">Active QR Codes</span>
+                <span class="stat-count" id="statActiveQRCodes" style="color:#22d3ee;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Valid Gate Tokens</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #8b5cf6;">
+                <span class="stat-label">Completed Outpasses</span>
+                <span class="stat-count" id="statCompletedOutpasses" style="color:#a78bfa;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Returned & Closed</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #dc2626;">
+                <span class="stat-label">Late Returns</span>
+                <span class="stat-count" id="statLateReturns" style="color:#f87171;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Overdue Check-ins</small>
+              </div>
+
+              <div class="stat-metric-card" style="border-left: 3px solid #eab308;">
+                <span class="stat-label">Pending Extensions</span>
+                <span class="stat-count" id="statPendingExtensions" style="color:#facc15;">0</span>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Emergency Requests</small>
+              </div>
+
+            </div>
+
+            <!-- Student Status Roster Live Section -->
+            <div class="table-container" style="margin-top:1.5rem;">
+              <div class="table-header-bar" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                  <h3>Institutional Student Hostel Status</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Real-time census and residency monitoring across all hostel blocks.</p>
+                </div>
+                
+                <!-- Filter Bar -->
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <select id="filterDept" onchange="loadStudentStatus()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="all">All Departments</option>
+                    <option value="Computer Science & Engineering">CSE</option>
+                    <option value="Information Technology">IT</option>
+                    <option value="Electronics & Communication">ECE</option>
+                    <option value="Mechanical Engineering">MECH</option>
+                    <option value="Civil Engineering">CIVIL</option>
+                  </select>
+
+                  <select id="filterBlock" onchange="loadStudentStatus()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="all">All Blocks</option>
+                    <option value="Block A">Block A</option>
+                    <option value="Block B">Block B</option>
+                    <option value="Block C">Block C</option>
+                  </select>
+
+                  <select id="filterStatus" onchange="loadStudentStatus()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="all">All Statuses</option>
+                    <option value="OUTSIDE_HOSTEL">Outside Hostel</option>
+                    <option value="INSIDE_HOSTEL">Inside Hostel</option>
+                    <option value="LATE_RETURN">Late / Overdue</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+
+                  <button class="secondary-btn" onclick="loadStudentStatus()" style="padding:0.4rem 0.75rem; font-size:0.8rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Roll Number</th>
+                      <th>Student Name</th>
+                      <th>Dept & Year</th>
+                      <th>Room & Block</th>
+                      <th>Current Status</th>
+                      <th>Exit Time</th>
+                      <th>Expected Return</th>
+                      <th>Actual Return</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentStatusTableBody">
+                    <!-- Populated dynamically via principal-dashboard.js -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="studentStatusEmpty">
+                <h4 class="empty-title">No Students Found</h4>
+                <p class="empty-desc">No student records match the selected filters.</p>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- TAB 2: NORMAL OUTPASS MONITORING (READ-ONLY) -->
+          <section class="tab-section" id="tab-normal-monitoring">
+            <div class="table-container">
+              <div class="table-header-bar" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <h3>🏠 Normal Outpass Monitoring</h3>
+                    <span class="portal-badge" style="background:rgba(99,102,241,0.15); color:#a5b4fc; font-size:0.75rem; margin-bottom:0;">Strictly Read-Only</span>
+                  </div>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Supervise personal leave requests. Principal cannot approve, reject, or generate QR for Normal Outpass.</p>
+                </div>
+
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <select id="normalOpStatusFilter" onchange="loadNormalOutpasses()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="completed">Completed</option>
+                  </select>
+
+                  <input type="text" id="normalOpSearch" placeholder="Search student / code..." oninput="loadNormalOutpasses()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color); width:180px;" />
+
+                  <button class="secondary-btn" onclick="loadNormalOutpasses()" style="padding:0.4rem 0.75rem; font-size:0.8rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Student Details</th>
+                      <th>Dept & Year</th>
+                      <th>Block & Room</th>
+                      <th>Place of Visit & Purpose</th>
+                      <th>Leaving Date & Time</th>
+                      <th>Expected Return</th>
+                      <th>Parent Status</th>
+                      <th>Warden Status</th>
+                      <th>QR Status</th>
+                      <th>Student Status</th>
+                      <th>Submitted Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="normalOutpassTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="normalOutpassEmpty">
+                <h4 class="empty-title">No Normal Outpasses Found</h4>
+                <p class="empty-desc">No Normal Outpass requests match the current filters.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 3: ONE-DAY PERMISSION (FOR PRINCIPAL APPROVAL) -->
+          <section class="tab-section" id="tab-one-day-permission">
+            <div class="table-container">
+              <div class="table-header-bar" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <h3>🎓 One-Day Permission Requests</h3>
+                    <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem; margin-bottom:0;">Principal Final Authorization</span>
+                  </div>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Review official academic duty & symposium requests approved by Class Advisors. Principal decision is final.</p>
+                </div>
+
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <select id="oneDayStatusFilter" onchange="loadOneDayPermissions()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="PENDING_PRINCIPAL">Pending Principal Review</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="all">All Records</option>
+                  </select>
+
+                  <select id="oneDayDeptFilter" onchange="loadOneDayPermissions()" style="padding:0.4rem 0.6rem; font-size:0.8rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);">
+                    <option value="all">All Departments</option>
+                    <option value="Computer Science & Engineering">CSE</option>
+                    <option value="Information Technology">IT</option>
+                    <option value="Electronics & Communication">ECE</option>
+                    <option value="Mechanical Engineering">MECH</option>
+                    <option value="Civil Engineering">CIVIL</option>
+                  </select>
+
+                  <button class="secondary-btn" onclick="loadOneDayPermissions()" style="padding:0.4rem 0.75rem; font-size:0.8rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request ID</th>
+                      <th>Student Details</th>
+                      <th>Dept & Year</th>
+                      <th>Block & Room</th>
+                      <th>Event & Location</th>
+                      <th>Duty Schedule</th>
+                      <th>Advisor Clearance</th>
+                      <th>Submitted Time</th>
+                      <th>Status</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="oneDayTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="oneDayEmpty">
+                <div class="empty-icon" style="background:rgba(16,185,129,0.1); color:#10b981;">
+                  <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <h4 class="empty-title">No Pending One-Day Permissions</h4>
+                <p class="empty-desc">All Class Advisor cleared duty requests have been reviewed.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 4: STUDENTS OUTSIDE -->
+          <section class="tab-section" id="tab-students-outside">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>🚶 Students Currently Outside Hostel</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Real-time monitoring of students cleared at the departure gate.</p>
+                </div>
+                <button class="secondary-btn" onclick="loadStudentsOutside()">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh List</span>
+                </button>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Pass Code</th>
+                      <th>Student Name</th>
+                      <th>Roll Number</th>
+                      <th>Department</th>
+                      <th>Room & Block</th>
+                      <th>Departure Exit Time</th>
+                      <th>Expected Return</th>
+                      <th>Extension Status</th>
+                      <th>Monitoring Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentsOutsideTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="studentsOutsideEmpty">
+                <div class="empty-icon" style="background:rgba(16,185,129,0.1); color:#10b981;">
+                  <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                </div>
+                <h4 class="empty-title">All Students Inside Hostel</h4>
+                <p class="empty-desc">There are currently no students checked out through the gate.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 5: REPORTS & EXPORTS -->
+          <section class="tab-section" id="tab-reports">
+            <div class="table-container">
+              <div class="table-header-bar" style="flex-wrap:wrap; gap:0.75rem;">
+                <div>
+                  <h3>📊 Institutional Reports</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">Generate structured audit reports with instant CSV download and printable formatting.</p>
+                </div>
+              </div>
+
+              <!-- Report Type Selection Cards -->
+              <div class="report-type-selector-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem;">
+                <div class="report-card-option selected" id="repOptDaily" onclick="selectReportType('daily')">
+                  <h4>📅 Daily Outpass</h4>
+                  <p>Daily movements</p>
+                </div>
+                <div class="report-card-option" id="repOptMonthly" onclick="selectReportType('monthly')">
+                  <h4>🗓️ Monthly Outpass</h4>
+                  <p>Monthly aggregate audit</p>
+                </div>
+                <div class="report-card-option" id="repOptDuty" onclick="selectReportType('one-day-duty')">
+                  <h4>🎓 One-Day Permission</h4>
+                  <p>Academic duty records</p>
+                </div>
+                <div class="report-card-option" id="repOptOutside" onclick="selectReportType('outside-students')">
+                  <h4>🚶 Students Outside</h4>
+                  <p>Active gate checkouts</p>
+                </div>
+                <div class="report-card-option" id="repOptLate" onclick="selectReportType('late-returns')">
+                  <h4>⚠️ Late Returns</h4>
+                  <p>Overdue check-in logs</p>
+                </div>
+                <div class="report-card-option" id="repOptExtensions" onclick="selectReportType('extensions')">
+                  <h4>⏱️ Extension Requests</h4>
+                  <p>Emergency validity requests</p>
+                </div>
+              </div>
+
+              <!-- Report Filter Controls -->
+              <div class="report-filter-bar" style="background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.5rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+                
+                <div id="filterDateSingle" class="form-group" style="margin-bottom:0;">
+                  <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Select Date</label>
+                  <input type="date" id="repDateInput" style="padding:0.45rem 0.75rem; border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color);" />
+                </div>
+
+                <div id="filterDateRange" class="form-group hidden" style="margin-bottom:0; display:flex; gap:0.5rem; align-items:flex-end;">
+                  <div>
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Start Date</label>
+                    <input type="date" id="repStartDateInput" style="padding:0.45rem 0.75rem; border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color);" />
+                  </div>
+                  <div>
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-muted); display:block; margin-bottom:0.25rem;">End Date</label>
+                    <input type="date" id="repEndDateInput" style="padding:0.45rem 0.75rem; border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color);" />
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:0.5rem; align-items:center; margin-left:auto;">
+                  <button class="primary-btn" onclick="generateSelectedReport()" style="padding:0.5rem 1rem; font-size:0.85rem;">
+                    <span>Generate Report</span>
+                  </button>
+                  <button class="secondary-btn" onclick="exportReportToCSV()" style="padding:0.5rem 1rem; font-size:0.85rem; background:rgba(16,185,129,0.15); color:#10b981; border-color:rgba(16,185,129,0.35);">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>Export CSV</span>
+                  </button>
+                  <button class="secondary-btn" onclick="window.print()" style="padding:0.5rem 1rem; font-size:0.85rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    <span>Print</span>
+                  </button>
+                </div>
+
+              </div>
+
+              <!-- Report Results Table Container -->
+              <div style="overflow-x:auto;">
+                <table class="requests-table" id="reportResultTable">
+                  <thead id="reportTableHead">
+                    <!-- Injected dynamically -->
+                  </thead>
+                  <tbody id="reportTableBody">
+                    <!-- Injected dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="empty-state-box hidden" id="reportEmpty">
+                <h4 class="empty-title">No Records Found for this Report</h4>
+                <p class="empty-desc">Try changing the date parameter or select another report category.</p>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 6: ANALYTICS & CHARTS -->
+          <section class="tab-section" id="tab-analytics">
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+              <div>
+                <h2 style="font-family:'Outfit'; margin:0;">Institutional Analytics Engine</h2>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.25rem;">Real-time SQL aggregation metrics and trends across all departments and gate terminals.</p>
+              </div>
+              <button class="secondary-btn" onclick="loadAnalytics()">
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                <span>Refresh Analytics</span>
+              </button>
+            </div>
+
+            <!-- 5 Analytics Charts in Responsive Grid -->
+            <div class="analytics-charts-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem;">
+              
+              <!-- Chart 1: Normal Outpass vs One-Day Permission -->
+              <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1.25rem;">
+                <div class="chart-header" style="margin-bottom:1rem;">
+                  <h4 style="font-family:'Outfit'; color:var(--text-primary); margin:0;">🎓 Chart 1: Normal Outpass vs One-Day Permission</h4>
+                  <small style="color:var(--text-muted);">Breakdown of Personal vs Academic Duty Outpasses</small>
+                </div>
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartTypeDistribution"></canvas>
+                </div>
+              </div>
+
+              <!-- Chart 2: Approved vs Rejected vs Pending -->
+              <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1.25rem;">
+                <div class="chart-header" style="margin-bottom:1rem;">
+                  <h4 style="font-family:'Outfit'; color:var(--text-primary); margin:0;">⚖️ Chart 2: Approved vs Rejected vs Pending</h4>
+                  <small style="color:var(--text-muted);">Distribution of Approved, Rejected, Pending & Completed</small>
+                </div>
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartApprovalRatio"></canvas>
+                </div>
+              </div>
+
+              <!-- Chart 3: Daily Exit vs Return Activity -->
+              <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1.25rem;">
+                <div class="chart-header" style="margin-bottom:1rem;">
+                  <h4 style="font-family:'Outfit'; color:var(--text-primary); margin:0;">🚪 Chart 3: Daily Exit vs Return Activity</h4>
+                  <small style="color:var(--text-muted);">Daily comparison of departures vs check-in returns</small>
+                </div>
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartMovementActivity"></canvas>
+                </div>
+              </div>
+
+              <!-- Chart 4: Late Returns Daily Trend -->
+              <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1.25rem;">
+                <div class="chart-header" style="margin-bottom:1rem;">
+                  <h4 style="font-family:'Outfit'; color:var(--text-primary); margin:0;">⚠️ Chart 4: Late Returns Daily Trend</h4>
+                  <small style="color:var(--text-muted);">Number of students returning past scheduled curfew</small>
+                </div>
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartLateReturns"></canvas>
+                </div>
+              </div>
+
+              <!-- Chart 5: Extension Requests Status -->
+              <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:1.25rem;">
+                <div class="chart-header" style="margin-bottom:1rem;">
+                  <h4 style="font-family:'Outfit'; color:var(--text-primary); margin:0;">⏱️ Chart 5: Extension Requests</h4>
+                  <small style="color:var(--text-muted);">Emergency time extension request decisions</small>
+                </div>
+                <div style="position:relative; height:240px;">
+                  <canvas id="chartExtensionStats"></canvas>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- TAB 7: PRINCIPAL PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-details-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Principal Executive Credentials</span>
+                </div>
+                <span class="security-chip">Protected by JWT Auth</span>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Official Name</span>
+                  <span class="field-value" id="profPrincipalName">Dr. A. Sharma</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Staff Designation</span>
+                  <span class="field-value">Principal & Head of Institution</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Staff ID</span>
+                  <span class="field-value" id="profPrincipalId">PRC-001</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Department</span>
+                  <span class="field-value">Office of the Principal</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Official Email</span>
+                  <span class="field-value" id="profPrincipalEmail">principal@college.edu</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Jurisdiction</span>
+                  <span class="field-value">All College Departments & Hostel Blocks</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Principal Executive Portal • MySQL Relational Security</p>
+    </footer>
+  </div>
+
+  <!-- ONE-DAY PERMISSION DETAILS MODAL -->
+  <div class="modal-overlay" id="oneDayDetailsModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>🎓 One-Day Permission Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('oneDayDetailsModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="oneDayDetailsBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer" id="oneDayDetailsFooter">
+        <!-- Action buttons injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- APPROVE CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="approveODModal">
+    <div class="modal-container" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3>Confirm Principal Approval</h3>
+        <button class="modal-close-btn" onclick="closeModal('approveODModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1rem;">
+          Are you sure you want to approve this official One-Day Permission? The student will immediately receive the digital security QR code for gate clearance.
+        </p>
+        <div id="approveODSummary" style="background:var(--bg-input); padding:0.75rem; border-radius:var(--radius-sm); font-size:0.85rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('approveODModal')">Cancel</button>
+        <button class="primary-btn" id="confirmApproveODBtn" style="background: linear-gradient(135deg, #10b981, #059669);">
+          <span>Approve & Authorize QR</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REJECT MODAL -->
+  <div class="modal-overlay" id="rejectODModal">
+    <div class="modal-container" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>Decline One-Day Permission</h3>
+        <button class="modal-close-btn" onclick="closeModal('rejectODModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.88rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+          Please state the reason for rejecting this One-Day Permission request:
+        </p>
+        <textarea id="rejectODReason" rows="3" placeholder="e.g., Clashing with internal academic examinations..." style="width:100%; padding:0.75rem; border-radius:var(--radius-sm); background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-color);"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('rejectODModal')">Cancel</button>
+        <button class="danger-btn" id="confirmRejectODBtn" style="background: linear-gradient(135deg, #ef4444, #dc2626); color:#fff; padding:0.55rem 1.15rem; border-radius:var(--radius-sm); border:none; font-weight:600; cursor:pointer;">
+          <span>Reject Permission</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/principal-dashboard.js"></script>
+</body>
+</html>
