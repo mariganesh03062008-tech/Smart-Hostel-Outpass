@@ -89,47 +89,6 @@
         </div>
       </section>
 
-      <!-- Live GPS Location Security Guard Banner -->
-      <section class="student-gps-bar" id="studentGpsBar" style="margin: 0.75rem 1.5rem 0.25rem 1.5rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 0.85rem;">
-          <div id="gpsIconContainer" style="width: 38px; height: 38px; border-radius: 50%; background: rgba(59, 130, 246, 0.12); color: #3b82f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line></svg>
-          </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <strong style="font-size: 0.92rem; color: var(--text-primary);">Live GPS Location Guard</strong>
-              <span id="gpsStatusPill" class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px;">Checking GPS...</span>
-            </div>
-            <p id="gpsStatusSubtext" style="font-size: 0.8rem; color: var(--text-secondary); margin: 0.2rem 0 0 0;">
-              Parent approval requires your device GPS location refreshed within the last 5 minutes (5-meter proximity guard).
-            </p>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-          <div id="gpsCoordsContainer" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 0.45rem 0.85rem; font-size: 0.78rem; line-height: 1.45;">
-            <!-- Human-Readable Location derived from actual coordinates -->
-            <div id="gpsPlaceRow" style="display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.25rem; font-weight: 600;">
-              <span style="font-size: 0.85rem;">📍</span>
-              <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);">Current Location:</span>
-              <strong id="gpsPlaceName" style="color: #10b981; font-size: 0.82rem;">Detecting place...</strong>
-            </div>
-            <div style="font-family: monospace; color: var(--text-primary); font-weight: 600;">
-              <span>Lat: <strong id="gpsLatText" style="color:#10b981;">--</strong></span> • <span>Lng: <strong id="gpsLngText" style="color:#10b981;">--</strong></span>
-            </div>
-            <div style="font-size: 0.74rem; color: var(--text-secondary); display: flex; gap: 0.5rem; align-items: center; margin-top: 0.15rem;">
-              <span>Accuracy: <strong id="gpsAccuracyText" style="color: #10b981;">--</strong></span>
-              <span style="color: var(--border-color);">|</span>
-              <span>Updated: <strong id="gpsTimeText" style="color: var(--text-primary);">--</strong></span>
-            </div>
-          </div>
-          <span id="gpsCoordsText" style="font-size: 0.78rem; font-family: monospace; color: var(--text-muted); display: none;"></span>
-          <button type="button" id="btnRefreshStudentLocation" class="secondary-btn" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.9rem; font-size: 0.82rem;">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            <span id="btnRefreshLocLabel">Update My Location</span>
-          </button>
-        </div>
-      </section>
-
       <!-- Dashboard Layout: Sidebar + Tab Content -->
       <div class="student-dashboard-layout">
         <!-- Backdrop for mobile drawer -->
@@ -372,12 +331,6 @@
                   <span class="btn-spinner hidden" id="submitSpinner"></span>
                   <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                 </button>
-
-                <!-- Location Required Helper Message -->
-                <div id="submitLocationNotice" class="submit-location-notice" style="margin-top:0.65rem; padding:0.65rem 0.9rem; border-radius:var(--radius-sm); font-size:0.82rem; display:none; align-items:center; gap:0.5rem; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); color:#ef4444;">
-                  <span style="font-size:1rem; flex-shrink:0;">⚠️</span>
-                  <span id="submitLocationNoticeText">Location access is required before submitting an outpass.</span>
-                </div>
 
                 <div class="form-alert hidden" id="formMessage"></div>
               </form>
@@ -705,7 +658,7 @@
                   <div class="form-group">
                     <label for="editProfParentPhone">Parent Mobile Number <span class="identity-lock-badge" title="Locked identity field">🔒</span></label>
                     <input type="tel" id="editProfParentPhone" placeholder="10-digit mobile number" required />
-                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Authoritative number for consent & GPS.</small>
+                    <small class="identity-lock-hint" style="color: var(--text-muted); font-size: 0.72rem;">Authoritative number for consent & biometric verification.</small>
                   </div>
                 </div>
 

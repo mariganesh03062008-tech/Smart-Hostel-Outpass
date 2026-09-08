@@ -154,54 +154,6 @@ exports.createOutpass = async (req, res, next) => {
       });
     }
 
-    // 5.1 Mandatory Student Live Location Security Enforcement
-    // Requirement: Student location is compulsory for outpass submission.
-    const [studentLocRows] = await pool.query(
-      'SELECT latitude, longitude, accuracy, captured_at, updated_at FROM student_locations WHERE student_id = ? ORDER BY COALESCE(captured_at, updated_at) DESC LIMIT 1',
-      [student.id]
-    );
-
-    if (studentLocRows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        code: 'STUDENT_LOCATION_REQUIRED',
-        message: 'Current student location is required before submitting an outpass. Please enable GPS location access on your device and refresh your location.'
-      });
-    }
-
-    const studentLoc = studentLocRows[0];
-    const studentLat = Number(studentLoc.latitude);
-    const studentLng = Number(studentLoc.longitude);
-    const studentAccuracy = Number(studentLoc.accuracy);
-    const locTimestamp = studentLoc.captured_at || studentLoc.updated_at;
-
-    // Validate coordinate boundaries & accuracy
-    if (isNaN(studentLat) || isNaN(studentLng) || studentLat < -90 || studentLat > 90 || studentLng < -180 || studentLng > 180) {
-      return res.status(400).json({
-        success: false,
-        code: 'STUDENT_LOCATION_REQUIRED',
-        message: 'Recorded student GPS coordinates are invalid. Please update your location before submitting.'
-      });
-    }
-
-    if (isNaN(studentAccuracy) || studentAccuracy <= 0 || studentAccuracy > 50) {
-      return res.status(400).json({
-        success: false,
-        code: 'STUDENT_LOCATION_REQUIRED',
-        message: 'Student GPS accuracy is insufficient for security verification (must be within 50 meters). Please move to an open area and refresh your location.'
-      });
-    }
-
-    // Freshness check: must be within 5 minutes
-    const locAgeMinutes = (Date.now() - new Date(locTimestamp).getTime()) / (1000 * 60);
-    if (locAgeMinutes > 5) {
-      return res.status(400).json({
-        success: false,
-        code: 'STUDENT_LOCATION_REQUIRED',
-        message: 'Your recorded location is outdated (older than 5 minutes). Please tap "Update My Location" to refresh your GPS before submitting an outpass.'
-      });
-    }
-
     // 6. Workflow Status Determination
     // Normal Outpass: Student -> Parent -> Warden (Status: PENDING_PARENT)
     // One-Day Duty: Student -> Class Advisor -> Principal (Status: PENDING_ADVISOR)
@@ -316,6 +268,7 @@ exports.createOutpass = async (req, res, next) => {
       message: 'Outpass request submitted successfully.',
       data: {
         id: outpassId,
+        outpassId: outpassId,
         requestCode,
         requestType: isDuty ? 'One-Day Duty' : 'Normal Outpass',
         status: initialStatus,
@@ -607,6 +560,7 @@ exports.getStudentLocation = async (req, res, next) => {
       hasLocation: true,
       isFresh: ageMinutes <= 5,
       ageMinutes: Math.round(ageMinutes * 10) / 10,
+      max_allowed_accuracy: 50,
       location: {
         latitude: Number(loc.latitude),
         longitude: Number(loc.longitude),
@@ -727,33 +681,23 @@ exports.getWardenPending = async (req, res, next) => {
         s.hostel_block AS studentBlock,
         s.phone AS studentRegisteredPhone,
         p.father_name AS parentName,
-        COALESCE(o.parent_verified_mobile, plv.parent_mobile, p.primary_phone) AS parentPhone,
-        COALESCE(o.parent_verified_mobile, plv.parent_mobile, p.primary_phone) AS parentVerifiedMobile,
-        COALESCE(o.parent_approval_lat, plv.parent_lat) AS parentApprovalLat,
-        COALESCE(o.parent_approval_lng, plv.parent_lng) AS parentApprovalLng,
-        COALESCE(o.parent_approval_accuracy, plv.parent_accuracy) AS parentApprovalAccuracy,
-        COALESCE(o.student_loc_lat, plv.student_lat) AS studentLocLat,
-        COALESCE(o.student_loc_lng, plv.student_lng) AS studentLocLng,
-        COALESCE(o.distance_meters, plv.distance_meters) AS distanceMeters,
-        o.parent_location_verified AS parentLocationVerified,
+        COALESCE(o.parent_verified_mobile, p.primary_phone) AS parentPhone,
+        COALESCE(o.parent_verified_mobile, p.primary_phone) AS parentVerifiedMobile,
+        o.parent_face_verified AS parentFaceVerified,
         CASE 
-          WHEN o.parent_location_verified = 1 OR (plv.verification_result = 'VERIFIED' AND plv.distance_meters >= 5) THEN 'VERIFIED' 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
           ELSE 'UNVERIFIED' 
-        END AS locationVerificationResult,
+        END AS faceVerificationResult,
+        CASE 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          ELSE 'UNVERIFIED' 
+        END AS biometricVerificationResult,
         COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
         o.parent_approved_at AS parentApprovedAt,
-        COALESCE(plv.parent_timestamp, o.parent_approved_at) AS parentGpsTimestamp,
-        COALESCE(plv.student_accuracy, o.parent_approval_accuracy) AS studentGpsAccuracy,
-        COALESCE(plv.student_timestamp, o.parent_approved_at) AS studentGpsTimestamp
+        o.parent_face_verified_at AS parentFaceVerifiedAt
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       LEFT JOIN parents p ON s.parent_id = p.id
-      LEFT JOIN parent_location_verifications plv ON plv.id = (
-        SELECT MAX(id) FROM parent_location_verifications 
-        WHERE outpass_request_id = o.id 
-          AND verification_result = 'VERIFIED'
-          AND distance_meters >= 5
-      )
       LEFT JOIN parent_messages pm ON pm.id = (
         SELECT MAX(id) FROM parent_messages
         WHERE outpass_request_id = o.id
@@ -861,31 +805,24 @@ exports.getWardenActive = async (req, res, next) => {
         s.hostel_block AS studentBlock,
         s.phone AS studentPhone,
         p.father_name AS parentName,
-        COALESCE(o.parent_verified_mobile, plv.parent_mobile, p.primary_phone) AS parentVerifiedMobile,
-        COALESCE(o.distance_meters, plv.distance_meters) AS distanceMeters,
-        COALESCE(o.parent_approval_lat, plv.parent_lat) AS parentApprovalLat,
-        COALESCE(o.parent_approval_lng, plv.parent_lng) AS parentApprovalLng,
-        COALESCE(o.parent_approval_accuracy, plv.parent_accuracy) AS parentApprovalAccuracy,
-        COALESCE(o.student_loc_lat, plv.student_lat) AS studentLocLat,
-        COALESCE(o.student_loc_lng, plv.student_lng) AS studentLocLng,
-        o.parent_location_verified AS parentLocationVerified,
+        COALESCE(o.parent_verified_mobile, p.primary_phone) AS parentVerifiedMobile,
+        o.parent_face_verified AS parentFaceVerified,
         CASE 
-          WHEN o.parent_location_verified = 1 OR (plv.verification_result = 'VERIFIED' AND plv.distance_meters >= 5) THEN 'VERIFIED' 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
           ELSE 'UNVERIFIED' 
-        END AS locationVerificationResult,
+        END AS faceVerificationResult,
+        CASE 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          ELSE 'UNVERIFIED' 
+        END AS biometricVerificationResult,
         COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
         o.parent_approved_at AS parentApprovedAt,
+        o.parent_face_verified_at AS parentFaceVerifiedAt,
         e.exit_time AS exitTime,
         r.return_time AS returnTime
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       LEFT JOIN parents p ON s.parent_id = p.id
-      LEFT JOIN parent_location_verifications plv ON plv.id = (
-        SELECT MAX(id) FROM parent_location_verifications 
-        WHERE outpass_request_id = o.id 
-          AND verification_result = 'VERIFIED'
-          AND distance_meters >= 5
-      )
       LEFT JOIN parent_messages pm ON pm.id = (
         SELECT MAX(id) FROM parent_messages
         WHERE outpass_request_id = o.id
@@ -1843,11 +1780,10 @@ exports.searchWardenStudents = async (req, res, next) => {
           o.rejection_reason
         ) AS parentMessage,
         CASE 
-          WHEN o.parent_location_verified = 1 OR (plv.verification_result = 'VERIFIED' AND plv.distance_meters >= 5) THEN 'VERIFIED'
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED'
           ELSE 'UNVERIFIED'
-        END AS locationVerification,
-        COALESCE(o.distance_meters, plv.distance_meters) AS distanceMeters,
-        COALESCE(o.parent_approval_accuracy, plv.parent_accuracy) AS gpsAccuracy,
+        END AS faceVerification,
+        o.parent_face_verified AS parentFaceVerified,
         COALESCE(
           pm.responded_at,
           o.parent_approved_at,
@@ -1886,12 +1822,6 @@ exports.searchWardenStudents = async (req, res, next) => {
         WHERE student_id = s.id 
           AND (outpass_request_id = o.id OR (o.id IS NULL AND student_id = s.id))
       )
-      LEFT JOIN parent_location_verifications plv ON plv.id = (
-        SELECT MAX(id) FROM parent_location_verifications 
-        WHERE student_id = s.id 
-          AND (outpass_request_id = o.id OR o.id IS NULL)
-          AND verification_result = 'VERIFIED'
-      )
       WHERE s.name LIKE ? OR s.reg_no LIKE ?
       ORDER BY s.name ASC
       LIMIT 25;
@@ -1915,15 +1845,9 @@ exports.searchWardenStudents = async (req, res, next) => {
       },
       decision: r.decision,
       parentMessage: r.parentMessage || null,
-      locationVerification: r.locationVerification,
-      distance: r.distanceMeters !== null && r.distanceMeters !== undefined 
-        ? `${r.distanceMeters} meters` 
-        : (r.locationVerification === 'VERIFIED' ? '>= 5 meters' : 'N/A'),
-      distanceMeters: r.distanceMeters !== null && r.distanceMeters !== undefined ? Number(r.distanceMeters) : null,
-      gpsAccuracy: r.gpsAccuracy !== null && r.gpsAccuracy !== undefined 
-        ? `<= ${Math.round(r.gpsAccuracy)} meters` 
-        : (r.locationVerification === 'VERIFIED' ? '<= 50 meters' : 'N/A'),
-      gpsAccuracyMeters: r.gpsAccuracy !== null && r.gpsAccuracy !== undefined ? Number(r.gpsAccuracy) : null,
+      faceVerification: r.faceVerification,
+      parentFaceVerified: Boolean(r.parentFaceVerified),
+      biometricVerification: r.faceVerification === 'VERIFIED' ? 'Face Verified' : 'Unverified',
       submittedAt: r.submittedAt || null,
       outpass: r.outpassId ? {
         id: r.outpassId,
@@ -1971,22 +1895,16 @@ exports.getWardenParentMessages = async (req, res, next) => {
         pm.status AS messageStatus,
         pm.parent_response AS parentResponse,
         CASE 
-          WHEN o.parent_location_verified = 1 OR (plv.verification_result = 'VERIFIED' AND plv.distance_meters >= 5) THEN 'VERIFIED'
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED'
           ELSE 'UNVERIFIED'
-        END AS locationVerification,
-        COALESCE(o.distance_meters, plv.distance_meters) AS distanceMeters,
-        COALESCE(o.parent_approval_accuracy, plv.parent_accuracy) AS gpsAccuracy,
+        END AS faceVerification,
+        o.parent_face_verified AS parentFaceVerified,
         pm.responded_at AS respondedAt,
         pm.created_at AS createdAt
       FROM parent_messages pm
       INNER JOIN students s ON pm.student_id = s.id
       LEFT JOIN parents p ON pm.parent_id = p.id
       LEFT JOIN outpass_requests o ON pm.outpass_request_id = o.id
-      LEFT JOIN parent_location_verifications plv ON plv.id = (
-        SELECT id FROM parent_location_verifications 
-        WHERE outpass_request_id = o.id AND verification_result = 'VERIFIED'
-        ORDER BY id DESC LIMIT 1
-      )
       ORDER BY COALESCE(pm.responded_at, pm.created_at) DESC
       LIMIT 100;
     `);

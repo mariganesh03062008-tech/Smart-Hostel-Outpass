@@ -9,20 +9,24 @@ router.use(authenticateToken, authorizeRoles('parent'));
 // 1. Overview & Linked Student Info
 router.get('/overview', parentController.getParentOverview);
 
-// 2. Hardware-Independent Fingerprint Scanner Service Endpoints
+// 2. Parent Face Biometric Verification Endpoints
+router.get('/face/status', parentController.getFaceStatus);
+router.post('/face/register', parentController.registerFace);
+router.post('/outpass/:id/face-verify', parentController.verifyFace);
+
+// Backwards-compatible aliases
+router.post('/register-face', parentController.registerFace);
 router.get('/fingerprint/status', parentController.getFingerprintStatus);
 router.post('/fingerprint/register', parentController.registerFingerprint);
 router.post('/fingerprint/verify', parentController.verifyBiometric);
-
-// Backwards-compatible aliases
 router.post('/biometric-verify', parentController.verifyBiometric);
 router.post('/register-fingerprint', parentController.registerFingerprint);
 
-// 3. Outpass Approval Workflow for Linked Student (GPS 5-Meter Proximity Verification)
+// 3. Outpass Approval Workflow for Linked Student (Face Verification Protected)
 router.get('/outpass/pending', parentController.getPendingRequests);
 router.get('/outpass/approved', parentController.getApprovedRequests);
 router.get('/outpass/rejected', parentController.getRejectedRequests);
-router.post('/outpass/:id/location-verify', parentController.verifyParentLocation);
+router.post('/outpass/:id/location-verify', parentController.verifyParentLocation); // Deprecated stub
 router.patch('/outpass/:id/approve', parentController.approveOutpass);
 router.patch('/outpass/:id/reject', parentController.rejectOutpass);
 

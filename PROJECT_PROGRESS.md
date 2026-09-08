@@ -18,10 +18,9 @@ The **Smart Hostel Outpass Management System** is an enterprise-grade, multi-tie
 - **MySQL Connection**: Connected to database `smart_hostel_outpass` via connection pool (`port 3306`).
 - **API Health Check**: `/api/health` returns `200 OK` (`Smart Hostel Outpass API is running`).
 - **Database Connectivity Test**: `/api/db-test` returns `200 OK` (`MySQL Database connection successful`).
-- **Student Module**: Fully functional (`public/student-dashboard.html` & `public/js/student-dashboard.js`). Supports session verification, profile loading, request submissions, request status, countdown timers, and active QR view.
-- **Student Live GPS Location Guard**: Fully functional. Captures browser GPS with high accuracy, submits coordinates to `POST /api/outpass/student/location`, verifies 5-minute freshness, updates UI with `✅ Location Active`, coordinates, accuracy, last updated time, and human-readable place name.
-- **Parent Location Verification & 5-Meter Security**: Fully functional (`controllers/parentController.js`). Strictly calculates distance using Haversine algorithm, prevents proximity spoofing, blocks approval if distance < 5 meters, permits approval if distance >= 5 meters with single-use verification tokens.
-- **Warden & Gate Security**: QR-based checkpoints with exit/return log timestamps.
+- **Student Module**: Fully functional (`public/student-dashboard.html` & `public/js/student-dashboard.js`). Supports session verification, profile loading, request submissions without GPS dependencies, countdown timers, and active QR view.
+- **Parent Face Biometric Verification System**: Fully functional (`controllers/parentController.js` & `utils/faceConfig.js`). Replaced legacy GPS geofencing with 128D facial vector matching ($D \le 0.45$). Features live camera template enrollment, authoritative server-side matching, single-use 10-minute token issuance, replay attack protection, and seamless approval workflows.
+- **Warden & Gate Security**: QR-based checkpoints with exit/return log timestamps, and real-time Parent Face Biometrics inspection badge (`Face Verified ✓`).
 
 ---
 
@@ -74,21 +73,23 @@ The **Smart Hostel Outpass Management System** is an enterprise-grade, multi-tie
 - [x] Advance request time validation: Normal Outpass (18h advance submission) and One-Day Outpass / Duty (12h advance submission) enforced on backend and validated in frontend
 - [x] Reusable backend time validator (`utils/timeValidator.js`) preventing bypass of advance notice windows
 - [x] Automated test suite for advance time validation: `database/test_advance_time_validation.js` (55/55 tests passing)
+- [x] Parent Face Biometric Verification System: Complete replacement of legacy GPS geofencing with 128D facial embeddings (`face-api.js`)
+- [x] Centralized biometric matching engine (`utils/faceConfig.js`) enforcing strict Euclidean distance $D \le 0.45$
+- [x] Database migration (`database/migrate_parent_face.js`): created `parent_face_templates` & `parent_face_verifications`, dropped legacy location columns
+- [x] Parent portal face registration and verification webcam modal (`public/parent-dashboard.html` & `public/js/parent-dashboard.js`)
+- [x] Purged legacy GPS and location dependency from student portal (`public/student-dashboard.html` & `public/js/student-dashboard.js`)
+- [x] Warden portal face biometric audit display (`public/js/warden-dashboard.js`) with `Face Verified ✓` badge
+- [x] Comprehensive automated test suite for parent face verification: `database/test_parent_face_verification.js` (32/32 tests passing)
 
 ---
 
 ## 4. Security Rules
-1. **Live GPS Only**: Student device coordinates must originate from live browser Geolocation API. Hardcoded, campus, default, or simulated coordinates are strictly prohibited.
-2. **5-Minute Location Freshness**: A student's stored location is valid for parental proximity verification only if captured within the last 300 seconds (5 minutes). Stale locations trigger HTTP 422.
-3. **50-Meter Maximum Accuracy**: Both parent and student device GPS accuracy must be within 50.0 meters. Accuracies exceeding 50m are rejected with HTTP 422 to prevent false proximity calculations.
-4. **5-Meter Separation Distance Rule**:
-   - $\text{Distance} < 5.0\text{ meters} \implies$ **BLOCKED (HTTP 403)**. Disallows proxy approval when the student and parent are in the same physical space.
-   - $\text{Distance} \ge 5.0\text{ meters} \implies$ **ALLOWED (HTTP 200)**. Issues a cryptographically signed verification token.
-5. **Backend Distance Calculation**: Haversine spherical distance is computed exclusively on the backend server. Client-side distance calculations are never trusted.
-6. **Parent Mobile Association**: The parent's mobile identity is strictly loaded from authenticated MySQL records (`parents.primary_phone`). User-entered mobile numbers are disallowed during approval.
-7. **Single-Use Verification Token**: Approval tokens expire after 5 minutes and are marked `CONSUMED` upon submission to prevent replay attacks.
-8. **Independent Geocoding Isolation**: Human-readable place name lookups never block, fail, or alter the live GPS security workflow.
-9. **Warden Security Isolation**: The Warden may inspect parent verified mobile and GPS proximity details for administrative authorization. Student-facing endpoints are strictly prevented from leaking sensitive parent coordinates, distance, or accuracy.
+1. **Server-Side Authoritative Biometric Matching**: Live face descriptors captured from parent webcam are sent to backend for authoritative comparison against enrolled 128D vectors. Client-side matching is strictly untrusted.
+2. **Strict Matching Threshold**: Euclidean distance cutoff is strictly enforced at $D \le 0.45$. Distances greater than 0.45 are rejected with HTTP 422 (`Biometric face mismatch`).
+3. **Descriptor Integrity Validation**: Biometric descriptors must be arrays of exactly 128 finite numeric floats. `null`, `undefined`, boolean, and `NaN` values are strictly rejected (HTTP 400).
+4. **Single-Use Verification Token**: Upon successful face verification, the server issues a cryptographically secure token valid for 10 minutes. The token is marked `CONSUMED` upon outpass approval to prevent replay attacks.
+5. **No Location/GPS Dependencies**: Outpass creation and parental consent require zero GPS device permissions, location capturing, or proximity checks.
+6. **Warden Security Isolation**: The Warden may inspect parent verified identity and face biometric audit status (`Face Verified ✓`). Student-facing endpoints are strictly prevented from leaking parent biometric template data.
 
 ---
 
@@ -113,10 +114,12 @@ The **Smart Hostel Outpass Management System** is an enterprise-grade, multi-tie
 - `GET /api/outpass/status-summary` — Real-time counters (total, pending, approved, inside/outside hostel)
 - `GET /api/student/active-outpass` — Active approved outpass and valid QR code token
 
-### Parent Approval & Proximity Verification
+### Parent Approval & Face Biometric Verification
 - `GET /api/parent/overview` — Parent dashboard cards, ward details, and outpass requests
-- `POST /api/parent/outpass/:id/location-verify` — Submits parent live GPS coordinates, computes distance to ward's live location, enforces 5-meter security rule, and issues verification token
-- `POST /api/parent/outpass/:id/approve` — Consumes verification token, logs parent approval audit snapshot (lat, lng, accuracy, distance, timestamp, mobile), and forwards outpass to Warden
+- `GET /api/parent/face/status` — Checks if authenticated parent has registered a face biometric template
+- `POST /api/parent/face/register` — Registers parent 128D facial descriptor vector and template
+- `POST /api/parent/outpass/:id/face-verify` — Verifies live parent face descriptor against registered template ($D \le 0.45$) and issues single-use session verification token
+- `PATCH /api/parent/outpass/:id/approve` — Consumes face verification token, marks `parent_face_verified = 1`, and forwards outpass to Warden
 - `PATCH /api/parent/outpass/:id/reject` — Rejects outpass with mandatory reason, stores rejection, and notifies Warden & Student
 
 ### Warden Authorization & Gate Management

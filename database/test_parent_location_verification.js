@@ -38,7 +38,14 @@ function mockReqRes(options = {}) {
     }
   };
 
-  return { req, res };
+  const next = (err) => {
+    if (err) {
+      statusCode = err.status || err.statusCode || 500;
+      resData = { success: false, message: err.message };
+    }
+  };
+
+  return { req, res, next };
 }
 
 async function runVerificationSuite() {
@@ -259,46 +266,27 @@ async function runVerificationSuite() {
     }
 
     // -------------------------------------------------------------
-    // TEST H: Distance = 1 meter -> BLOCK
+    // TEST H: Distance = 3 meters -> BLOCK (<= 5m -> BLOCK)
     // -------------------------------------------------------------
-    console.log('\n--- TEST H: Distance = 1 Meter (Strictly < 5m -> BLOCK) ---');
+    console.log('\n--- TEST H: Distance = 3 Meters (Strictly <= 5m -> BLOCK) ---');
     {
-      const deltaLat1m = 0.00000899;
+      const deltaLat3m = 0.00002698;
       const { req, res } = mockReqRes({
         user: { id: parent.id, role: 'parent' },
         params: { id: testRequestId },
-        body: { latitude: baseLat + deltaLat1m, longitude: baseLng, accuracy: 3.0 }
+        body: { latitude: baseLat + deltaLat3m, longitude: baseLng, accuracy: 3.0 }
       });
       await parentController.verifyParentLocation(req, res);
       const data = res.getData();
-      assert(res.getStatusCode() === 403, 'Returns HTTP 403 for 1-meter proximity');
+      assert(res.getStatusCode() === 403, 'Returns HTTP 403 for 3-meter proximity');
       assert(data.proximityBlocked === true, 'proximityBlocked is true');
-      assert(data.distanceMeters === 1, `Calculated distance is 1 meter (got ${data.distanceMeters}m)`);
+      assert(data.distanceMeters === 3, `Calculated distance is 3 meters (got ${data.distanceMeters}m)`);
     }
 
     // -------------------------------------------------------------
-    // TEST I: Distance = 4.99 meters -> BLOCK
+    // TEST I: Distance = 5.00 meters -> BLOCK (<= 5m -> BLOCK)
     // -------------------------------------------------------------
-    console.log('\n--- TEST I: Distance = 4.99 Meters (Strictly < 5m -> BLOCK) ---');
-    {
-      const deltaLat4_99m = 0.000044875;
-      const { req, res } = mockReqRes({
-        user: { id: parent.id, role: 'parent' },
-        params: { id: testRequestId },
-        body: { latitude: baseLat + deltaLat4_99m, longitude: baseLng, accuracy: 3.0 }
-      });
-      await parentController.verifyParentLocation(req, res);
-      const data = res.getData();
-      assert(res.getStatusCode() === 403, 'Returns HTTP 403 for 4.99-meter proximity');
-      assert(data.proximityBlocked === true, 'proximityBlocked is true');
-      assert(data.distanceMeters === 4.99, `Calculated distance is 4.99 meters (got ${data.distanceMeters}m)`);
-    }
-
-    // -------------------------------------------------------------
-    // TEST J: Distance = 5.00 meters -> ALLOW
-    // -------------------------------------------------------------
-    console.log('\n--- TEST J: Distance = 5.00 Meters (>= 5m -> ALLOW) ---');
-    let token5m = null;
+    console.log('\n--- TEST I: Distance = 5.00 Meters (Boundary <= 5m -> BLOCK) ---');
     {
       const deltaLat5m = 0.000044966;
       const { req, res } = mockReqRes({
@@ -308,35 +296,36 @@ async function runVerificationSuite() {
       });
       await parentController.verifyParentLocation(req, res);
       const data = res.getData();
-      assert(res.getStatusCode() === 200, 'Returns HTTP 200 for 5.00-meter proximity');
-      assert(data.locationVerified === true, 'locationVerified is true');
-      assert(data.distanceMeters === 5, `Calculated distance is exactly 5 meters (got ${data.distanceMeters}m)`);
-      assert(typeof data.verificationToken === 'string', 'Issued verification token');
-      token5m = data.verificationToken;
+      assert(res.getStatusCode() === 403, 'Returns HTTP 403 for exact 5.00-meter proximity (<= 5m is blocked)');
+      assert(data.proximityBlocked === true, 'proximityBlocked is true');
+      assert(data.distanceMeters === 5, `Calculated distance is 5 meters (got ${data.distanceMeters}m)`);
     }
 
     // -------------------------------------------------------------
-    // TEST K: Distance = 5.01 meters -> ALLOW
+    // TEST J: Distance = 7.00 meters -> ALLOW (> 5m -> ALLOW)
     // -------------------------------------------------------------
-    console.log('\n--- TEST K: Distance = 5.01 Meters (>= 5m -> ALLOW) ---');
+    console.log('\n--- TEST J: Distance = 7.00 Meters (> 5m -> ALLOW) ---');
+    let token7m = null;
     {
-      const deltaLat5_01m = 0.000045056;
+      const deltaLat7m = 0.000062952;
       const { req, res } = mockReqRes({
         user: { id: parent.id, role: 'parent' },
         params: { id: testRequestId },
-        body: { latitude: baseLat + deltaLat5_01m, longitude: baseLng, accuracy: 3.0 }
+        body: { latitude: baseLat + deltaLat7m, longitude: baseLng, accuracy: 3.0 }
       });
       await parentController.verifyParentLocation(req, res);
       const data = res.getData();
-      assert(res.getStatusCode() === 200, 'Returns HTTP 200 for 5.01-meter proximity');
+      assert(res.getStatusCode() === 200, 'Returns HTTP 200 for 7.00-meter proximity');
       assert(data.locationVerified === true, 'locationVerified is true');
-      assert(data.distanceMeters === 5.01, `Calculated distance is 5.01 meters (got ${data.distanceMeters}m)`);
+      assert(data.distanceMeters === 7, `Calculated distance is 7 meters (got ${data.distanceMeters}m)`);
+      assert(typeof data.verificationToken === 'string', 'Issued verification token');
+      token7m = data.verificationToken;
     }
 
     // -------------------------------------------------------------
-    // TEST L: Distance = 50.0 meters -> ALLOW
+    // TEST K: Distance = 50.0 meters -> ALLOW (> 5m -> ALLOW)
     // -------------------------------------------------------------
-    console.log('\n--- TEST L: Distance = 50.0 Meters (>= 5m -> ALLOW) ---');
+    console.log('\n--- TEST K: Distance = 50.0 Meters (> 5m -> ALLOW) ---');
     let token50m = null;
     {
       const deltaLat50m = 0.000449660;
@@ -355,26 +344,48 @@ async function runVerificationSuite() {
     }
 
     // -------------------------------------------------------------
+    // TEST L: Direct Server-Side Coordinate Approval Bypass Prevention (<= 5m -> BLOCK)
+    // -------------------------------------------------------------
+    console.log('\n--- TEST L: Direct Backend Approval Proximity Re-Validation (Distance = 3m -> BLOCK) ---');
+    {
+      const deltaLat3m = 0.00002698;
+      const { req, res } = mockReqRes({
+        user: { id: parent.id, role: 'parent' },
+        params: { id: testRequestId },
+        body: {
+          latitude: baseLat + deltaLat3m,
+          longitude: baseLng,
+          accuracy: 3.0,
+          parent_message: 'Attempting bypass while too close'
+        }
+      });
+      await parentController.approveOutpass(req, res);
+      const data = res.getData();
+      assert(res.getStatusCode() === 403, 'Authoritative backend rejects approval with HTTP 403 when parent is 3m away');
+      assert(data.proximityBlocked === true, 'proximityBlocked returned true');
+    }
+
+    // -------------------------------------------------------------
     // TEST M: Reuse of approval verification token -> BLOCK
     // -------------------------------------------------------------
     console.log('\n--- TEST M: Reuse of Verification Token (Replay Attack Prevention) ---');
     {
       // First use: approve successfully
-      const { req: reqApprove1, res: resApprove1 } = mockReqRes({
+      const { req: reqApprove1, res: resApprove1, next: nextApprove1 } = mockReqRes({
         user: { id: parent.id, role: 'parent' },
         params: { id: testRequestId },
         body: { verification_token: token50m, parent_message: 'Approved safe travel.' }
       });
-      await parentController.approveOutpass(reqApprove1, resApprove1);
+      await parentController.approveOutpass(reqApprove1, resApprove1, nextApprove1);
       assert(resApprove1.getStatusCode() === 200, 'Initial token approval succeeds');
 
       // Second use (Replay attempt)
-      const { req: reqApprove2, res: resApprove2 } = mockReqRes({
+      const { req: reqApprove2, res: resApprove2, next: nextApprove2 } = mockReqRes({
         user: { id: parent.id, role: 'parent' },
         params: { id: testRequestId },
         body: { verification_token: token50m, parent_message: 'Replay attempt' }
       });
-      await parentController.approveOutpass(reqApprove2, resApprove2);
+      await parentController.approveOutpass(reqApprove2, resApprove2, nextApprove2);
       assert(resApprove2.getStatusCode() === 403 || resApprove2.getStatusCode() === 400, 'Reusing consumed token is BLOCKED');
     }
 

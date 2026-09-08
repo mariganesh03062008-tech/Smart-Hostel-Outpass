@@ -147,13 +147,23 @@ async function runDualApprovalWorkflowTests() {
     const normalId = createNormRes.data?.data?.id;
     assert(createNormRes.data?.data?.status === 'PENDING_PARENT', 'Normal Outpass status is PENDING_PARENT');
 
-    // A2: Parent verifies location and approves
-    const locVerifyRes = await req(`/api/parent/outpass/${normalId}/location-verify`, {
+    // A2: Parent verifies face biometrics and approves
+    const rawVec = new Array(128).fill(0).map((_, i) => Math.sin(i + 1));
+    const norm = Math.sqrt(rawVec.reduce((s, v) => s + v * v, 0));
+    const testFaceVector = rawVec.map(v => Number((v / norm).toFixed(6)));
+
+    await req('/api/parent/face/register', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${parentToken}` },
-      body: { latitude: 13.0010000, longitude: 80.0010000, accuracy: 15.0 }
+      body: { faceDescriptor: testFaceVector }
     });
-    const verToken = locVerifyRes.data?.verificationToken || locVerifyRes.data?.verification_token;
+
+    const faceVerifyRes = await req(`/api/parent/outpass/${normalId}/face-verify`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${parentToken}` },
+      body: { faceDescriptor: testFaceVector }
+    });
+    const verToken = faceVerifyRes.data?.verificationToken;
 
     const parApproveRes = await req(`/api/parent/outpass/${normalId}/approve`, {
       method: 'PATCH',

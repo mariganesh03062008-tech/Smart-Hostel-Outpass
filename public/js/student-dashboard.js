@@ -80,20 +80,6 @@ const DOM = {
   tabSections: document.querySelectorAll('.tab-section'),
   logoutBtn: document.getElementById('logoutBtn'),
 
-  // Live GPS Security Elements
-  studentGpsBar: document.getElementById('studentGpsBar'),
-  gpsIconContainer: document.getElementById('gpsIconContainer'),
-  gpsStatusPill: document.getElementById('gpsStatusPill'),
-  gpsStatusSubtext: document.getElementById('gpsStatusSubtext'),
-  gpsCoordsContainer: document.getElementById('gpsCoordsContainer'),
-  gpsLatText: document.getElementById('gpsLatText'),
-  gpsLngText: document.getElementById('gpsLngText'),
-  gpsAccuracyText: document.getElementById('gpsAccuracyText'),
-  gpsTimeText: document.getElementById('gpsTimeText'),
-  gpsCoordsText: document.getElementById('gpsCoordsText'),
-  gpsPlaceName: document.getElementById('gpsPlaceName'),
-  btnRefreshStudentLocation: document.getElementById('btnRefreshStudentLocation'),
-  btnRefreshLocLabel: document.getElementById('btnRefreshLocLabel'),
   toastContainer: document.getElementById('toastContainer')
 };
 
@@ -180,9 +166,6 @@ async function verifyStudentSession() {
     }
 
     await Promise.all([loadStatusSummary(), loadMyRequests(), loadActiveOutpass()]);
-
-    // Initialize Student Live GPS location capture
-    initStudentLiveLocation();
 
   } catch (err) {
     console.error('[Student Dash Error]:', err);
@@ -978,42 +961,16 @@ function checkAdvanceTimeValidity() {
 function updateSubmitButtonState() {
   if (!DOM.btnSubmitOutpass) return;
 
-  const isLocationReady = (typeof currentStudentLocationState !== 'undefined' && currentStudentLocationState === 'ready');
   const isAdvanceValid = checkAdvanceTimeValidity(false);
 
-  if (!isLocationReady) {
+  if (!isAdvanceValid) {
     DOM.btnSubmitOutpass.disabled = true;
     DOM.btnSubmitOutpass.style.opacity = '0.6';
     DOM.btnSubmitOutpass.style.cursor = 'not-allowed';
-
-    if (DOM.submitLocationNotice) {
-      DOM.submitLocationNotice.style.display = 'flex';
-      if (DOM.submitLocationNoticeText) {
-        if (currentStudentLocationState === 'requesting') {
-          DOM.submitLocationNoticeText.textContent = 'Getting your location. Please wait before submitting...';
-        } else if (currentStudentLocationState === 'denied') {
-          DOM.submitLocationNoticeText.textContent = 'Location permission is required before submitting an outpass.';
-        } else if (currentStudentLocationState === 'low_accuracy') {
-          DOM.submitLocationNoticeText.textContent = 'Location accuracy is insufficient (must be within 50m). Refresh location to submit.';
-        } else {
-          DOM.submitLocationNoticeText.textContent = 'Location access is required before submitting an outpass.';
-        }
-      }
-    }
-  } else if (!isAdvanceValid) {
-    DOM.btnSubmitOutpass.disabled = true;
-    DOM.btnSubmitOutpass.style.opacity = '0.6';
-    DOM.btnSubmitOutpass.style.cursor = 'not-allowed';
-    if (DOM.submitLocationNotice) {
-      DOM.submitLocationNotice.style.display = 'none';
-    }
   } else {
     DOM.btnSubmitOutpass.disabled = false;
     DOM.btnSubmitOutpass.style.opacity = '1';
     DOM.btnSubmitOutpass.style.cursor = 'pointer';
-    if (DOM.submitLocationNotice) {
-      DOM.submitLocationNotice.style.display = 'none';
-    }
   }
 }
 
@@ -1025,33 +982,6 @@ function initFormHandler() {
 
   DOM.outpassForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    // 1. Race Condition Guard: If location is currently being acquired, wait for it
-    if (typeof currentStudentLocationState !== 'undefined' && currentStudentLocationState === 'requesting' && activeLocationPromise) {
-      showFormMessage('Getting your location. Please wait...', 'info');
-      if (DOM.submitBtnText) DOM.submitBtnText.textContent = 'Getting your location. Please wait...';
-      try {
-        await activeLocationPromise;
-      } catch (err) {
-        // Handled inside requestStudentLocation
-      }
-      if (DOM.submitBtnText) DOM.submitBtnText.textContent = 'Submit Outpass Request';
-    }
-
-    // 2. Strict Location Requirement Guard: Must be READY
-    if (typeof currentStudentLocationState === 'undefined' || currentStudentLocationState !== 'ready') {
-      let locErr = 'Location access is required before submitting an outpass.';
-      if (currentStudentLocationState === 'denied') {
-        locErr = 'Location permission is required. Please enable location permission in browser settings.';
-      } else if (currentStudentLocationState === 'low_accuracy') {
-        locErr = 'Your location accuracy is currently insufficient for security verification.';
-      } else if (currentStudentLocationState === 'unavailable') {
-        locErr = 'Your current location could not be detected. Please turn on location services and try again.';
-      }
-      showFormMessage(locErr, 'error');
-      updateSubmitButtonState();
-      return;
-    }
 
     const isDuty = DOM.radioDuty && DOM.radioDuty.checked;
     const request_type = isDuty ? 'one_day_duty' : 'normal';
@@ -1169,9 +1099,6 @@ function initFormHandler() {
         // Refresh stats & list
         await Promise.all([loadStatusSummary(), loadMyRequests()]);
 
-        // Auto-refresh GPS location so parent has fresh coordinates for immediate approval
-        requestStudentLocation({ isUserTriggered: false });
-
         // Auto switch to My Requests tab after 1.2s
         setTimeout(() => {
           switchTab('my-requests');
@@ -1181,12 +1108,6 @@ function initFormHandler() {
       } else {
         if (data && data.code === 'ADVANCE_TIME_LIMIT') {
           checkAdvanceTimeValidity();
-        }
-        if (data && data.code === 'STUDENT_LOCATION_REQUIRED') {
-          if (typeof setStudentLocationState === 'function') {
-            setStudentLocationState('unavailable');
-          }
-          updateSubmitButtonState();
         }
         showFormMessage(data.message || 'Failed to submit outpass request. Please check your inputs.', 'error');
       }
@@ -1486,423 +1407,7 @@ function showExtAlert(msg, type) {
   alertBox.textContent = msg;
 }
 
-/* ==========================================================
-   10. STUDENT LIVE GPS LOCATION MODULE
-   ========================================================== */
-let studentGpsWatchInterval = null;
-let currentStudentLocationState = 'unavailable'; // 'ready' | 'requesting' | 'denied' | 'unavailable' | 'low_accuracy'
-let activeLocationPromise = null;
 
-function initStudentLiveLocation() {
-  if (DOM.btnRefreshStudentLocation) {
-    DOM.btnRefreshStudentLocation.addEventListener('click', () => {
-      requestStudentLocation({ isUserTriggered: true });
-    });
-  }
-
-  // Check stored location on server first
-  checkServerStudentLocation();
-
-  // Prompt and capture fresh GPS location on load
-  requestStudentLocation({ isUserTriggered: false });
-
-  // Keep location fresh: auto-refresh every 3.5 minutes (well within 5 min window)
-  if (studentGpsWatchInterval) clearInterval(studentGpsWatchInterval);
-  studentGpsWatchInterval = setInterval(() => {
-    requestStudentLocation({ isUserTriggered: false });
-  }, 3.5 * 60 * 1000);
-}
-
-async function checkServerStudentLocation() {
-  const token = getAuthToken();
-  if (!token) return;
-
-  try {
-    const res = await fetch('/api/outpass/student/location', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-
-    if (res.ok && data.success && data.hasLocation) {
-      if (data.isFresh) {
-        const accuracy = data.location ? Number(data.location.accuracy) : 0;
-        if (accuracy > 50 || accuracy <= 0) {
-          setStudentLocationState('low_accuracy');
-        } else {
-          setStudentLocationState('ready', data.location);
-        }
-      } else {
-        setStudentLocationState('unavailable');
-      }
-    } else {
-      setStudentLocationState('unavailable');
-    }
-  } catch (err) {
-    console.warn('[Student GPS Check Error]:', err.message);
-    setStudentLocationState('unavailable');
-  }
-}
-
-function requestStudentLocation(options = { isUserTriggered: false }) {
-  if (!navigator.geolocation) {
-    setStudentLocationState('unavailable');
-    return Promise.resolve(false);
-  }
-
-  setStudentLocationState('requesting');
-  if (DOM.btnRefreshStudentLocation) DOM.btnRefreshStudentLocation.disabled = true;
-
-  activeLocationPromise = new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const accuracy = position.coords.accuracy;
-          const capturedAt = new Date().toISOString();
-
-          // 50-meter accuracy security guard
-          if (isNaN(accuracy) || accuracy <= 0 || accuracy > 50) {
-            setStudentLocationState('low_accuracy');
-            if (options.isUserTriggered) {
-              showToast('Your location accuracy is currently insufficient for security verification.', 'error');
-            }
-            resolve(false);
-            return;
-          }
-
-          const token = getAuthToken();
-          if (!token) {
-            setStudentLocationState('unavailable');
-            resolve(false);
-            return;
-          }
-
-          const res = await fetch('/api/outpass/student/location', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              latitude: lat,
-              longitude: lng,
-              accuracy: accuracy,
-              captured_at: capturedAt,
-              source: 'browser_gps'
-            })
-          });
-
-          const data = await res.json();
-          if (res.ok && data.success) {
-            const loc = data.data || data.location || { latitude: lat, longitude: lng, accuracy, capturedAt };
-            setStudentLocationState('ready', loc);
-            if (options.isUserTriggered) {
-              showToast(`✓ Location updated successfully (±${Math.round(accuracy)}m).`, 'success');
-            }
-            resolve(true);
-          } else {
-            setStudentLocationState('unavailable');
-            if (options.isUserTriggered) {
-              showToast(data.message || 'Your current location could not be detected. Please turn on location services and try again.', 'error');
-            }
-            resolve(false);
-          }
-        } catch (err) {
-          console.error('[Student GPS Save Error]:', err);
-          setStudentLocationState('unavailable');
-          if (options.isUserTriggered) {
-            showToast('Unable to connect to location service.', 'error');
-          }
-          resolve(false);
-        } finally {
-          if (DOM.btnRefreshStudentLocation) DOM.btnRefreshStudentLocation.disabled = false;
-          activeLocationPromise = null;
-        }
-      },
-      (geoError) => {
-        if (geoError.code === geoError.PERMISSION_DENIED) {
-          setStudentLocationState('denied');
-          if (options.isUserTriggered) {
-            showToast('Please enable location permission in your browser settings to continue.', 'error');
-          }
-        } else {
-          setStudentLocationState('unavailable');
-          if (options.isUserTriggered) {
-            showToast('Your current location could not be detected. Please turn on location services and try again.', 'error');
-          }
-        }
-        if (DOM.btnRefreshStudentLocation) DOM.btnRefreshStudentLocation.disabled = false;
-        activeLocationPromise = null;
-        resolve(false);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 12000
-      }
-    );
-  });
-
-  return activeLocationPromise;
-}
-
-// Lightweight reverse-geocoding cache to avoid redundant network lookups
-const reverseGeoCache = new Map();
-
-/**
- * Resolves human-readable place name derived from actual latitude & longitude.
- * Falls back gracefully to "Location name unavailable" if offline or unreachable.
- * Never throws or disrupts the live GPS security workflow.
- */
-async function resolveHumanReadableLocation(lat, lng) {
-  if (lat === null || lat === undefined || lng === null || lng === undefined) {
-    return 'Location name unavailable';
-  }
-
-  const numLat = Number(lat);
-  const numLng = Number(lng);
-  if (isNaN(numLat) || isNaN(numLng)) {
-    return 'Location name unavailable';
-  }
-
-  // Cache key rounded to ~100m to reuse place name for nearby points
-  const cacheKey = `${numLat.toFixed(3)},${numLng.toFixed(3)}`;
-  if (reverseGeoCache.has(cacheKey)) {
-    return reverseGeoCache.get(cacheKey);
-  }
-
-  // Primary: BigDataCloud Client-side Reverse Geocoding (Free, CORS-friendly, zero credentials)
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(numLat)}&longitude=${encodeURIComponent(numLng)}&localityLanguage=en`;
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const placeParts = [];
-      const locality = data.locality || data.city;
-      const state = data.principalSubdivision;
-      if (locality) placeParts.push(locality);
-      if (state && state !== locality) placeParts.push(state);
-
-      const placeName = placeParts.join(', ').trim();
-      if (placeName) {
-        reverseGeoCache.set(cacheKey, placeName);
-        return placeName;
-      }
-    }
-  } catch (err) {
-    console.debug('[Reverse Geocode Primary Notice]:', err.message);
-  }
-
-  // Secondary Fallback: OpenStreetMap Nominatim
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-    const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(numLat)}&lon=${encodeURIComponent(numLng)}`;
-    const res = await fetch(nomUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      const addr = data.address || {};
-      const city = addr.city || addr.town || addr.village || addr.suburb || addr.county || addr.state_district;
-      const state = addr.state;
-      const placeParts = [];
-      if (city) placeParts.push(city);
-      if (state && state !== city) placeParts.push(state);
-
-      const placeName = placeParts.join(', ').trim();
-      if (placeName) {
-        reverseGeoCache.set(cacheKey, placeName);
-        return placeName;
-      }
-    }
-  } catch (err) {
-    console.debug('[Reverse Geocode Fallback Notice]:', err.message);
-  }
-
-  return 'Location name unavailable';
-}
-
-/**
- * Sets and renders the Student GPS state machine:
- * A. 'ready'          -> ✓ Location Ready (green)
- * B. 'requesting'     -> ⌛ Getting your location... (blue)
- * C. 'denied'         -> ⚠ Location Permission Required (red) + [Retry Location]
- * D. 'unavailable'    -> ⚠ Location Unavailable (red) + [Retry Location]
- * E. 'low_accuracy'   -> ⚠ Location Accuracy Too Low (red) + [Retry Location]
- */
-function setStudentLocationState(state, coords = null) {
-  currentStudentLocationState = state;
-
-  if (!DOM.gpsStatusPill) {
-    updateSubmitButtonState();
-    return;
-  }
-
-  switch (state) {
-    case 'ready': {
-      DOM.gpsStatusPill.className = 'status-badge status-approved';
-      DOM.gpsStatusPill.style.background = 'rgba(16, 185, 129, 0.15)';
-      DOM.gpsStatusPill.style.color = '#10b981';
-      DOM.gpsStatusPill.textContent = '✓ Location Ready';
-
-      if (DOM.gpsIconContainer) {
-        DOM.gpsIconContainer.style.background = 'rgba(16, 185, 129, 0.15)';
-        DOM.gpsIconContainer.style.color = '#10b981';
-      }
-
-      if (DOM.gpsStatusSubtext) {
-        DOM.gpsStatusSubtext.textContent = 'Your location is available for security verification.';
-      }
-
-      if (DOM.btnRefreshLocLabel) {
-        DOM.btnRefreshLocLabel.textContent = 'Update My Location';
-      }
-
-      const latNum = (coords && coords.latitude !== undefined) ? Number(coords.latitude) : ((coords && coords.lat !== undefined) ? Number(coords.lat) : null);
-      const lngNum = (coords && coords.longitude !== undefined) ? Number(coords.longitude) : ((coords && coords.lng !== undefined) ? Number(coords.lng) : null);
-      const accNum = (coords && coords.accuracy !== undefined) ? Number(coords.accuracy) : null;
-      const capturedAt = (coords && (coords.capturedAt || coords.captured_at));
-      const timeStr = capturedAt ? formatTime(capturedAt) : formatTime(new Date());
-
-      if (DOM.gpsCoordsContainer && latNum !== null && lngNum !== null) {
-        DOM.gpsCoordsContainer.style.display = 'block';
-        if (DOM.gpsLatText) DOM.gpsLatText.textContent = `${latNum.toFixed(5)}°`;
-        if (DOM.gpsLngText) DOM.gpsLngText.textContent = `${lngNum.toFixed(5)}°`;
-        if (DOM.gpsAccuracyText) DOM.gpsAccuracyText.textContent = `±${Math.round(accNum || 0)}m`;
-        if (DOM.gpsTimeText) DOM.gpsTimeText.textContent = timeStr;
-
-        if (DOM.gpsPlaceName) {
-          DOM.gpsPlaceName.textContent = 'Resolving place...';
-          resolveHumanReadableLocation(latNum, lngNum).then(placeName => {
-            if (DOM.gpsPlaceName) {
-              DOM.gpsPlaceName.textContent = placeName || 'Location name unavailable';
-            }
-          }).catch(() => {
-            if (DOM.gpsPlaceName) DOM.gpsPlaceName.textContent = 'Location name unavailable';
-          });
-        }
-      }
-      break;
-    }
-
-    case 'requesting': {
-      DOM.gpsStatusPill.className = 'status-badge';
-      DOM.gpsStatusPill.style.background = 'rgba(59, 130, 246, 0.15)';
-      DOM.gpsStatusPill.style.color = '#3b82f6';
-      DOM.gpsStatusPill.textContent = '⌛ Getting your location...';
-
-      if (DOM.gpsIconContainer) {
-        DOM.gpsIconContainer.style.background = 'rgba(59, 130, 246, 0.15)';
-        DOM.gpsIconContainer.style.color = '#3b82f6';
-      }
-
-      if (DOM.gpsStatusSubtext) {
-        DOM.gpsStatusSubtext.textContent = 'Please allow location access.';
-      }
-
-      if (DOM.btnRefreshLocLabel) {
-        DOM.btnRefreshLocLabel.textContent = 'Getting location...';
-      }
-
-      if (DOM.gpsCoordsContainer) DOM.gpsCoordsContainer.style.display = 'none';
-      break;
-    }
-
-    case 'denied': {
-      DOM.gpsStatusPill.className = 'status-badge status-rejected';
-      DOM.gpsStatusPill.style.background = 'rgba(239, 68, 68, 0.15)';
-      DOM.gpsStatusPill.style.color = '#ef4444';
-      DOM.gpsStatusPill.textContent = '⚠ Location Permission Required';
-
-      if (DOM.gpsIconContainer) {
-        DOM.gpsIconContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-        DOM.gpsIconContainer.style.color = '#ef4444';
-      }
-
-      if (DOM.gpsStatusSubtext) {
-        DOM.gpsStatusSubtext.textContent = 'Please enable location permission in your browser settings to continue.';
-      }
-
-      if (DOM.btnRefreshLocLabel) {
-        DOM.btnRefreshLocLabel.textContent = 'Retry Location';
-      }
-
-      if (DOM.gpsCoordsContainer) DOM.gpsCoordsContainer.style.display = 'none';
-      break;
-    }
-
-    case 'low_accuracy': {
-      DOM.gpsStatusPill.className = 'status-badge status-rejected';
-      DOM.gpsStatusPill.style.background = 'rgba(239, 68, 68, 0.15)';
-      DOM.gpsStatusPill.style.color = '#ef4444';
-      DOM.gpsStatusPill.textContent = '⚠ Location Accuracy Too Low';
-
-      if (DOM.gpsIconContainer) {
-        DOM.gpsIconContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-        DOM.gpsIconContainer.style.color = '#ef4444';
-      }
-
-      if (DOM.gpsStatusSubtext) {
-        DOM.gpsStatusSubtext.textContent = 'Your location accuracy is currently insufficient for security verification.';
-      }
-
-      if (DOM.btnRefreshLocLabel) {
-        DOM.btnRefreshLocLabel.textContent = 'Retry Location';
-      }
-
-      if (DOM.gpsCoordsContainer) DOM.gpsCoordsContainer.style.display = 'none';
-      break;
-    }
-
-    case 'unavailable':
-    default: {
-      DOM.gpsStatusPill.className = 'status-badge status-rejected';
-      DOM.gpsStatusPill.style.background = 'rgba(239, 68, 68, 0.15)';
-      DOM.gpsStatusPill.style.color = '#ef4444';
-      DOM.gpsStatusPill.textContent = '⚠ Location Unavailable';
-
-      if (DOM.gpsIconContainer) {
-        DOM.gpsIconContainer.style.background = 'rgba(239, 68, 68, 0.15)';
-        DOM.gpsIconContainer.style.color = '#ef4444';
-      }
-
-      if (DOM.gpsStatusSubtext) {
-        DOM.gpsStatusSubtext.textContent = 'Your current location could not be detected. Please turn on location services and try again.';
-      }
-
-      if (DOM.btnRefreshLocLabel) {
-        DOM.btnRefreshLocLabel.textContent = 'Retry Location';
-      }
-
-      if (DOM.gpsCoordsContainer) DOM.gpsCoordsContainer.style.display = 'none';
-      break;
-    }
-  }
-
-  updateSubmitButtonState();
-}
-
-function updateGpsUI(state, text, coords = null) {
-  if (state === 'active') {
-    setStudentLocationState('ready', coords);
-  } else if (state === 'requesting') {
-    setStudentLocationState('requesting');
-  } else if (state === 'denied') {
-    setStudentLocationState('denied');
-  } else if (state === 'low_accuracy') {
-    setStudentLocationState('low_accuracy');
-  } else {
-    setStudentLocationState('unavailable');
-  }
-}
 
 function formatTime(dtStr) {
   if (!dtStr) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });

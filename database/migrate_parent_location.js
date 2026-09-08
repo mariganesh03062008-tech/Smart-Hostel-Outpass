@@ -77,14 +77,23 @@ async function migrateParentLocationSchema() {
     if (!outpassColNames.includes('parent_approval_accuracy')) {
       await pool.query('ALTER TABLE outpass_requests ADD COLUMN parent_approval_accuracy FLOAT NULL AFTER parent_approval_lng;');
     }
+    if (!outpassColNames.includes('parent_loc_timestamp')) {
+      await pool.query('ALTER TABLE outpass_requests ADD COLUMN parent_loc_timestamp DATETIME NULL AFTER parent_approval_accuracy;');
+    }
     if (!outpassColNames.includes('student_loc_lat')) {
-      await pool.query('ALTER TABLE outpass_requests ADD COLUMN student_loc_lat DECIMAL(10, 7) NULL AFTER parent_approval_accuracy;');
+      await pool.query('ALTER TABLE outpass_requests ADD COLUMN student_loc_lat DECIMAL(10, 7) NULL AFTER parent_loc_timestamp;');
     }
     if (!outpassColNames.includes('student_loc_lng')) {
       await pool.query('ALTER TABLE outpass_requests ADD COLUMN student_loc_lng DECIMAL(10, 7) NULL AFTER student_loc_lat;');
     }
+    if (!outpassColNames.includes('student_loc_accuracy')) {
+      await pool.query('ALTER TABLE outpass_requests ADD COLUMN student_loc_accuracy FLOAT NULL AFTER student_loc_lng;');
+    }
+    if (!outpassColNames.includes('student_loc_timestamp')) {
+      await pool.query('ALTER TABLE outpass_requests ADD COLUMN student_loc_timestamp DATETIME NULL AFTER student_loc_accuracy;');
+    }
     if (!outpassColNames.includes('distance_meters')) {
-      await pool.query('ALTER TABLE outpass_requests ADD COLUMN distance_meters DECIMAL(10, 2) NULL AFTER student_loc_lng;');
+      await pool.query('ALTER TABLE outpass_requests ADD COLUMN distance_meters DECIMAL(10, 2) NULL AFTER student_loc_timestamp;');
     }
     if (!outpassColNames.includes('parent_location_verified')) {
       await pool.query('ALTER TABLE outpass_requests ADD COLUMN parent_location_verified TINYINT(1) DEFAULT 0 AFTER distance_meters;');

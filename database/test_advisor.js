@@ -127,6 +127,12 @@ async function runAdvisorTests() {
   const odPassId2 = od2Res.data.data.id;
 
   // 8. Mech Student Submits OD Request #3 (For Department Isolation Test)
+  await request('/api/outpass/student/location', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${studentMechToken}` },
+    body: { latitude: 13.0000000, longitude: 80.0000000, accuracy: 5.0, source: 'browser_gps' }
+  });
+
   const od3Res = await request('/api/outpass', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${studentMechToken}` },
@@ -145,6 +151,9 @@ async function runAdvisorTests() {
       student_phone: '9876500018'
     }
   });
+  if (!od3Res.data?.data) {
+    console.error('od3Res failed with:', od3Res.status, od3Res.data);
+  }
   assert(od3Res.status === 201 && od3Res.data.data.status === 'PENDING_ADVISOR', '8. Mech Student Submits OD #3 (Initial status: PENDING_ADVISOR)');
   const odPassId3 = od3Res.data.data.id;
 

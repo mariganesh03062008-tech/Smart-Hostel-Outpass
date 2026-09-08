@@ -122,21 +122,31 @@ async function runWardenTests() {
   assert(norm1Res.status === 201 && norm1Res.data.data.status === 'PENDING_PARENT', '6. Submit Normal Outpass #1 (PENDING_PARENT)');
   const normalPassId1 = norm1Res.data.data.id;
 
-  // Parent verifies GPS location (50m >= 5m) and approves #1
-  const locVerify1 = await request(`/api/parent/outpass/${normalPassId1}/location-verify`, {
+  // Parent registers face and verifies face biometrics for #1
+  const rawVec = new Array(128).fill(0).map((_, i) => Math.sin(i + 1));
+  const norm = Math.sqrt(rawVec.reduce((s, v) => s + v * v, 0));
+  const testFaceVector = rawVec.map(v => Number((v / norm).toFixed(6)));
+
+  await request('/api/parent/face/register', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${parentToken}` },
-    body: { latitude: 13.0004500, longitude: 80.0000000, accuracy: 4.0 }
+    body: { faceDescriptor: testFaceVector }
+  });
+
+  const faceVerify1 = await request(`/api/parent/outpass/${normalPassId1}/face-verify`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${parentToken}` },
+    body: { faceDescriptor: testFaceVector }
   });
   const parentApprove1 = await request(`/api/parent/outpass/${normalPassId1}/approve`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${parentToken}` },
     body: {
-      verification_token: locVerify1.data?.verificationToken,
+      verification_token: faceVerify1.data?.verificationToken,
       parent_message: 'Approved for medical consultation.'
     }
   });
-  assert(parentApprove1.ok && parentApprove1.data.data.status === 'PENDING_WARDEN', '6B. Parent grants consent with GPS verification for #1 (Status -> PENDING_WARDEN)');
+  assert(parentApprove1.ok && parentApprove1.data.data.status === 'PENDING_WARDEN', '6B. Parent grants consent with Face Biometric verification for #1 (Status -> PENDING_WARDEN)');
 
   // 7. Submit Normal Outpass #2 (For Rejection Test)
   const norm2Res = await request('/api/outpass', {
@@ -156,21 +166,21 @@ async function runWardenTests() {
   assert(norm2Res.status === 201 && norm2Res.data.data.status === 'PENDING_PARENT', '7. Submit Normal Outpass #2 (PENDING_PARENT)');
   const normalPassId2 = norm2Res.data.data.id;
 
-  // Parent verifies GPS location and approves #2
-  const locVerify2 = await request(`/api/parent/outpass/${normalPassId2}/location-verify`, {
+  // Parent verifies face biometrics and approves #2
+  const faceVerify2 = await request(`/api/parent/outpass/${normalPassId2}/face-verify`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${parentToken}` },
-    body: { latitude: 13.0004500, longitude: 80.0000000, accuracy: 4.0 }
+    body: { faceDescriptor: testFaceVector }
   });
   const parentApprove2 = await request(`/api/parent/outpass/${normalPassId2}/approve`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${parentToken}` },
     body: {
-      verification_token: locVerify2.data?.verificationToken,
+      verification_token: faceVerify2.data?.verificationToken,
       parent_message: 'Consent granted.'
     }
   });
-  assert(parentApprove2.ok && parentApprove2.data.data.status === 'PENDING_WARDEN', '7B. Parent grants consent with GPS verification for #2 (Status -> PENDING_WARDEN)');
+  assert(parentApprove2.ok && parentApprove2.data.data.status === 'PENDING_WARDEN', '7B. Parent grants consent with Face Biometric verification for #2 (Status -> PENDING_WARDEN)');
 
   // 7C. Submit Normal Outpass #3 (Parent Rejection Guardrail Test)
   const norm3Res = await request('/api/outpass', {
@@ -234,14 +244,11 @@ async function runWardenTests() {
     foundNorm1.studentName &&
     foundNorm1.studentRegNo &&
     foundNorm1.parentVerifiedMobile === '9876543210' &&
-    foundNorm1.parentApprovalLat !== null &&
-    foundNorm1.parentApprovalLng !== null &&
-    foundNorm1.distanceMeters >= 5 &&
-    foundNorm1.locationVerificationResult === 'VERIFIED' &&
-    foundNorm1.parentMessage === 'Approved for medical consultation.' &&
-    foundNorm1.studentLocLat !== null &&
-    foundNorm1.studentLocLng !== null,
-    '9C. Parent Response Display verified (Student Info, Mobile, GPS, Accuracy, Distance, Message, Verification Result)'
+    foundNorm1.parentFaceVerified === 1 &&
+    foundNorm1.faceVerificationResult === 'VERIFIED' &&
+    foundNorm1.biometricVerificationResult === 'VERIFIED' &&
+    foundNorm1.parentMessage === 'Approved for medical consultation.',
+    '9C. Parent Response Display verified (Student Info, Mobile, Face Biometrics Verified, Message)'
   );
 
   // 10. Check Warden Pending Duty Queue DOES NOT include Duty request before Advisor approval!

@@ -1,15 +1,21 @@
 /**
  * Smart Hostel Outpass Management System
- * Parent Dashboard Controller - Hardware-Independent Biometric Fingerprint & Same-Language Voice Engine
+ * Parent Dashboard Controller - AI Face Biometric Verification & Same-Language Voice Engine
  */
 
 // State
 let currentParent = null;
 let linkedStudent = null;
 let activeTab = 'pending-queue';
-let isLocationVerified = false;
+let isFaceVerified = false;
+let isFaceRegistered = false;
 let activeVerificationToken = null;
-let latestVerifiedDistance = null;
+let liveFaceDescriptor = null;
+let faceApiModelsLoaded = false;
+let registerVideoStream = null;
+let verifyVideoStream = null;
+let registerDetectionInterval = null;
+let verifyDetectionInterval = null;
 let pendingList = [];
 let approvedList = [];
 let rejectedList = [];
@@ -22,55 +28,6 @@ let activeChatRecognizer = null;
 let activeModalRecognizer = null;
 let isRecordingChatVoice = false;
 let isRecordingModalVoice = false;
-
-/// Reverse Geocoding Cache & Helper for Parent Location
-const reverseGeoCache = new Map();
-
-async function resolveHumanReadableLocation(lat, lng) {
-  if (!lat || !lng) return 'Location not available';
-  const latNum = parseFloat(lat);
-  const lngNum = parseFloat(lng);
-  if (isNaN(latNum) || isNaN(lngNum)) return 'Location not available';
-  const cacheKey = `${latNum.toFixed(3)},${lngNum.toFixed(3)}`;
-  if (reverseGeoCache.has(cacheKey)) {
-    return reverseGeoCache.get(cacheKey);
-  }
-  try {
-    const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latNum}&longitude=${lngNum}&localityLanguage=en`;
-    const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(4000) });
-    if (bdcRes.ok) {
-      const d = await bdcRes.json();
-      const parts = [];
-      if (d.locality && d.locality !== d.city) parts.push(d.locality);
-      if (d.city) parts.push(d.city);
-      else if (d.principalSubdivision) parts.push(d.principalSubdivision);
-      if (d.countryCode) parts.push(d.countryCode);
-      if (parts.length > 0) {
-        const place = parts.join(', ');
-        reverseGeoCache.set(cacheKey, place);
-        return place;
-      }
-    }
-  } catch (e) {}
-  try {
-    const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latNum}&lon=${lngNum}`;
-    const nomRes = await fetch(nomUrl, {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'SmartHostelOutpass/1.0' },
-      signal: AbortSignal.timeout(4000)
-    });
-    if (nomRes.ok) {
-      const nd = await nomRes.json();
-      if (nd.name || nd.display_name) {
-        const fallbackPlace = nd.address?.city || nd.address?.town || nd.address?.village || nd.name || 'Campus vicinity';
-        reverseGeoCache.set(cacheKey, fallbackPlace);
-        return fallbackPlace;
-      }
-    }
-  } catch (e) {}
-  const defaultPlace = `Lat: ${latNum.toFixed(4)}, Lng: ${lngNum.toFixed(4)}`;
-  reverseGeoCache.set(cacheKey, defaultPlace);
-  return defaultPlace;
-}
 
 // DOM Elements Cache
 const DOM = {
@@ -85,13 +42,13 @@ const DOM = {
   dashboardSidebar: document.getElementById('dashboardSidebar'),
   sidebarBackdrop: document.getElementById('sidebarBackdrop'),
 
-  // Proximity Security Hero & Banner
-  proximitySecurityCard: document.getElementById('proximitySecurityCard'),
-  securityIconBox: document.getElementById('securityIconBox'),
-  verifiedMobileBadge: document.getElementById('verifiedMobileBadge'),
+  // Face Biometric Security Hero & Card
+  faceSecurityCard: document.getElementById('faceSecurityCard'),
+  faceSecurityIconBox: document.getElementById('faceSecurityIconBox'),
+  heroFaceStatus: document.getElementById('heroFaceStatus'),
+  heroFaceBtnText: document.getElementById('heroFaceBtnText'),
+  btnOpenFaceEnrollHero: document.getElementById('btnOpenFaceEnrollHero'),
   heroParentMobile: document.getElementById('heroParentMobile'),
-  securityCardTitle: document.getElementById('securityCardTitle'),
-  securityCardSubtext: document.getElementById('securityCardSubtext'),
   authVerifiedBadge: document.getElementById('authVerifiedBadge'),
   authBadgeLabel: document.getElementById('authBadgeLabel'),
 
@@ -111,6 +68,7 @@ const DOM = {
   profSecondaryPhone: document.getElementById('profSecondaryPhone'),
   profEmail: document.getElementById('profEmail'),
   profAddress: document.getElementById('profAddress'),
+  profSecurityModel: document.getElementById('profSecurityModel'),
   profWardName: document.getElementById('profWardName'),
   profWardReg: document.getElementById('profWardReg'),
   profWardDept: document.getElementById('profWardDept'),
@@ -146,26 +104,25 @@ const DOM = {
   detailsModal: document.getElementById('detailsModal'),
   detailsModalBody: document.getElementById('detailsModalBody'),
 
-  // 4. Location Verification & Approval Modal
+  // 4. Face Verification & Approval Modal
   approveModal: document.getElementById('approveModal'),
   approveRequestSummaryBox: document.getElementById('approveRequestSummaryBox'),
-  locationVerifySection: document.getElementById('locationVerifySection'),
-  locSecurityPill: document.getElementById('locSecurityPill'),
-  modalVerifiedMobileText: document.getElementById('modalVerifiedMobileText'),
-  locVerifyBox: document.getElementById('locVerifyBox'),
-  locRadarPulse: document.getElementById('locRadarPulse'),
-  locPinSvg: document.getElementById('locPinSvg'),
-  locStatusHeading: document.getElementById('locStatusHeading'),
-  locStatusSubtext: document.getElementById('locStatusSubtext'),
-  btnTriggerLocVerify: document.getElementById('btnTriggerLocVerify'),
-  btnTriggerLocVerifyLabel: document.getElementById('btnTriggerLocVerifyLabel'),
-  locDetailsContainer: document.getElementById('locDetailsContainer'),
-  locDistanceBadge: document.getElementById('locDistanceBadge'),
-  locAccuracyBadge: document.getElementById('locAccuracyBadge'),
-  locPlaceText: document.getElementById('locPlaceText'),
-  locResultBanner: document.getElementById('locResultBanner'),
-  locResultText: document.getElementById('locResultText'),
+  faceVerifyCard: document.getElementById('faceVerifyCard'),
+  faceVerifyPill: document.getElementById('faceVerifyPill'),
+  faceVerifyPillText: document.getElementById('faceVerifyPillText'),
+  approveFaceVideo: document.getElementById('approveFaceVideo'),
+  approveFaceCanvas: document.getElementById('approveFaceCanvas'),
+  approveCamOverlayBadge: document.getElementById('approveCamOverlayBadge'),
+  faceDecisionBanner: document.getElementById('faceDecisionBanner'),
+  faceDecisionIcon: document.getElementById('faceDecisionIcon'),
+  faceDecisionTitle: document.getElementById('faceDecisionTitle'),
+  faceDecisionMsg: document.getElementById('faceDecisionMsg'),
+  btnTriggerFaceVerify: document.getElementById('btnTriggerFaceVerify'),
+
   parentMessageConsentSection: document.getElementById('parentMessageConsentSection'),
+  consentVerifiedNotice: document.getElementById('consentVerifiedNotice'),
+  faceConsentUnlockedIcon: document.getElementById('faceConsentUnlockedIcon'),
+  faceConsentUnlockedLabel: document.getElementById('faceConsentUnlockedLabel'),
   approveParentMessage: document.getElementById('approveParentMessage'),
   modalVoiceStatusBadge: document.getElementById('modalVoiceStatusBadge'),
   modalVoiceStatusText: document.getElementById('modalVoiceStatusText'),
@@ -176,7 +133,19 @@ const DOM = {
   btnConfirmApprove: document.getElementById('btnConfirmApprove'),
   btnConfirmApproveLabel: document.getElementById('btnConfirmApproveLabel'),
 
-  // 5. Rejection Modal
+  // 5. Face Registration Modal
+  faceRegisterModal: document.getElementById('faceRegisterModal'),
+  registerFaceVideo: document.getElementById('registerFaceVideo'),
+  registerFaceCanvas: document.getElementById('registerFaceCanvas'),
+  registerCamOverlayBadge: document.getElementById('registerCamOverlayBadge'),
+  registerStatusBanner: document.getElementById('registerStatusBanner'),
+  registerStatusIcon: document.getElementById('registerStatusIcon'),
+  registerStatusTitle: document.getElementById('registerStatusTitle'),
+  registerStatusMsg: document.getElementById('registerStatusMsg'),
+  btnCaptureAndRegisterFace: document.getElementById('btnCaptureAndRegisterFace'),
+  btnCaptureRegisterLabel: document.getElementById('btnCaptureRegisterLabel'),
+
+  // 6. Rejection Modal
   rejectModal: document.getElementById('rejectModal'),
   rejectReasonInput: document.getElementById('rejectReasonInput'),
   btnConfirmReject: document.getElementById('btnConfirmReject'),
@@ -369,11 +338,31 @@ async function refreshParentData() {
 function updateHeroSecurityCard(parentObj) {
   const pPhone = parentObj?.verifiedMobile || parentObj?.phone || currentParent?.phone || currentParent?.identifier || '-';
   if (DOM.heroParentMobile) DOM.heroParentMobile.textContent = pPhone;
+  isFaceRegistered = Boolean(parentObj?.faceRegistered || parentObj?.face_registered);
+
+  if (DOM.heroFaceStatus) {
+    if (isFaceRegistered) {
+      DOM.heroFaceStatus.textContent = 'Enrolled & Verified';
+      DOM.heroFaceStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+      DOM.heroFaceStatus.style.color = '#34d399';
+      DOM.heroFaceStatus.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    } else {
+      DOM.heroFaceStatus.textContent = 'Biometrics Required';
+      DOM.heroFaceStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+      DOM.heroFaceStatus.style.color = '#f87171';
+      DOM.heroFaceStatus.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    }
+  }
+
+  if (DOM.heroFaceBtnText) {
+    DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'Update Face Scan' : 'Enroll Face Biometrics';
+  }
+
   if (DOM.authVerifiedBadge) {
-    DOM.authVerifiedBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-    DOM.authVerifiedBadge.style.color = '#34d399';
-    DOM.authVerifiedBadge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-    if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = 'Verified Mobile & GPS Proximity Security';
+    DOM.authVerifiedBadge.style.background = isFaceRegistered ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    DOM.authVerifiedBadge.style.color = isFaceRegistered ? '#34d399' : '#f87171';
+    DOM.authVerifiedBadge.style.borderColor = isFaceRegistered ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+    if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = isFaceRegistered ? 'AI Face Biometric Protected' : 'Face Biometrics Pending';
   }
 }
 
@@ -410,7 +399,7 @@ function populateParentProfileTab(parent, student) {
   if (DOM.profParentAddr) DOM.profParentAddr.textContent = pAddress;
   if (DOM.profRelationship) DOM.profRelationship.textContent = parent?.relationship || 'Parent / Guardian';
   if (DOM.profSecurityModel) {
-    DOM.profSecurityModel.textContent = 'Verified Mobile + Live GPS (≥ 5m Proximity Rule)';
+    DOM.profSecurityModel.textContent = 'AI Face Biometric Verification (128D Neural Matching, D ≤ 0.45)';
   }
 
   if (student) {
@@ -792,12 +781,571 @@ function renderRejectedTable(list) {
 }
 
 /* ==========================================================
-   6. FINGERPRINT VERIFICATION & OUTPASS APPROVAL FLOW
+   6. AI FACE BIOMETRIC VERIFICATION & ENROLLMENT FLOW
    ========================================================== */
+
+/**
+ * Loads face-api.js neural network models from /models
+ */
+async function loadFaceApiModels() {
+  if (faceApiModelsLoaded) return true;
+  if (typeof faceapi === 'undefined') {
+    console.error('face-api.js library not loaded in document');
+    return false;
+  }
+  try {
+    const MODEL_URL = '/models';
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+    faceApiModelsLoaded = true;
+    console.log('[Face-API] All 3 neural models loaded successfully.');
+    return true;
+  } catch (err) {
+    console.error('[Face-API] Model loading failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Starts camera on a given HTMLVideoElement
+ */
+async function startCamera(videoElement) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('Camera access is not supported by your browser.');
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+      facingMode: 'user'
+    },
+    audio: false
+  });
+  if (videoElement) {
+    videoElement.srcObject = stream;
+    await new Promise((resolve) => {
+      videoElement.onloadedmetadata = () => {
+        videoElement.play();
+        resolve();
+      };
+    });
+  }
+  return stream;
+}
+
+/**
+ * Stops camera tracks and clears video source
+ */
+function stopCamera(stream, videoElement) {
+  if (stream) {
+    try {
+      stream.getTracks().forEach(t => t.stop());
+    } catch (e) {}
+  }
+  if (videoElement) {
+    videoElement.srcObject = null;
+  }
+}
+
+/**
+ * Checks parent face registration status from backend
+ */
+async function checkParentFaceRegistrationStatus() {
+  const token = getAuthToken();
+  if (!token) return { isRegistered: false };
+
+  try {
+    const res = await fetch('/api/parent/face/status', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    isFaceRegistered = !!(res.ok && data.success && data.faceRegistered);
+
+    if (DOM.heroFaceStatus) {
+      if (isFaceRegistered) {
+        DOM.heroFaceStatus.textContent = 'Enrolled & Verified';
+        DOM.heroFaceStatus.style.background = 'rgba(16, 185, 129, 0.15)';
+        DOM.heroFaceStatus.style.color = '#34d399';
+        DOM.heroFaceStatus.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+      } else {
+        DOM.heroFaceStatus.textContent = 'Biometrics Required';
+        DOM.heroFaceStatus.style.background = 'rgba(239, 68, 68, 0.15)';
+        DOM.heroFaceStatus.style.color = '#f87171';
+        DOM.heroFaceStatus.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+      }
+    }
+
+    if (DOM.heroFaceBtnText) {
+      DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'Update Face Scan' : 'Enroll Face Biometrics';
+    }
+
+    return { isRegistered: isFaceRegistered, registeredAt: data.registeredAt };
+  } catch (err) {
+    console.error('Error checking face status:', err);
+    return { isRegistered: false };
+  }
+}
+
+/**
+ * Opens Face Registration Modal and starts camera loop
+ */
+async function openFaceRegisterModal() {
+  openModal('faceRegisterModal');
+  if (DOM.registerStatusBanner) {
+    setRegisterBannerState('READY', 'Position your face in the oval guide and look directly at the camera.');
+  }
+  if (DOM.btnCaptureAndRegisterFace) {
+    DOM.btnCaptureAndRegisterFace.disabled = true;
+  }
+
+  const loaded = await loadFaceApiModels();
+  if (!loaded) {
+    setRegisterBannerState('ERROR', 'Unable to load Face AI models. Check your network or models directory.');
+    return;
+  }
+
+  try {
+    registerVideoStream = await startCamera(DOM.registerFaceVideo);
+    if (DOM.btnCaptureAndRegisterFace) {
+      DOM.btnCaptureAndRegisterFace.disabled = false;
+    }
+    startDetectionPreview(DOM.registerFaceVideo, DOM.registerFaceCanvas, (hasFace) => {
+      if (DOM.registerCamOverlayBadge) {
+        DOM.registerCamOverlayBadge.textContent = hasFace ? 'Face Detected' : 'Aligning Face...';
+        DOM.registerCamOverlayBadge.style.background = hasFace ? 'rgba(16,185,129,0.85)' : 'rgba(0,0,0,0.6)';
+      }
+    });
+  } catch (err) {
+    console.error('Register Camera Error:', err);
+    setRegisterBannerState('ERROR', 'Camera error: ' + (err.message || 'Permission denied'));
+  }
+}
+
+/**
+ * Closes Face Registration Modal and cleans up
+ */
+function closeFaceRegisterModal() {
+  if (registerDetectionInterval) {
+    clearInterval(registerDetectionInterval);
+    registerDetectionInterval = null;
+  }
+  stopCamera(registerVideoStream, DOM.registerFaceVideo);
+  registerVideoStream = null;
+  if (DOM.registerFaceCanvas) {
+    const ctx = DOM.registerFaceCanvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, DOM.registerFaceCanvas.width, DOM.registerFaceCanvas.height);
+  }
+  closeModal('faceRegisterModal');
+}
+
+/**
+ * Real-time canvas overlay preview for face bounding box
+ */
+function startDetectionPreview(videoElement, canvasElement, onFaceDetected) {
+  if (!videoElement || !canvasElement || typeof faceapi === 'undefined') return;
+
+  const displaySize = { width: videoElement.videoWidth || 640, height: videoElement.videoHeight || 480 };
+  faceapi.matchDimensions(canvasElement, displaySize);
+
+  const intervalId = setInterval(async () => {
+    if (!videoElement.srcObject || videoElement.paused || videoElement.ended) return;
+    try {
+      const detection = await faceapi.detectSingleFace(videoElement).withFaceLandmarks();
+      const ctx = canvasElement.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+      if (detection) {
+        const resized = faceapi.resizeResults(detection, displaySize);
+        faceapi.draw.drawDetections(canvasElement, resized);
+        if (onFaceDetected) onFaceDetected(true);
+      } else {
+        if (onFaceDetected) onFaceDetected(false);
+      }
+    } catch (e) {}
+  }, 250);
+
+  if (videoElement === DOM.registerFaceVideo) {
+    registerDetectionInterval = intervalId;
+  } else {
+    verifyDetectionInterval = intervalId;
+  }
+}
+
+function setRegisterBannerState(state, message) {
+  if (!DOM.registerStatusBanner) return;
+  DOM.registerStatusBanner.className = 'face-decision-banner';
+  if (state === 'SUCCESS') {
+    DOM.registerStatusBanner.style.background = 'rgba(16, 185, 129, 0.15)';
+    DOM.registerStatusBanner.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    DOM.registerStatusBanner.style.color = '#34d399';
+    if (DOM.registerStatusTitle) DOM.registerStatusTitle.textContent = 'Registration Successful';
+    if (DOM.registerStatusIcon) DOM.registerStatusIcon.textContent = '✅';
+  } else if (state === 'ERROR') {
+    DOM.registerStatusBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.registerStatusBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.registerStatusBanner.style.color = '#f87171';
+    if (DOM.registerStatusTitle) DOM.registerStatusTitle.textContent = 'Registration Error';
+    if (DOM.registerStatusIcon) DOM.registerStatusIcon.textContent = '⚠️';
+  } else if (state === 'PROCESSING') {
+    DOM.registerStatusBanner.style.background = 'rgba(59, 130, 246, 0.15)';
+    DOM.registerStatusBanner.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+    DOM.registerStatusBanner.style.color = '#60a5fa';
+    if (DOM.registerStatusTitle) DOM.registerStatusTitle.textContent = 'Processing Biometric Enrollment...';
+    if (DOM.registerStatusIcon) DOM.registerStatusIcon.textContent = '⏳';
+  } else {
+    DOM.registerStatusBanner.style.background = 'rgba(59, 130, 246, 0.15)';
+    DOM.registerStatusBanner.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+    DOM.registerStatusBanner.style.color = '#60a5fa';
+    if (DOM.registerStatusTitle) DOM.registerStatusTitle.textContent = 'Face Biometric Enrollment';
+    if (DOM.registerStatusIcon) DOM.registerStatusIcon.textContent = '📷';
+  }
+  if (DOM.registerStatusMsg) DOM.registerStatusMsg.textContent = message;
+}
+
+/**
+ * Captures live face descriptor from register video and enrolls parent face
+ */
+async function captureAndRegisterFace() {
+  const token = getAuthToken();
+  if (!token) return;
+
+  if (DOM.btnCaptureAndRegisterFace) {
+    DOM.btnCaptureAndRegisterFace.disabled = true;
+    if (DOM.btnCaptureRegisterLabel) DOM.btnCaptureRegisterLabel.textContent = 'Extracting 128D Embeddings...';
+  }
+  setRegisterBannerState('PROCESSING', 'Analyzing face structure and generating 128D neural descriptor...');
+
+  try {
+    const detection = await faceapi.detectSingleFace(DOM.registerFaceVideo).withFaceLandmarks().withFaceDescriptor();
+    if (!detection || !detection.descriptor) {
+      setRegisterBannerState('ERROR', 'No clear face detected. Please ensure good lighting and face the camera directly.');
+      if (DOM.btnCaptureAndRegisterFace) {
+        DOM.btnCaptureAndRegisterFace.disabled = false;
+        if (DOM.btnCaptureRegisterLabel) DOM.btnCaptureRegisterLabel.textContent = 'Capture & Register Face';
+      }
+      return;
+    }
+
+    const descriptorArray = Array.from(detection.descriptor);
+    const res = await fetch('/api/parent/face/register', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ faceDescriptor: descriptorArray, singleFace: true })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      setRegisterBannerState('SUCCESS', 'Face biometrics enrolled successfully! You can now authenticate outpass approvals.');
+      showToast('🎉 Face biometrics enrolled successfully!', 'success');
+      isFaceRegistered = true;
+      await checkParentFaceRegistrationStatus();
+      setTimeout(() => {
+        closeFaceRegisterModal();
+      }, 1500);
+    } else {
+      setRegisterBannerState('ERROR', data.message || 'Face enrollment failed. Please try again.');
+      if (DOM.btnCaptureAndRegisterFace) {
+        DOM.btnCaptureAndRegisterFace.disabled = false;
+        if (DOM.btnCaptureRegisterLabel) DOM.btnCaptureRegisterLabel.textContent = 'Try Again';
+      }
+    }
+  } catch (err) {
+    console.error('Enrollment error:', err);
+    setRegisterBannerState('ERROR', 'Enrollment error: ' + err.message);
+    if (DOM.btnCaptureAndRegisterFace) {
+      DOM.btnCaptureAndRegisterFace.disabled = false;
+      if (DOM.btnCaptureRegisterLabel) DOM.btnCaptureRegisterLabel.textContent = 'Capture & Register Face';
+    }
+  }
+}
+
+/**
+ * UI State helper for Approve Modal verification banner
+ */
+function setFaceVerificationUiState(state, meta = {}) {
+  if (!DOM.faceDecisionBanner) return;
+  DOM.faceDecisionBanner.className = 'face-decision-banner';
+
+  if (state === 'NOT_ENROLLED') {
+    DOM.faceDecisionBanner.classList.add('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#f87171';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Face Not Enrolled';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.innerHTML = 'You must enroll your face biometrics before approving outpass requests. <a href="#" onclick="openFaceRegisterModal(); return false;" style="color:#fbbf24; text-decoration:underline; font-weight:bold;">Enroll Face Now</a>';
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '⚠️';
+    if (DOM.btnTriggerFaceVerify) DOM.btnTriggerFaceVerify.disabled = true;
+  } else if (state === 'SCANNING') {
+    DOM.faceDecisionBanner.style.background = 'rgba(59, 130, 246, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#60a5fa';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Scanning Face...';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = 'Comparing your live camera feed against your enrolled biometric vector.';
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '🔍';
+  } else if (state === 'VERIFIED') {
+    DOM.faceDecisionBanner.classList.remove('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(16, 185, 129, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#34d399';
+    const distText = meta.distance !== undefined ? ` (Confidence: ${Math.max(0, Math.round((1 - meta.distance) * 100))}%, Euclidean D: ${meta.distance.toFixed(3)})` : '';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Biometric Identity Verified';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = `Server successfully confirmed parent identity match${distText}. You may now approve this outpass.`;
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '🛡️';
+
+    // Unlock consent section and parent message
+    if (DOM.parentMessageConsentSection) {
+      DOM.parentMessageConsentSection.classList.remove('hidden');
+    }
+    if (DOM.consentVerifiedNotice) {
+      DOM.consentVerifiedNotice.style.background = 'rgba(16, 185, 129, 0.15)';
+      DOM.consentVerifiedNotice.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+      DOM.consentVerifiedNotice.style.color = '#34d399';
+    }
+    if (DOM.faceConsentUnlockedIcon) DOM.faceConsentUnlockedIcon.textContent = '✓';
+    if (DOM.faceConsentUnlockedLabel) {
+      DOM.faceConsentUnlockedLabel.textContent = 'Identity Verified via 128D Face Biometrics';
+    }
+    if (DOM.approveParentMessage) {
+      DOM.approveParentMessage.disabled = false;
+      DOM.approveParentMessage.style.opacity = '1';
+      DOM.approveParentMessage.style.cursor = 'text';
+      DOM.approveParentMessage.placeholder = 'Type approval message or special note for Warden (required)...';
+      DOM.approveParentMessage.focus();
+    }
+    if (DOM.btnConfirmApprove) {
+      const hasMsg = !!(DOM.approveParentMessage && DOM.approveParentMessage.value.trim());
+      DOM.btnConfirmApprove.disabled = !hasMsg;
+      DOM.btnConfirmApprove.style.opacity = hasMsg ? '1.0' : '0.5';
+      DOM.btnConfirmApprove.style.cursor = hasMsg ? 'pointer' : 'not-allowed';
+    }
+    if (DOM.btnConfirmApproveLabel) {
+      const hasMsg = !!(DOM.approveParentMessage && DOM.approveParentMessage.value.trim());
+      DOM.btnConfirmApproveLabel.textContent = hasMsg ? 'Approve & Forward to Warden →' : 'Enter Message to Approve';
+    }
+    if (DOM.btnTriggerFaceVerify) {
+      DOM.btnTriggerFaceVerify.disabled = true;
+      DOM.btnTriggerFaceVerify.textContent = '✅ Verified Successfully';
+      DOM.btnTriggerFaceVerify.style.background = '#10b981';
+    }
+  } else if (state === 'MISMATCH') {
+    DOM.faceDecisionBanner.classList.add('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#f87171';
+    const distText = meta.distance !== undefined ? ` (Euclidean Distance: ${meta.distance.toFixed(3)} > 0.45 threshold)` : '';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Biometric Mismatch';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = `Face did not match the enrolled parent profile${distText}. Please ensure proper lighting and face the camera directly.`;
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '❌';
+    if (DOM.btnTriggerFaceVerify) DOM.btnTriggerFaceVerify.disabled = false;
+  } else if (state === 'NO_FACE') {
+    DOM.faceDecisionBanner.classList.add('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#f87171';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'No Face Detected';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = 'No face was detected in camera view. Please position yourself directly in front of the camera.';
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '👤';
+    if (DOM.btnTriggerFaceVerify) DOM.btnTriggerFaceVerify.disabled = false;
+  } else if (state === 'ERROR') {
+    DOM.faceDecisionBanner.classList.add('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#f87171';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Camera / Verification Error';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = meta.message || 'An error occurred during biometric verification.';
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '⚠️';
+    if (DOM.btnTriggerFaceVerify) DOM.btnTriggerFaceVerify.disabled = false;
+  } else {
+    DOM.faceDecisionBanner.style.background = 'rgba(59, 130, 246, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(59, 130, 246, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#60a5fa';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Ready for Biometric Verification';
+    if (DOM.faceDecisionMsg) DOM.faceDecisionMsg.textContent = 'Position your face in the oval guide and click "Verify My Face".';
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '📷';
+  }
+}
+
+/**
+ * Opens approve modal, starts camera stream, and prepares for face verification
+ */
+async function openApproveModal(requestId) {
+  selectedRequestForAction = requestId;
+  isFaceVerified = false;
+  activeVerificationToken = null;
+  liveFaceDescriptor = null;
+
+  const req = pendingList.find(r => r.id === requestId);
+  if (!req) return;
+
+  // 1. Populate Outpass Summary Box
+  if (DOM.approveRequestSummaryBox) {
+    DOM.approveRequestSummaryBox.innerHTML = `
+      <div class="verify-summary-grid">
+        <div><strong>Student:</strong> ${escapeHtml(req.studentName)} (${req.studentRegNo})</div>
+        <div><strong>Hostel:</strong> ${req.studentBlock} - ${req.studentRoom}</div>
+        <div><strong>Destination:</strong> ${escapeHtml(req.destination)}</div>
+        <div><strong>Purpose:</strong> ${escapeHtml(req.purpose)}</div>
+        <div><strong>Leaving:</strong> ${formatDateTime(req.leavingDatetime)}</div>
+        <div><strong>Return:</strong> ${formatDateTime(req.returnDatetime)}</div>
+      </div>
+    `;
+  }
+
+  // 2. Reset Consent Section State
+  if (DOM.parentMessageConsentSection) {
+    DOM.parentMessageConsentSection.classList.remove('hidden');
+  }
+  if (DOM.consentVerifiedNotice) {
+    DOM.consentVerifiedNotice.style.background = 'rgba(239, 68, 68, 0.12)';
+    DOM.consentVerifiedNotice.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+    DOM.consentVerifiedNotice.style.color = '#f87171';
+  }
+  if (DOM.faceConsentUnlockedIcon) {
+    DOM.faceConsentUnlockedIcon.textContent = '✕';
+  }
+  if (DOM.faceConsentUnlockedLabel) {
+    DOM.faceConsentUnlockedLabel.textContent = 'Biometric verification required before consent approval.';
+  }
+  if (DOM.approveParentMessage) {
+    DOM.approveParentMessage.value = '';
+    DOM.approveParentMessage.disabled = true;
+    DOM.approveParentMessage.style.opacity = '0.6';
+    DOM.approveParentMessage.style.cursor = 'not-allowed';
+    DOM.approveParentMessage.placeholder = 'Parent message input will unlock once your face is verified...';
+  }
+  if (DOM.btnConfirmApprove) {
+    DOM.btnConfirmApprove.disabled = true;
+    DOM.btnConfirmApprove.style.opacity = '0.5';
+    DOM.btnConfirmApprove.style.cursor = 'not-allowed';
+  }
+  if (DOM.btnConfirmApproveLabel) {
+    DOM.btnConfirmApproveLabel.textContent = 'Approval Disabled (Face Unverified)';
+  }
+  if (DOM.btnTriggerFaceVerify) {
+    DOM.btnTriggerFaceVerify.disabled = false;
+    DOM.btnTriggerFaceVerify.textContent = 'Verify My Face';
+    DOM.btnTriggerFaceVerify.style.background = '';
+  }
+
+  // 3. Reset Modal Voice Assistant State
+  setModalVoiceLang('en-IN');
+  updateModalVoiceStatus('idle');
+
+  openModal('approveModal');
+
+  // Check enrollment
+  const status = await checkParentFaceRegistrationStatus();
+  if (!status.isRegistered) {
+    setFaceVerificationUiState('NOT_ENROLLED');
+    return;
+  }
+
+  setFaceVerificationUiState('READY');
+
+  // Load models & start camera
+  const loaded = await loadFaceApiModels();
+  if (!loaded) {
+    setFaceVerificationUiState('ERROR', { message: 'Failed to load face detection neural models.' });
+    return;
+  }
+
+  try {
+    verifyVideoStream = await startCamera(DOM.approveFaceVideo);
+    startDetectionPreview(DOM.approveFaceVideo, DOM.approveFaceCanvas, (hasFace) => {
+      if (DOM.approveCamOverlayBadge) {
+        DOM.approveCamOverlayBadge.textContent = hasFace ? 'Face In Frame' : 'Aligning Face...';
+        DOM.approveCamOverlayBadge.style.background = hasFace ? 'rgba(16,185,129,0.85)' : 'rgba(0,0,0,0.6)';
+      }
+    });
+  } catch (err) {
+    console.error('Approve Camera Error:', err);
+    setFaceVerificationUiState('ERROR', { message: 'Camera access denied or unavailable: ' + err.message });
+  }
+}
+
+/**
+ * Triggers server-side face verification for the outpass approval
+ */
+async function verifyParentFaceForOutpass() {
+  const token = getAuthToken();
+  if (!token || !selectedRequestForAction) return;
+
+  if (!DOM.approveFaceVideo || !DOM.approveFaceVideo.srcObject) {
+    showToast('Camera is not active. Please allow camera permissions.', 'error');
+    return;
+  }
+
+  if (DOM.btnTriggerFaceVerify) {
+    DOM.btnTriggerFaceVerify.disabled = true;
+    DOM.btnTriggerFaceVerify.textContent = 'Extracting Live Biometrics...';
+  }
+  setFaceVerificationUiState('SCANNING');
+
+  try {
+    const detection = await faceapi.detectSingleFace(DOM.approveFaceVideo).withFaceLandmarks().withFaceDescriptor();
+    if (!detection || !detection.descriptor) {
+      setFaceVerificationUiState('NO_FACE');
+      return;
+    }
+
+    const descriptorArray = Array.from(detection.descriptor);
+    if (DOM.btnTriggerFaceVerify) {
+      DOM.btnTriggerFaceVerify.textContent = 'Verifying with Server...';
+    }
+
+    const res = await fetch(`/api/parent/outpass/${selectedRequestForAction}/face-verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ faceDescriptor: descriptorArray, singleFace: true })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success && data.faceVerified) {
+      isFaceVerified = true;
+      activeVerificationToken = data.verificationToken;
+      liveFaceDescriptor = descriptorArray;
+      setFaceVerificationUiState('VERIFIED', { distance: data.distance });
+      showToast('✅ Face verified! You may now enter your message and approve.', 'success');
+    } else {
+      isFaceVerified = false;
+      activeVerificationToken = null;
+      liveFaceDescriptor = null;
+      setFaceVerificationUiState('MISMATCH', { distance: data.distance });
+      showToast(data.message || 'Face verification failed: Biometric mismatch.', 'error');
+    }
+  } catch (err) {
+    console.error('Verification error:', err);
+    setFaceVerificationUiState('ERROR', { message: 'Biometric verification error: ' + err.message });
+    showToast('Biometric verification failed: ' + err.message, 'error');
+  }
+}
+
 function initApproveRejectModals() {
-  if (DOM.btnTriggerLocVerify) {
-    DOM.btnTriggerLocVerify.addEventListener('click', async () => {
-      await handleStartLocationVerification();
+  if (DOM.btnTriggerFaceVerify) {
+    DOM.btnTriggerFaceVerify.addEventListener('click', () => {
+      verifyParentFaceForOutpass();
+    });
+  }
+
+  if (DOM.btnCaptureAndRegisterFace) {
+    DOM.btnCaptureAndRegisterFace.addEventListener('click', () => {
+      captureAndRegisterFace();
+    });
+  }
+
+  if (DOM.btnOpenFaceEnrollHero) {
+    DOM.btnOpenFaceEnrollHero.addEventListener('click', () => {
+      openFaceRegisterModal();
     });
   }
 
@@ -828,12 +1376,17 @@ function initApproveRejectModals() {
 
   if (DOM.approveParentMessage) {
     DOM.approveParentMessage.addEventListener('input', () => {
-      if (isLocationVerified) {
+      if (isFaceVerified) {
         const hasMsg = !!DOM.approveParentMessage.value.trim();
         if (DOM.btnConfirmApprove) {
           DOM.btnConfirmApprove.disabled = !hasMsg;
-          DOM.btnConfirmApprove.style.opacity = hasMsg ? '1' : '0.5';
+          DOM.btnConfirmApprove.style.opacity = hasMsg ? '1.0' : '0.5';
           DOM.btnConfirmApprove.style.cursor = hasMsg ? 'pointer' : 'not-allowed';
+        }
+        if (DOM.btnConfirmApproveLabel) {
+          DOM.btnConfirmApproveLabel.textContent = hasMsg
+            ? 'Approve & Forward to Warden →'
+            : 'Enter Message to Approve';
         }
       }
     });
@@ -851,509 +1404,6 @@ function initApproveRejectModals() {
       await executeParentReject(selectedRequestForAction, reason);
     });
   }
-}
-
-function openApproveModal(requestId) {
-  selectedRequestForAction = requestId;
-  isLocationVerified = false;
-  activeVerificationToken = null;
-  latestVerifiedDistance = null;
-
-  const req = pendingList.find(r => r.id === requestId);
-  if (!req) return;
-
-  // 1. Populate Outpass Summary
-  if (DOM.approveRequestSummaryBox) {
-    DOM.approveRequestSummaryBox.innerHTML = `
-      <div class="verify-summary-grid">
-        <div><strong>Student:</strong> ${escapeHtml(req.studentName)} (${req.studentRegNo})</div>
-        <div><strong>Hostel:</strong> ${req.studentBlock} - ${req.studentRoom}</div>
-        <div><strong>Destination:</strong> ${escapeHtml(req.destination)}</div>
-        <div><strong>Purpose:</strong> ${escapeHtml(req.purpose)}</div>
-        <div><strong>Leaving:</strong> ${formatDateTime(req.leavingDatetime)}</div>
-        <div><strong>Return:</strong> ${formatDateTime(req.returnDatetime)}</div>
-      </div>
-    `;
-  }
-
-  // 2. Reset Location Verification UI State
-  const parentMobile = currentParent?.phone || currentParent?.identifier || 'Registered Mobile';
-  if (DOM.modalVerifiedMobileText) DOM.modalVerifiedMobileText.textContent = parentMobile;
-
-  if (DOM.locVerifyBox) {
-    DOM.locVerifyBox.className = 'loc-verify-box';
-  }
-  if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'GPS Proximity Security Check';
-  if (DOM.locStatusSubtext) DOM.locStatusSubtext.textContent = 'Device GPS location is required. Approvals within 5 meters of student device are blocked.';
-  if (DOM.btnTriggerLocVerify) {
-    DOM.btnTriggerLocVerify.disabled = false;
-    if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Verify Current Location';
-  }
-
-  if (DOM.locDetailsContainer) DOM.locDetailsContainer.classList.add('hidden');
-  if (DOM.locDistanceBadge) {
-    DOM.locDistanceBadge.textContent = '-- meters';
-    DOM.locDistanceBadge.className = 'loc-stat-val';
-  }
-  if (DOM.locAccuracyBadge) {
-    DOM.locAccuracyBadge.textContent = '-- meters';
-    DOM.locAccuracyBadge.className = 'loc-stat-val';
-  }
-  if (DOM.locPlaceText) DOM.locPlaceText.textContent = 'Waiting for location verification...';
-  if (DOM.locResultBanner) DOM.locResultBanner.classList.add('hidden');
-  if (DOM.parentMessageConsentSection) DOM.parentMessageConsentSection.classList.add('hidden');
-  if (DOM.approveParentMessage) DOM.approveParentMessage.value = '';
-
-  // 3. Reset Modal Voice Assistant State
-  setModalVoiceLang('en-IN');
-  updateModalVoiceStatus('idle');
-
-  // Check browser voice support notice
-  const unsuppNotice = document.getElementById('voiceUnsupportedNotice');
-  if (unsuppNotice) {
-    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      unsuppNotice.classList.remove('hidden');
-    } else {
-      unsuppNotice.classList.add('hidden');
-    }
-  }
-
-  // 4. Disable Approve Submit until location is verified
-  if (DOM.btnConfirmApprove) {
-    DOM.btnConfirmApprove.disabled = true;
-    DOM.btnConfirmApprove.style.opacity = '0.5';
-    DOM.btnConfirmApprove.style.cursor = 'not-allowed';
-  }
-  if (DOM.btnConfirmApproveLabel) {
-    DOM.btnConfirmApproveLabel.textContent = 'Verify Location to Approve';
-  }
-
-  openModal('approveModal');
-}
-
-/**
- * Requests fresh GPS location from device using navigator.geolocation.getCurrentPosition()
- * High accuracy, maxAge 0, timeout 12s
- * Posts coordinates to backend for authoritative 5-meter proximity verification
- */
-async function handleStartLocationVerification() {
-  if (!selectedRequestForAction) return;
-  const token = getAuthToken();
-  if (!token) return;
-
-  if (!navigator.geolocation) {
-    showToast('Geolocation is not supported by your browser.', 'error');
-    if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box blocked';
-    if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = '❌ Geolocation Not Supported';
-    if (DOM.locStatusSubtext) {
-      DOM.locStatusSubtext.textContent = 'Your browser does not support GPS geolocation. Location verification cannot proceed.';
-    }
-    if (DOM.btnConfirmApproveLabel) {
-      DOM.btnConfirmApproveLabel.textContent = 'Approval Unavailable – No Geolocation';
-    }
-    return;
-  }
-
-  // Visual state: "Requesting your current location..."
-  if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box verifying';
-  if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Requesting your current location...';
-  if (DOM.locStatusSubtext) DOM.locStatusSubtext.textContent = 'Please allow location permission in your browser prompt.';
-  if (DOM.btnTriggerLocVerify) DOM.btnTriggerLocVerify.disabled = true;
-  if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Acquiring GPS Signal...';
-  if (DOM.locResultBanner) DOM.locResultBanner.classList.add('hidden');
-  if (DOM.btnConfirmApproveLabel) DOM.btnConfirmApproveLabel.textContent = 'Acquiring GPS Signal...';
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      // Visual state: "Checking location & distance..."
-      if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Checking location & distance...';
-      if (DOM.locStatusSubtext) DOM.locStatusSubtext.textContent = 'Backend is calculating distance to student device...';
-      if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Verifying Proximity...';
-      if (DOM.btnConfirmApproveLabel) DOM.btnConfirmApproveLabel.textContent = 'Verifying Proximity...';
-
-      const payload = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        timestamp: position.timestamp || Date.now()
-      };
-
-      try {
-        const res = await fetch(`/api/parent/outpass/${selectedRequestForAction}/location-verify`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await res.json();
-
-        // Reveal location details container
-        if (DOM.locDetailsContainer) DOM.locDetailsContainer.classList.remove('hidden');
-
-        if (res.ok && data.success && data.locationVerified) {
-          // ========================================================
-          // STATE C – VERIFICATION SUCCESSFUL (Distance >= 5m, Accuracy <= 50m)
-          // ========================================================
-          isLocationVerified = true;
-          activeVerificationToken = data.verificationToken;
-          latestVerifiedDistance = data.distanceMeters;
-
-          if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box verified';
-          if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Location Verification Successful';
-          if (DOM.locStatusSubtext) {
-            DOM.locStatusSubtext.textContent = `Safe proximity confirmed (${data.distanceMeters}m separation). Parental consent unlocked.`;
-          }
-
-          if (DOM.locDistanceBadge) {
-            DOM.locDistanceBadge.textContent = `${data.distanceMeters} meters`;
-            DOM.locDistanceBadge.className = 'loc-stat-val safe';
-          }
-          if (DOM.locAccuracyBadge) {
-            const acc = (data.parentAccuracy !== undefined && data.parentAccuracy !== null)
-              ? data.parentAccuracy
-              : (data.accuracy !== undefined && data.accuracy !== null ? data.accuracy : payload.accuracy);
-            DOM.locAccuracyBadge.textContent = `±${Math.round(acc)} meters`;
-            DOM.locAccuracyBadge.className = 'loc-stat-val safe';
-          }
-
-          if (DOM.locResultBanner) {
-            DOM.locResultBanner.className = 'fp-verify-result-banner success';
-            DOM.locResultBanner.classList.remove('hidden');
-          }
-          if (DOM.locResultText) {
-            DOM.locResultText.textContent = `✅ Safe Proximity Confirmed: ${data.distanceMeters} meters away from student device.`;
-          }
-
-          if (DOM.btnTriggerLocVerify) {
-            DOM.btnTriggerLocVerify.disabled = false;
-            if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Re-verify Location';
-          }
-
-          if (DOM.locPlaceText) {
-            DOM.locPlaceText.textContent = `Resolving location (${payload.latitude.toFixed(4)}, ${payload.longitude.toFixed(4)})...`;
-            resolveHumanReadableLocation(payload.latitude, payload.longitude).then(placeName => {
-              if (DOM.locPlaceText) DOM.locPlaceText.textContent = placeName;
-            });
-          }
-
-          // Unlock Parent Consent Message & Enable Approval Submission
-          if (DOM.parentMessageConsentSection) {
-            DOM.parentMessageConsentSection.classList.remove('hidden');
-          }
-          const hasMsg = !!(DOM.approveParentMessage && DOM.approveParentMessage.value.trim());
-          if (DOM.btnConfirmApprove) {
-            DOM.btnConfirmApprove.disabled = !hasMsg;
-            DOM.btnConfirmApprove.style.opacity = hasMsg ? '1' : '0.5';
-            DOM.btnConfirmApprove.style.cursor = hasMsg ? 'pointer' : 'not-allowed';
-          }
-          if (DOM.btnConfirmApproveLabel) {
-            DOM.btnConfirmApproveLabel.textContent = 'Send Approval & Forward to Warden →';
-          }
-
-          showToast(`✅ Location verified (${data.distanceMeters}m distance). You may now grant consent.`, 'success');
-
-        } else {
-          // ========================================================
-          // VERIFICATION REJECTED: DISPATCH TO SPECIFIC STATE
-          // ========================================================
-          isLocationVerified = false;
-          activeVerificationToken = null;
-          latestVerifiedDistance = null;
-
-          if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box blocked';
-
-          // Always keep approval disabled & consent section hidden for any rejection
-          if (DOM.parentMessageConsentSection) {
-            DOM.parentMessageConsentSection.classList.add('hidden');
-          }
-          if (DOM.btnConfirmApprove) {
-            DOM.btnConfirmApprove.disabled = true;
-            DOM.btnConfirmApprove.style.opacity = '0.5';
-            DOM.btnConfirmApprove.style.cursor = 'not-allowed';
-          }
-          if (DOM.btnTriggerLocVerify) {
-            DOM.btnTriggerLocVerify.disabled = false;
-            if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Retry Location Verification';
-          }
-
-          if (DOM.locResultBanner) {
-            DOM.locResultBanner.className = 'fp-verify-result-banner error';
-            DOM.locResultBanner.classList.remove('hidden');
-          }
-
-          const rawParentAcc = (data.parentAccuracy !== undefined && data.parentAccuracy !== null)
-            ? data.parentAccuracy
-            : (data.accuracy !== undefined && data.accuracy !== null ? data.accuracy : payload.accuracy);
-          const formattedAccuracy = (rawParentAcc !== undefined && rawParentAcc !== null && !isNaN(Number(rawParentAcc)))
-            ? `±${Math.round(Number(rawParentAcc))} meters`
-            : 'N/A';
-
-          if (data.accuracyPoor && data.device !== 'student') {
-            // ====================================================
-            // STATE A – GPS ACCURACY INSUFFICIENT (> 50 meters)
-            // ====================================================
-            if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Location Verification Failed';
-            if (DOM.locStatusSubtext) {
-              DOM.locStatusSubtext.textContent = data.message || `Parent location accuracy (${formattedAccuracy}) is insufficient for 5-meter verification. Please move to an open area and try again.`;
-            }
-
-            if (DOM.locPlaceText) {
-              DOM.locPlaceText.textContent = `Parent accuracy (${formattedAccuracy}) is insufficient (requires ≤ 50m)`;
-            }
-
-            // Distance must be N/A: distance < 5m has NOT been established
-            if (DOM.locDistanceBadge) {
-              DOM.locDistanceBadge.textContent = 'N/A';
-              DOM.locDistanceBadge.className = 'loc-stat-val danger';
-            }
-            if (DOM.locAccuracyBadge) {
-              DOM.locAccuracyBadge.textContent = formattedAccuracy;
-              DOM.locAccuracyBadge.className = 'loc-stat-val danger';
-            }
-
-            if (DOM.locResultText) {
-              DOM.locResultText.textContent = `❌ ${data.message || `Parent location accuracy (${formattedAccuracy}) is insufficient for 5-meter verification. Please move to an open area and try again.`}`;
-            }
-
-            // Fix: Status / button must NOT say "Approval Blocked (<5m Proximity)"
-            if (DOM.btnConfirmApproveLabel) {
-              DOM.btnConfirmApproveLabel.textContent = 'Approval Unavailable – GPS Accuracy Insufficient';
-            }
-
-            showToast(data.message || 'GPS accuracy insufficient. Please move to an open area and try again.', 'error');
-
-          } else if (data.proximityBlocked === true || (res.status === 403 && data.distanceMeters !== null && data.distanceMeters !== undefined && data.distanceMeters < 5)) {
-            // ====================================================
-            // STATE B – PROXIMITY BLOCKED (Distance < 5 meters confirmed by backend)
-            // ====================================================
-            if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Location Verification Failed';
-            if (DOM.locStatusSubtext) {
-              DOM.locStatusSubtext.textContent = data.message || 'Parent and student devices are within 5 meters. Approval is blocked for security.';
-            }
-
-            if (DOM.locPlaceText) {
-              DOM.locPlaceText.textContent = `Location verified within restricted distance (${data.distanceMeters}m)`;
-            }
-
-            if (DOM.locDistanceBadge) {
-              DOM.locDistanceBadge.textContent = `${data.distanceMeters} meters`;
-              DOM.locDistanceBadge.className = 'loc-stat-val danger';
-            }
-            if (DOM.locAccuracyBadge) {
-              DOM.locAccuracyBadge.textContent = formattedAccuracy;
-              DOM.locAccuracyBadge.className = 'loc-stat-val';
-            }
-
-            if (DOM.locResultText) {
-              DOM.locResultText.textContent = `❌ ${data.message || `Approval blocked: Parent and student devices are within ${data.distanceMeters} meters (<5m security rule).`}`;
-            }
-
-            // This label is allowed ONLY when the backend actually confirms distance < 5m
-            if (DOM.btnConfirmApproveLabel) {
-              DOM.btnConfirmApproveLabel.textContent = 'Approval Blocked (< 5m Proximity)';
-            }
-
-            showToast(data.message || 'Parent and student devices are within 5 meters. Approval is blocked for security.', 'error');
-
-          } else if (data.studentLocationMissing || data.studentLocationStale || data.studentLocationInvalid || (data.accuracyPoor && data.device === 'student')) {
-            // ====================================================
-            // STATE D – STUDENT LOCATION INVALID / STALE / MISSING
-            // ====================================================
-            if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Location Verification Failed';
-            if (DOM.locStatusSubtext) {
-              DOM.locStatusSubtext.textContent = data.message || 'Student location is unavailable or outdated. Please ask the student to refresh their live location and try again.';
-            }
-
-            // Do NOT calculate or display a misleading distance
-            if (DOM.locDistanceBadge) {
-              DOM.locDistanceBadge.textContent = 'N/A';
-              DOM.locDistanceBadge.className = 'loc-stat-val danger';
-            }
-            if (DOM.locAccuracyBadge) {
-              DOM.locAccuracyBadge.textContent = formattedAccuracy;
-              DOM.locAccuracyBadge.className = 'loc-stat-val';
-            }
-
-            if (DOM.locResultText) {
-              DOM.locResultText.textContent = `❌ ${data.message || 'Student location is unavailable or outdated. Please ask the student to refresh their live location and try again.'}`;
-            }
-
-            let studentLabel = 'Approval Unavailable – Student Location Required';
-            if (data.studentLocationStale) {
-              studentLabel = 'Approval Unavailable – Student Location Outdated';
-            } else if (data.accuracyPoor && data.device === 'student') {
-              studentLabel = 'Approval Unavailable – Student GPS Accuracy Insufficient';
-            }
-            if (DOM.btnConfirmApproveLabel) {
-              DOM.btnConfirmApproveLabel.textContent = studentLabel;
-            }
-
-            showToast(data.message || 'Student location is unavailable or outdated. Please ask student to refresh GPS.', 'error');
-
-          } else {
-            // ====================================================
-            // GENERAL BACKEND REJECTION (e.g. auth or status)
-            // ====================================================
-            if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = 'Location Verification Failed';
-            if (DOM.locStatusSubtext) {
-              DOM.locStatusSubtext.textContent = data.message || 'Location verification could not be completed. Please try again.';
-            }
-
-            if (DOM.locDistanceBadge) {
-              DOM.locDistanceBadge.textContent = (data.distanceMeters !== null && data.distanceMeters !== undefined)
-                ? `${data.distanceMeters} meters`
-                : 'N/A';
-              DOM.locDistanceBadge.className = 'loc-stat-val danger';
-            }
-            if (DOM.locAccuracyBadge) {
-              DOM.locAccuracyBadge.textContent = formattedAccuracy;
-              DOM.locAccuracyBadge.className = 'loc-stat-val danger';
-            }
-
-            if (DOM.locResultText) {
-              DOM.locResultText.textContent = `❌ ${data.message || 'Location verification failed. Approval unavailable.'}`;
-            }
-
-            if (DOM.btnConfirmApproveLabel) {
-              DOM.btnConfirmApproveLabel.textContent = 'Approval Unavailable – Verification Failed';
-            }
-
-            showToast(data.message || 'Location verification failed.', 'error');
-          }
-        }
-
-      } catch (fetchErr) {
-        // ========================================================
-        // NETWORK COMMUNICATION ERROR
-        // ========================================================
-        isLocationVerified = false;
-        activeVerificationToken = null;
-        latestVerifiedDistance = null;
-
-        if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box blocked';
-        if (DOM.locDetailsContainer) DOM.locDetailsContainer.classList.remove('hidden');
-        if (DOM.locDistanceBadge) {
-          DOM.locDistanceBadge.textContent = 'N/A';
-          DOM.locDistanceBadge.className = 'loc-stat-val danger';
-        }
-        if (DOM.locAccuracyBadge) {
-          DOM.locAccuracyBadge.textContent = payload?.accuracy ? `±${Math.round(payload.accuracy)} meters` : 'N/A';
-          DOM.locAccuracyBadge.className = 'loc-stat-val danger';
-        }
-
-        const netMsg = 'Network communication failure during location verification: ' + (fetchErr.message || 'Unable to connect to server');
-        if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = '⚠️ Network Communication Error';
-        if (DOM.locStatusSubtext) {
-          DOM.locStatusSubtext.textContent = 'Could not communicate with the verification server. Please check your internet connection and retry.';
-        }
-        if (DOM.btnConfirmApproveLabel) {
-          DOM.btnConfirmApproveLabel.textContent = 'Approval Unavailable – Network Error';
-        }
-
-        if (DOM.locResultBanner) {
-          DOM.locResultBanner.className = 'fp-verify-result-banner error';
-          DOM.locResultBanner.classList.remove('hidden');
-        }
-        if (DOM.locResultText) {
-          DOM.locResultText.textContent = `❌ ${netMsg}`;
-        }
-
-        if (DOM.parentMessageConsentSection) DOM.parentMessageConsentSection.classList.add('hidden');
-        if (DOM.btnConfirmApprove) {
-          DOM.btnConfirmApprove.disabled = true;
-          DOM.btnConfirmApprove.style.opacity = '0.5';
-          DOM.btnConfirmApprove.style.cursor = 'not-allowed';
-        }
-        if (DOM.btnTriggerLocVerify) {
-          DOM.btnTriggerLocVerify.disabled = false;
-          if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Retry Location Verification';
-        }
-
-        showToast(netMsg, 'error');
-      }
-    },
-    (geoError) => {
-      // ========================================================
-      // BROWSER GEOLOCATION API ERRORS
-      // ========================================================
-      isLocationVerified = false;
-      activeVerificationToken = null;
-      latestVerifiedDistance = null;
-
-      if (DOM.locVerifyBox) DOM.locVerifyBox.className = 'loc-verify-box blocked';
-      if (DOM.locDetailsContainer) DOM.locDetailsContainer.classList.remove('hidden');
-      if (DOM.locDistanceBadge) {
-        DOM.locDistanceBadge.textContent = 'N/A';
-        DOM.locDistanceBadge.className = 'loc-stat-val danger';
-      }
-      if (DOM.locAccuracyBadge) {
-        DOM.locAccuracyBadge.textContent = 'N/A';
-        DOM.locAccuracyBadge.className = 'loc-stat-val danger';
-      }
-
-      if (DOM.parentMessageConsentSection) DOM.parentMessageConsentSection.classList.add('hidden');
-      if (DOM.btnConfirmApprove) {
-        DOM.btnConfirmApprove.disabled = true;
-        DOM.btnConfirmApprove.style.opacity = '0.5';
-        DOM.btnConfirmApprove.style.cursor = 'not-allowed';
-      }
-      if (DOM.btnTriggerLocVerify) {
-        DOM.btnTriggerLocVerify.disabled = false;
-        if (DOM.btnTriggerLocVerifyLabel) DOM.btnTriggerLocVerifyLabel.textContent = 'Retry Location Verification';
-      }
-
-      let errorTitle = '⚠️ Location Access Required';
-      let errorMsg = 'Unable to verify your current location. Please enable location permission and try again.';
-      let buttonStatus = 'Approval Unavailable – Location Required';
-
-      if (geoError) {
-        switch (geoError.code) {
-          case geoError.PERMISSION_DENIED:
-            errorTitle = '⚠️ Location Permission Denied';
-            errorMsg = 'GPS location permission was denied. Please allow location access in your browser or device settings and retry.';
-            buttonStatus = 'Approval Unavailable – GPS Permission Denied';
-            break;
-          case geoError.POSITION_UNAVAILABLE:
-            errorTitle = '⚠️ GPS Signal Unavailable';
-            errorMsg = 'GPS signal is currently unavailable. Please move to an open area or check your device GPS sensor and retry.';
-            buttonStatus = 'Approval Unavailable – GPS Signal Lost';
-            break;
-          case geoError.TIMEOUT:
-            errorTitle = '⚠️ GPS Acquisition Timed Out';
-            errorMsg = 'GPS location request timed out. Please ensure your device has a clear GPS view and retry.';
-            buttonStatus = 'Approval Unavailable – GPS Timed Out';
-            break;
-          default:
-            errorTitle = '⚠️ Location Error';
-            errorMsg = geoError.message || 'An unknown error occurred while retrieving GPS coordinates.';
-            buttonStatus = 'Approval Unavailable – Location Error';
-            break;
-        }
-      }
-
-      if (DOM.locStatusHeading) DOM.locStatusHeading.textContent = errorTitle;
-      if (DOM.locStatusSubtext) DOM.locStatusSubtext.textContent = errorMsg;
-      if (DOM.btnConfirmApproveLabel) DOM.btnConfirmApproveLabel.textContent = buttonStatus;
-
-      if (DOM.locResultBanner) {
-        DOM.locResultBanner.className = 'fp-verify-result-banner error';
-        DOM.locResultBanner.classList.remove('hidden');
-      }
-      if (DOM.locResultText) {
-        DOM.locResultText.textContent = `❌ ${errorMsg}`;
-      }
-
-      showToast(errorMsg, 'error');
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 12000
-    }
-  );
 }
 
 /* ==========================================================
@@ -1588,8 +1638,8 @@ async function executeParentApprove(requestId) {
   const token = getAuthToken();
   if (!token) return;
 
-  if (!isLocationVerified || !activeVerificationToken) {
-    showToast('Location verification is required before approving.', 'error');
+  if (!isFaceVerified || !activeVerificationToken) {
+    showToast('Parent face verification is required before approving.', 'error');
     return;
   }
 
@@ -1619,11 +1669,11 @@ async function executeParentApprove(requestId) {
 
     if (res.ok && data.success) {
       closeModal('approveModal');
-      showToast(`🎉 Outpass ${data.data?.requestCode || ''} approved via verified mobile & GPS proximity, forwarded to Warden.`, 'success');
+      showToast(`🎉 Outpass ${data.data?.requestCode || ''} approved via verified Parent Face Biometrics, forwarded to Warden.`, 'success');
 
-      isLocationVerified = false;
+      isFaceVerified = false;
       activeVerificationToken = null;
-      latestVerifiedDistance = null;
+      liveFaceDescriptor = null;
 
       const card = document.getElementById(`parent-req-card-${requestId}`);
       if (card) card.remove();
