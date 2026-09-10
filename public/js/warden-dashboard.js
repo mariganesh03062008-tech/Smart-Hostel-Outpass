@@ -36,6 +36,19 @@ function formatStatusBadgeText(status) {
   }
 }
 
+/**
+ * Normalizes any variation of outpass_type to strict canonical values:
+ * 'normal' | 'one_day_duty' | 'emergency' | 'special'
+ */
+function getCanonicalOutpassType(req) {
+  if (!req) return 'normal';
+  const raw = String(req.outpass_type || req.outpassType || req.requestType || '').toLowerCase().trim();
+  if (raw === 'emergency') return 'emergency';
+  if (raw === 'special') return 'special';
+  if (raw === 'one_day_duty' || raw === 'duty' || raw === 'one_day' || raw === 'oneday') return 'one_day_duty';
+  return 'normal';
+}
+
 // Lightweight reverse-geocoding cache to avoid redundant network lookups
 const reverseGeoCache = new Map();
 
@@ -134,13 +147,19 @@ const DOM = {
   statRejectedTotal: document.getElementById('statRejectedTotal'),
   statActiveOutpasses: document.getElementById('statActiveOutpasses'),
   statStudentsOutside: document.getElementById('statStudentsOutside'),
+  statRegisteredTotal: document.getElementById('statRegisteredTotal'),
 
   // Nav Badges
   navBadgeNormal: document.getElementById('navBadgeNormal'),
+  navBadgeEmergency: document.getElementById('navBadgeEmergency'),
+  navBadgeSpecial: document.getElementById('navBadgeSpecial'),
   navBadgeDuty: document.getElementById('navBadgeDuty'),
+  navBadgeRegisteredStudents: document.getElementById('navBadgeRegisteredStudents'),
 
   // Queues & Containers
   normalQueueContainer: document.getElementById('normalQueueContainer'),
+  emergencyQueueContainer: document.getElementById('emergencyQueueContainer'),
+  specialQueueContainer: document.getElementById('specialQueueContainer'),
   dutyQueueContainer: document.getElementById('dutyQueueContainer'),
   activeOutpassTableBody: document.getElementById('activeOutpassTableBody'),
   recentActivityTableBody: document.getElementById('recentActivityTableBody'),
@@ -301,6 +320,7 @@ async function loadOverview() {
       if (DOM.statRejectedTotal) DOM.statRejectedTotal.textContent = stats.rejectedTotal || 0;
       if (DOM.statActiveOutpasses) DOM.statActiveOutpasses.textContent = stats.activeOutpasses || 0;
       if (DOM.statStudentsOutside) DOM.statStudentsOutside.textContent = stats.studentsOutside || 0;
+      if (DOM.statRegisteredTotal) DOM.statRegisteredTotal.textContent = stats.registeredTotal || 0;
 
       // Nav badges
       if (DOM.navBadgeNormal) {
@@ -310,6 +330,22 @@ async function loadOverview() {
       if (DOM.navBadgeDuty) {
         DOM.navBadgeDuty.textContent = stats.pendingDuty || 0;
         DOM.navBadgeDuty.style.display = stats.pendingDuty > 0 ? 'inline-block' : 'none';
+      }
+      if (DOM.navBadgeRegisteredStudents) {
+        DOM.navBadgeRegisteredStudents.textContent = stats.registeredTotal || 0;
+        DOM.navBadgeRegisteredStudents.style.display = (stats.registeredTotal > 0) ? 'inline-block' : 'none';
+      }
+
+      // Overview Year Census Quick Chips
+      if (stats.registeredByYear) {
+        const y1El = document.getElementById('statOverviewYear1');
+        const y2El = document.getElementById('statOverviewYear2');
+        const y3El = document.getElementById('statOverviewYear3');
+        const y4El = document.getElementById('statOverviewYear4');
+        if (y1El) y1El.textContent = stats.registeredByYear.year1 || 0;
+        if (y2El) y2El.textContent = stats.registeredByYear.year2 || 0;
+        if (y3El) y3El.textContent = stats.registeredByYear.year3 || 0;
+        if (y4El) y4El.textContent = stats.registeredByYear.year4 || 0;
       }
 
       // Render recent activity table
@@ -335,7 +371,30 @@ async function loadPendingNormal() {
 
     if (res.ok && data.success) {
       pendingNormalList = data.pendingRequests || [];
-      renderNormalQueue(pendingNormalList);
+      const normalList = (data.normalRequests || pendingNormalList.filter(r => getCanonicalOutpassType(r) === 'normal'))
+        .filter(r => getCanonicalOutpassType(r) === 'normal');
+      const emergencyList = (data.emergencyRequests || pendingNormalList.filter(r => getCanonicalOutpassType(r) === 'emergency'))
+        .filter(r => getCanonicalOutpassType(r) === 'emergency');
+      const specialList = (data.specialRequests || pendingNormalList.filter(r => getCanonicalOutpassType(r) === 'special'))
+        .filter(r => getCanonicalOutpassType(r) === 'special');
+
+      renderNormalQueue(normalList);
+      renderEmergencyQueue(emergencyList);
+      renderSpecialQueue(specialList);
+
+      // Nav badges
+      if (DOM.navBadgeNormal) {
+        DOM.navBadgeNormal.textContent = normalList.length;
+        DOM.navBadgeNormal.style.display = normalList.length > 0 ? 'inline-block' : 'none';
+      }
+      if (DOM.navBadgeEmergency) {
+        DOM.navBadgeEmergency.textContent = emergencyList.length;
+        DOM.navBadgeEmergency.style.display = emergencyList.length > 0 ? 'inline-block' : 'none';
+      }
+      if (DOM.navBadgeSpecial) {
+        DOM.navBadgeSpecial.textContent = specialList.length;
+        DOM.navBadgeSpecial.style.display = specialList.length > 0 ? 'inline-block' : 'none';
+      }
     }
   } catch (err) {
     console.error('Error loading pending normal:', err);
@@ -381,13 +440,19 @@ async function loadActiveOutpasses() {
 }
 
 /* ==========================================================
-   3. RENDERING QUEUES & TABLES
+   3. RENDERING QUEUES & TABLES (STRICT TYPE SEGREGATION)
    ========================================================== */
+
+/**
+ * Renders ONLY canonical 'normal' outpass requests
+ */
 function renderNormalQueue(list) {
   if (!DOM.normalQueueContainer) return;
   DOM.normalQueueContainer.innerHTML = '';
 
-  if (!list || list.length === 0) {
+  const normalList = (list || []).filter(r => getCanonicalOutpassType(r) === 'normal');
+
+  if (normalList.length === 0) {
     DOM.normalQueueContainer.innerHTML = `
       <div class="empty-state-box">
         <div class="empty-icon">
@@ -400,7 +465,7 @@ function renderNormalQueue(list) {
     return;
   }
 
-  list.forEach(req => {
+  normalList.forEach(req => {
     const card = document.createElement('div');
     card.className = 'request-card';
     card.id = `req-card-${req.id}`;
@@ -418,6 +483,7 @@ function renderNormalQueue(list) {
         <div>
           <div class="student-tag-group">
             <span class="request-code-badge">${req.requestCode}</span>
+            <span class="student-tag" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3);">Normal Outpass</span>
             <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
             <span class="student-tag">${req.studentDept} • Yr ${req.studentYear}</span>
             <span class="student-tag">${req.studentBlock} - ${req.studentRoom}</span>
@@ -485,20 +551,204 @@ function renderNormalQueue(list) {
     `;
 
     DOM.normalQueueContainer.appendChild(card);
+  });
+}
 
-    if (req.parentApprovalLat && req.parentApprovalLng) {
-      resolveHumanReadableLocation(req.parentApprovalLat, req.parentApprovalLng).then(placeName => {
-        const placeEl = document.getElementById(`parent-place-${req.id}`);
-        if (placeEl) {
-          placeEl.textContent = placeName || 'Location name unavailable';
-        }
-      }).catch(() => {
-        const placeEl = document.getElementById(`parent-place-${req.id}`);
-        if (placeEl) {
-          placeEl.textContent = 'Location name unavailable';
-        }
-      });
-    }
+/**
+ * Renders ONLY canonical 'emergency' outpass requests (Direct Warden authority)
+ */
+function renderEmergencyQueue(list) {
+  if (!DOM.emergencyQueueContainer) return;
+  DOM.emergencyQueueContainer.innerHTML = '';
+
+  const emergencyList = (list || []).filter(r => getCanonicalOutpassType(r) === 'emergency');
+
+  if (emergencyList.length === 0) {
+    DOM.emergencyQueueContainer.innerHTML = `
+      <div class="empty-state-box">
+        <div class="empty-icon" style="color:#ef4444; background:rgba(239,68,68,0.1);">
+          <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+        <h4 class="empty-title">No Pending Emergency Outpasses</h4>
+        <p class="empty-desc">There are no urgent emergency outpasses requiring direct Warden authorization right now.</p>
+      </div>
+    `;
+    return;
+  }
+
+  emergencyList.forEach(req => {
+    const card = document.createElement('div');
+    card.className = 'request-card';
+    card.id = `req-card-${req.id}`;
+    card.style.borderLeft = '4px solid #ef4444';
+    card.style.background = 'rgba(239,68,68,0.03)';
+
+    card.innerHTML = `
+      <div class="request-card-header">
+        <div>
+          <div class="student-tag-group">
+            <span class="request-code-badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border-color:rgba(239,68,68,0.4);">${req.requestCode}</span>
+            <span class="student-tag" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.5); font-weight:700;">🚨 EMERGENCY (${escapeHtml(req.emergencyCategory || req.emergencyType || 'Urgent')})</span>
+            <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
+            <span class="student-tag">${req.studentDept} • Yr ${req.studentYear}</span>
+            <span class="student-tag">${req.studentBlock} - ${req.studentRoom}</span>
+          </div>
+          <h3 style="font-family:'Outfit'; font-size:1.15rem; margin-top:0.4rem; color:var(--text-primary);">
+            ${escapeHtml(req.purpose)}
+          </h3>
+        </div>
+        <span class="status-badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef4444; font-weight:700;">🚨 DIRECT WARDEN APPROVAL</span>
+      </div>
+
+      <div class="request-details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Destination</span>
+          <span class="detail-value">${escapeHtml(req.destination)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Leaving Schedule</span>
+          <span class="detail-value">${formatDateTime(req.leavingDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Expected Return</span>
+          <span class="detail-value">${formatDateTime(req.returnDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Parent / Contact</span>
+          <span class="detail-value">${escapeHtml(req.parentName || 'Parent')} (${req.parentVerifiedMobile || req.parentPhone || req.contactPhone || 'N/A'})</span>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1; background:rgba(239,68,68,0.08); padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(239,68,68,0.3); margin-top:0.3rem;">
+          <div style="color:#ef4444; font-weight:700; font-size:0.8rem;">🚨 EMERGENCY CONTACT & DETAILS</div>
+          <div style="font-size:0.85rem; color:var(--text-primary); margin-top:0.2rem;"><strong>Contact:</strong> ${escapeHtml(req.emergencyContact || 'N/A')}</div>
+          ${req.additionalRemarks ? `<div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem;"><strong>Details / Reason:</strong> ${escapeHtml(req.additionalRemarks)}</div>` : ''}
+        </div>
+      </div>
+
+      <div style="margin: 0.6rem 0; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.25); font-size: 0.82rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem; flex-wrap:wrap; gap:0.35rem;">
+          <span style="color: #ef4444; font-weight: 700; display: flex; align-items: center; gap: 0.35rem;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            DIRECT WARDEN APPROVAL WORKFLOW
+          </span>
+          <span class="status-badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:0.72rem; padding:2px 7px;">NO PARENT CONSENT REQUIRED</span>
+        </div>
+        <div style="font-size:0.8rem; color:var(--text-secondary);">
+          Direct Warden authorization for urgent/unplanned circumstances. Approving will immediately generate the secure student QR Code.
+        </div>
+      </div>
+
+      <div class="request-card-actions">
+        <button class="btn-view-details" onclick="openDetailsModal(${req.id}, 'emergency')">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span>View Details</span>
+        </button>
+        <button class="btn-reject" onclick="openRejectModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Reject</span>
+        </button>
+        <button class="btn-approve" onclick="openApproveModal(${req.id})" style="background:linear-gradient(135deg, #ef4444, #b91c1c);">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Approve Emergency & Issue QR</span>
+        </button>
+      </div>
+    `;
+
+    DOM.emergencyQueueContainer.appendChild(card);
+  });
+}
+
+/**
+ * Renders ONLY canonical 'special' outpass requests (Tier 4 Final Warden clearance)
+ */
+function renderSpecialQueue(list) {
+  if (!DOM.specialQueueContainer) return;
+  DOM.specialQueueContainer.innerHTML = '';
+
+  const specialList = (list || []).filter(r => getCanonicalOutpassType(r) === 'special');
+
+  if (specialList.length === 0) {
+    DOM.specialQueueContainer.innerHTML = `
+      <div class="empty-state-box">
+        <div class="empty-icon" style="color:#a78bfa; background:rgba(139,92,246,0.1);">
+          <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <h4 class="empty-title">No Pending Special Outpasses</h4>
+        <p class="empty-desc">Special outpasses will appear here only after completing Parent Biometrics, Advisor, and Principal authorizations.</p>
+      </div>
+    `;
+    return;
+  }
+
+  specialList.forEach(req => {
+    const card = document.createElement('div');
+    card.className = 'request-card';
+    card.id = `req-card-${req.id}`;
+    card.style.borderLeft = '4px solid #8b5cf6';
+    card.style.background = 'rgba(139,92,246,0.03)';
+
+    card.innerHTML = `
+      <div class="request-card-header">
+        <div>
+          <div class="student-tag-group">
+            <span class="request-code-badge" style="background:rgba(139,92,246,0.2); color:#a78bfa; border-color:rgba(139,92,246,0.4);">${req.requestCode}</span>
+            <span class="student-tag" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid rgba(139,92,246,0.5); font-weight:700;">⭐ SPECIAL (${escapeHtml(req.specialType || 'Authorized')})</span>
+            <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
+            <span class="student-tag">${req.studentDept} • Yr ${req.studentYear}</span>
+            <span class="student-tag">${req.studentBlock} - ${req.studentRoom}</span>
+          </div>
+          <h3 style="font-family:'Outfit'; font-size:1.15rem; margin-top:0.4rem; color:var(--text-primary);">
+            ${escapeHtml(req.purpose)}
+          </h3>
+        </div>
+        <span class="status-badge" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid #8b5cf6; font-weight:700;">⭐ 4-Tier Final Clearance</span>
+      </div>
+
+      <div class="request-details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Destination</span>
+          <span class="detail-value">${escapeHtml(req.destination)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Leaving Schedule</span>
+          <span class="detail-value">${formatDateTime(req.leavingDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Expected Return</span>
+          <span class="detail-value">${formatDateTime(req.returnDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Parent / Contact</span>
+          <span class="detail-value">${escapeHtml(req.parentName || 'Parent')} (${req.parentVerifiedMobile || req.parentPhone || req.contactPhone || 'N/A'})</span>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1; background:rgba(139,92,246,0.08); padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(139,92,246,0.3); margin-top:0.3rem;">
+          <div style="color:#a78bfa; font-weight:700; font-size:0.8rem;">⭐ 4-TIER CLEARANCE SUMMARY (3 OF 4 TIERS AUTHORIZED)</div>
+          <div style="font-size:0.83rem; color:var(--text-primary); margin-top:0.2rem;">
+            <span style="color:#10b981;">✓ Tier 1: Parent Face Biometrics Verified</span> | 
+            <span style="color:#10b981;">✓ Tier 2: Advisor Approved</span> | 
+            <span style="color:#10b981;">✓ Tier 3: Principal Authorized</span>
+          </div>
+          ${req.additionalRemarks ? `<div style="font-size:0.83rem; color:var(--text-secondary); margin-top:0.2rem;"><strong>Justification:</strong> ${escapeHtml(req.additionalRemarks)}</div>` : ''}
+          ${req.attachmentUrl ? `<div style="font-size:0.83rem; margin-top:0.2rem;"><a href="${escapeHtml(req.attachmentUrl)}" target="_blank" style="color:#60a5fa; text-decoration:underline;">View Supporting Attachment ↗</a></div>` : ''}
+        </div>
+      </div>
+
+      <div class="request-card-actions">
+        <button class="btn-view-details" onclick="openDetailsModal(${req.id}, 'special')">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span>View Details</span>
+        </button>
+        <button class="btn-reject" onclick="openRejectModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Reject</span>
+        </button>
+        <button class="btn-approve" onclick="openApproveModal(${req.id})" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9);">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>Approve Special & Issue QR</span>
+        </button>
+      </div>
+    `;
+
+    DOM.specialQueueContainer.appendChild(card);
   });
 }
 
@@ -707,7 +957,33 @@ function openDetailsModal(requestId, type) {
     const isParentRejected = req.status === 'REJECTED' || req.parentApprovalStatus === 'REJECTED';
 
     let parentApprovalHtml = '';
-    if (isParentApproved) {
+    if (req.requestType === 'emergency') {
+      parentApprovalHtml = `
+        <div class="emergency-details-section" style="margin-top:1.25rem; padding:1.1rem; border-radius:var(--radius-sm); background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25);">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; border-bottom:1px solid rgba(239,68,68,0.2); padding-bottom:0.5rem;">
+            <h4 style="font-family:'Outfit'; font-size:1rem; font-weight:700; color:#ef4444; margin:0; display:flex; align-items:center; gap:0.5rem;">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              🚨 EMERGENCY OUTPASS — DIRECT WARDEN REVIEW
+            </h4>
+            <span class="status-badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:0.75rem; padding:3px 8px;">
+              NO PARENT APPROVAL REQUIRED
+            </span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:0.65rem; font-size:0.86rem;">
+            <div><strong style="color:var(--text-secondary);">Emergency Type:</strong> <span style="color:#ef4444; font-weight:700;">${escapeHtml(req.emergencyCategory || req.emergencyType || 'Medical / Emergency')}</span></div>
+            <div><strong style="color:var(--text-secondary);">Emergency Contact:</strong> <span style="color:var(--text-primary); font-family:monospace; font-weight:600;">${escapeHtml(req.emergencyContact || 'N/A')}</span></div>
+            <div><strong style="color:var(--text-secondary);">Workflow Routing:</strong> <span style="color:#10b981; font-weight:600;">Student → Warden → QR (Direct)</span></div>
+            <div><strong style="color:var(--text-secondary);">Parent Involvement:</strong> <span style="color:var(--text-secondary);">None (Emergency Protocol)</span></div>
+          </div>
+          <div style="margin-top:0.85rem; padding-top:0.6rem; border-top:1px dashed rgba(239,68,68,0.25); font-size:0.86rem;">
+            <strong style="color:var(--text-secondary);">Emergency Details / Reason:</strong>
+            <div style="margin-top:0.3rem; color:var(--text-primary); background:var(--bg-card); padding:0.6rem 0.85rem; border-radius:4px; border-left:3.5px solid #ef4444; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+              ${escapeHtml(req.additionalRemarks || req.purpose || 'None provided')}
+            </div>
+          </div>
+        </div>
+      `;
+    } else if (isParentApproved) {
       const isFaceVerified = (req.parentFaceVerified === 1 || req.faceVerificationResult === 'VERIFIED' || req.biometricVerificationResult === 'VERIFIED');
       parentApprovalHtml = `
         <div class="parent-approval-section" style="margin-top:1.25rem; padding:1.1rem; border-radius:var(--radius-sm); background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25);">
@@ -820,22 +1096,58 @@ function openApproveModal(requestId) {
   if (!req) return;
 
   if (DOM.approveModalBody) {
-    DOM.approveModalBody.innerHTML = `
-      <p>Are you sure you want to approve outpass request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
-      <div style="margin:0.75rem 0; padding:0.75rem 0.9rem; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:4px; font-size:0.84rem; display:flex; flex-direction:column; gap:0.35rem;">
-        <div><strong>Parent Decision:</strong> <span style="color:#10b981; font-weight:700;">APPROVED</span></div>
-        <div><strong>Parent Mobile:</strong> <span style="font-family:monospace; font-weight:600;">${escapeHtml(req.parentVerifiedMobile || req.parentPhone || 'N/A')}</span></div>
-        <div><strong>Parent Biometric Auth:</strong> <span style="color:#10b981; font-weight:700;">128D Face Biometrics Confirmed ✓</span></div>
-        <div><strong>Biometric Security:</strong> <span style="color:#10b981; font-weight:600;">Matched registered parent profile</span></div>
-        <div style="margin-top:0.25rem; padding-top:0.35rem; border-top:1px dashed rgba(16,185,129,0.25);">
-          <strong>Parent Message:</strong> <em style="color:var(--text-primary);">"${escapeHtml(req.parentMessage || 'Approved')}"</em>
+    if (req.requestType === 'emergency') {
+      DOM.approveModalBody.innerHTML = `
+        <p>Are you sure you want to approve Emergency Outpass request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
+        <div style="margin:0.75rem 0; padding:0.75rem 0.9rem; background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.2); border-radius:4px; font-size:0.84rem; display:flex; flex-direction:column; gap:0.35rem;">
+          <div><strong>Workflow Routing:</strong> <span style="color:#ef4444; font-weight:700;">DIRECT WARDEN APPROVAL (NO PARENT REQUIRED)</span></div>
+          <div><strong>Emergency Type:</strong> <span style="font-weight:600;">${escapeHtml(req.emergencyCategory || req.emergencyType || 'Emergency')}</span></div>
+          <div><strong>Emergency Contact:</strong> <span style="font-family:monospace; font-weight:600;">${escapeHtml(req.emergencyContact || 'N/A')}</span></div>
+          <div style="margin-top:0.25rem; padding-top:0.35rem; border-top:1px dashed rgba(239,68,68,0.25);">
+            <strong>Emergency Details / Reason:</strong> <em style="color:var(--text-primary);">${escapeHtml(req.additionalRemarks || req.purpose || 'N/A')}</em>
+          </div>
         </div>
-      </div>
-      <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
-        Destination: <strong>${escapeHtml(req.destination)}</strong><br>
-        Expected Return: <strong>${formatDateTime(req.returnDatetime)}</strong>
-      </p>
-    `;
+        <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
+          Destination: <strong>${escapeHtml(req.destination)}</strong><br>
+          Leaving: <strong>${formatDateTime(req.leavingDatetime)}</strong><br>
+          Expected Return: <strong>${formatDateTime(req.returnDatetime)}</strong><br>
+          <span style="color:#10b981; font-weight:600;">Secure QR Code will be immediately generated upon your approval.</span>
+        </p>
+      `;
+    } else if (req.requestType === 'special') {
+      DOM.approveModalBody.innerHTML = `
+        <p>Are you sure you want to approve Special Outpass request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
+        <div style="margin:0.75rem 0; padding:0.75rem 0.9rem; background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2); border-radius:4px; font-size:0.84rem; display:flex; flex-direction:column; gap:0.35rem;">
+          <div><strong>Workflow Routing:</strong> <span style="color:#a78bfa; font-weight:700;">4-TIER FINAL APPROVAL (TIER 4 WARDEN SANCTION)</span></div>
+          <div><strong>Pre-authorizations:</strong> <span style="color:#10b981; font-weight:600;">✓ Parent Biometrics &nbsp;|&nbsp; ✓ Advisor &nbsp;|&nbsp; ✓ Principal</span></div>
+          <div><strong>Event / Purpose:</strong> <span style="font-weight:600;">${escapeHtml(req.purpose)}</span></div>
+          ${req.additionalRemarks ? `<div style="margin-top:0.25rem; padding-top:0.35rem; border-top:1px dashed rgba(139,92,246,0.25);"><strong>Justification:</strong> <em>${escapeHtml(req.additionalRemarks)}</em></div>` : ''}
+        </div>
+        <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
+          Destination: <strong>${escapeHtml(req.destination)}</strong><br>
+          Leaving: <strong>${formatDateTime(req.leavingDatetime)}</strong><br>
+          Expected Return: <strong>${formatDateTime(req.returnDatetime)}</strong><br>
+          <span style="color:#10b981; font-weight:600;">Warden approval provides the final seal and activates the QR Code.</span>
+        </p>
+      `;
+    } else {
+      DOM.approveModalBody.innerHTML = `
+        <p>Are you sure you want to approve outpass request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
+        <div style="margin:0.75rem 0; padding:0.75rem 0.9rem; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:4px; font-size:0.84rem; display:flex; flex-direction:column; gap:0.35rem;">
+          <div><strong>Parent Decision:</strong> <span style="color:#10b981; font-weight:700;">APPROVED</span></div>
+          <div><strong>Parent Mobile:</strong> <span style="font-family:monospace; font-weight:600;">${escapeHtml(req.parentVerifiedMobile || req.parentPhone || 'N/A')}</span></div>
+          <div><strong>Parent Biometric Auth:</strong> <span style="color:#10b981; font-weight:700;">128D Face Biometrics Confirmed ✓</span></div>
+          <div><strong>Biometric Security:</strong> <span style="color:#10b981; font-weight:600;">Matched registered parent profile</span></div>
+          <div style="margin-top:0.25rem; padding-top:0.35rem; border-top:1px dashed rgba(16,185,129,0.25);">
+            <strong>Parent Message:</strong> <em style="color:var(--text-primary);">"${escapeHtml(req.parentMessage || 'Approved')}"</em>
+          </div>
+        </div>
+        <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
+          Destination: <strong>${escapeHtml(req.destination)}</strong><br>
+          Expected Return: <strong>${formatDateTime(req.returnDatetime)}</strong>
+        </p>
+      `;
+    }
   }
 
   openModal('approveModal');
@@ -981,22 +1293,24 @@ function initNavigation() {
     });
   }
 
-  DOM.navButtons.forEach(btn => {
+  // Bind all navigation buttons directly
+  const navBtns = document.querySelectorAll('.warden-nav-btn');
+  navBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      const tabId = btn.dataset.tab;
-      if (tabId) switchTab(tabId);
-      if (sidebar) sidebar.classList.remove('open');
-      if (backdrop) backdrop.classList.remove('active');
+      const tabId = btn.dataset.tab || btn.getAttribute('data-tab');
+      if (tabId) showWardenSection(tabId);
     });
   });
 
-  // Real-time notification hook to auto-refresh all feeds and stats
+  // Real-time notification hook to auto-refresh active section
   window.addEventListener('sh:notification:new', async () => {
     await refreshAllData();
     if (activeTab === 'extension-requests') {
       await loadWardenPendingExtensions();
       await loadWardenExtensionHistory('all');
+    } else if (activeTab === 'reports') {
+      await loadWardenReports();
     }
   });
 
@@ -1004,68 +1318,105 @@ function initNavigation() {
   window.addEventListener('hashchange', () => {
     const rawHash = window.location.hash.replace(/^#/, '');
     if (rawHash && rawHash !== activeTab) {
-      switchTab(rawHash, false);
+      showWardenSection(rawHash, false);
     }
   });
 
-  // Initial hash check on page load
+  // Initial tab activation on load - default strictly to Dashboard (overview)
   const initialHash = window.location.hash.replace(/^#/, '');
-  if (initialHash) {
-    switchTab(initialHash, false);
-  }
+  showWardenSection(initialHash || 'overview', false);
 }
 
-function switchTab(tabId, pushHash = true) {
-  if (!tabId) return;
-  const targetSection = document.getElementById(`tab-${tabId}`);
-  if (!targetSection) return;
+/**
+ * Centralized Single-Source-of-Truth Navigation Controller
+ * Enforces strict single-page content isolation: hides all other sections completely,
+ * activates only the requested section and its matching button, and prevents cross-section leakage.
+ */
+function showWardenSection(sectionId, pushHash = true) {
+  if (!sectionId) return;
 
-  activeTab = tabId;
+  // 1. Normalize tab identifier
+  let cleanId = String(sectionId).replace(/^tab-/, '').trim().toLowerCase();
+  if (cleanId === 'extensions') cleanId = 'extension-requests';
+  if (cleanId === 'dashboard') cleanId = 'overview';
 
-  DOM.navButtons.forEach(btn => {
-    if (btn.dataset.tab === tabId) {
+  // 2. Fresh query of all content sections and navigation buttons
+  const allSections = document.querySelectorAll('.tab-section, .warden-section, [id^="tab-"]');
+  const allNavBtns = document.querySelectorAll('.warden-nav-btn, [data-tab]');
+
+  // 3. FIRST: Strictly HIDE every Warden content section and remove active state
+  allSections.forEach(sec => {
+    sec.classList.remove('active');
+    sec.style.setProperty('display', 'none', 'important');
+  });
+
+  // 4. SECOND: Remove active state from every navigation button
+  allNavBtns.forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // 5. THIRD: Show ONLY the requested section
+  const targetSection = document.getElementById(`tab-${cleanId}`) || document.getElementById(cleanId);
+  if (targetSection) {
+    targetSection.classList.add('active');
+    targetSection.style.setProperty('display', 'flex', 'important');
+  } else {
+    console.warn(`[Warden Navigation]: Target section "#tab-${cleanId}" not found in DOM.`);
+    const overviewSec = document.getElementById('tab-overview');
+    if (overviewSec) {
+      overviewSec.classList.add('active');
+      overviewSec.style.setProperty('display', 'flex', 'important');
+      cleanId = 'overview';
+    }
+  }
+
+  // 6. FOURTH: Add active state ONLY to the clicked button
+  allNavBtns.forEach(btn => {
+    const btnTab = (btn.dataset.tab || btn.getAttribute('data-tab') || '').trim().toLowerCase();
+    if (btnTab === cleanId) {
       btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
     }
   });
 
-  DOM.tabSections.forEach(sec => {
-    if (sec.id === `tab-${tabId}`) {
-      sec.classList.add('active');
-    } else {
-      sec.classList.remove('active');
-    }
-  });
+  // 7. Update active state variable
+  activeTab = cleanId;
 
+  // 8. Dismiss mobile sidebar & backdrop
   const sidebar = document.querySelector('.warden-sidebar') || document.querySelector('.dash-sidebar');
   const backdrop = document.getElementById('sidebarBackdrop');
   if (sidebar) sidebar.classList.remove('open');
   if (backdrop) backdrop.classList.remove('active');
 
-  if (pushHash && window.location.hash !== `#${tabId}`) {
-    history.pushState(null, '', `#${tabId}`);
+  // 9. Synchronize browser history / URL hash
+  if (pushHash && window.location.hash !== `#${cleanId}`) {
+    history.pushState(null, '', `#${cleanId}`);
   }
 
-  if (tabId === 'overview') {
+  // 10. Trigger section-specific data loaders strictly for the active section
+  if (cleanId === 'overview') {
     loadOverview();
-  } else if (tabId === 'normal-requests') {
-    loadPendingQueues();
-  } else if (tabId === 'duty-requests') {
+  } else if (cleanId === 'normal-requests' || cleanId === 'emergency-requests' || cleanId === 'special-requests') {
+    loadPendingNormal();
+  } else if (cleanId === 'duty-requests') {
     loadPendingDuty();
-  } else if (tabId === 'active-passes') {
+  } else if (cleanId === 'active-passes') {
     loadActiveOutpasses();
-  } else if (tabId === 'parent-messages') {
+  } else if (cleanId === 'parent-messages') {
     loadWardenParentMessages();
-  } else if (tabId === 'extension-requests') {
+  } else if (cleanId === 'extension-requests') {
     loadWardenPendingExtensions();
     loadWardenExtensionHistory('all');
-  } else if (tabId === 'reports') {
+  } else if (cleanId === 'reports') {
     loadWardenReports();
+  } else if (cleanId === 'registered-students') {
+    loadWardenRegisteredStudents(1);
   }
 }
 
-window.switchTab = switchTab;
+// Global aliases for complete compatibility across inline onclick handlers
+const switchTab = showWardenSection;
+window.showWardenSection = showWardenSection;
+window.switchTab = showWardenSection;
 
 function showToast(message, type = 'success') {
   if (!DOM.toastContainer) return;
@@ -1132,18 +1483,8 @@ function clearAuthAndRedirect() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('sh_theme', next);
-    });
-  }
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
 }
 
 /* ==========================================================
@@ -2498,6 +2839,704 @@ window.loadWardenReports = loadWardenReports;
 window.exportWardenReportsCsv = exportWardenReportsCsv;
 window.printWardenReport = printWardenReport;
 window.renderEmergencyExtensionsTable = renderEmergencyExtensionsTable;
+
+/* ==========================================================
+   7. WARDEN REGISTERED STUDENTS & YEAR CENSUS MODULE
+   ========================================================== */
+let registeredStudentsState = {
+  students: [],
+  stats: null,
+  currentYear: 'all',
+  currentDept: 'all',
+  currentBlock: 'all',
+  searchQuery: '',
+  page: 1,
+  limit: 15,
+  total: 0,
+  totalPages: 1
+};
+
+async function loadWardenRegisteredStudents(targetPage = 1) {
+  const token = localStorage.getItem('sh_token') || sessionStorage.getItem('sh_token');
+  if (!token) return;
+
+  registeredStudentsState.page = targetPage;
+
+  // 1. Fetch Census Stats if not already fetched
+  try {
+    const statsRes = await fetch('/api/outpass/warden/registered-students/stats', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (statsRes.ok) {
+      const statsData = await statsRes.json();
+      if (statsData.success && statsData.stats) {
+        registeredStudentsState.stats = statsData.stats;
+        renderCensusStats(statsData.stats);
+        populateCensusFilterOptions(statsData.stats);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching census stats:', err);
+  }
+
+  // 2. Fetch Filtered Students List
+  const params = new URLSearchParams();
+  if (registeredStudentsState.currentYear && registeredStudentsState.currentYear !== 'all') {
+    params.set('year', registeredStudentsState.currentYear);
+  }
+  if (registeredStudentsState.currentDept && registeredStudentsState.currentDept !== 'all') {
+    params.set('department', registeredStudentsState.currentDept);
+  }
+  if (registeredStudentsState.currentBlock && registeredStudentsState.currentBlock !== 'all') {
+    params.set('block', registeredStudentsState.currentBlock);
+  }
+  if (registeredStudentsState.searchQuery && registeredStudentsState.searchQuery.trim()) {
+    params.set('search', registeredStudentsState.searchQuery.trim());
+  }
+  params.set('page', registeredStudentsState.page);
+  params.set('limit', registeredStudentsState.limit);
+
+  const tableBody = document.getElementById('censusStudentsTableBody');
+  if (tableBody) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-state-cell">
+          <div class="empty-state-content">
+            <div class="loading-spinner" style="width:24px; height:24px; border:2px solid rgba(59,130,246,0.3); border-top-color:#3b82f6; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 0.5rem;"></div>
+            <span>Loading registered hostel students...</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const res = await fetch(`/api/outpass/warden/registered-students?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      registeredStudentsState.students = data.students || [];
+      registeredStudentsState.total = data.pagination?.total || 0;
+      registeredStudentsState.totalPages = data.pagination?.totalPages || 1;
+
+      renderRegisteredStudentsTable(registeredStudentsState.students);
+      renderCensusPagination(data.pagination);
+    } else {
+      if (tableBody) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="empty-state-cell">
+              <div class="empty-state-content">
+                <span style="color:#ef4444;">${escapeHtml(data.message || 'Failed to load registered students')}</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching registered students:', err);
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state-cell">
+            <div class="empty-state-content">
+              <span style="color:#ef4444;">Network error while loading student directory.</span>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function renderCensusStats(stats) {
+  const total = stats.totalStudents || 0;
+  const y1 = stats.yearCounts?.year1 || 0;
+  const y2 = stats.yearCounts?.year2 || 0;
+  const y3 = stats.yearCounts?.year3 || 0;
+  const y4 = stats.yearCounts?.year4 || 0;
+
+  const totalEl = document.getElementById('censusTotalStudents');
+  const y1El = document.getElementById('censusYear1Count');
+  const y1Pct = document.getElementById('censusYear1Pct');
+  const y2El = document.getElementById('censusYear2Count');
+  const y2Pct = document.getElementById('censusYear2Pct');
+  const y3El = document.getElementById('censusYear3Count');
+  const y3Pct = document.getElementById('censusYear3Pct');
+  const y4El = document.getElementById('censusYear4Count');
+  const y4Pct = document.getElementById('censusYear4Pct');
+
+  if (totalEl) totalEl.textContent = total;
+  if (y1El) y1El.textContent = y1;
+  if (y1Pct) y1Pct.textContent = total > 0 ? `${Math.round((y1 / total) * 100)}% of hostel` : '0%';
+  if (y2El) y2El.textContent = y2;
+  if (y2Pct) y2Pct.textContent = total > 0 ? `${Math.round((y2 / total) * 100)}% of hostel` : '0%';
+  if (y3El) y3El.textContent = y3;
+  if (y3Pct) y3Pct.textContent = total > 0 ? `${Math.round((y3 / total) * 100)}% of hostel` : '0%';
+  if (y4El) y4El.textContent = y4;
+  if (y4Pct) y4Pct.textContent = total > 0 ? `${Math.round((y4 / total) * 100)}% of hostel` : '0%';
+
+  // Update nav badge and overview stats as well
+  const navBadge = document.getElementById('navBadgeRegisteredStudents');
+  if (navBadge) {
+    navBadge.textContent = total;
+    navBadge.style.display = total > 0 ? 'inline-block' : 'none';
+  }
+  const ovTotal = document.getElementById('statRegisteredTotal');
+  if (ovTotal) ovTotal.textContent = total;
+
+  // Department Year-wise Matrix Grid
+  const matrixGrid = document.getElementById('censusDeptMatrixGrid');
+  if (matrixGrid && stats.byDept) {
+    const depts = Object.keys(stats.byDept);
+    if (depts.length === 0) {
+      matrixGrid.innerHTML = '<div style="color:var(--text-muted); padding:1rem;">No departmental data available.</div>';
+    } else {
+      matrixGrid.innerHTML = depts.map(deptName => {
+        const d = stats.byDept[deptName];
+        return `
+          <div style="background:var(--bg-surface); border:1px solid var(--border-main); border-radius:10px; padding:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+              <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">${escapeHtml(deptName)}</span>
+              <span style="background:rgba(59,130,246,0.15); color:#60a5fa; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:12px;">${d.total} Students</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:0.4rem; font-size:0.75rem; text-align:center;">
+              <div style="background:rgba(16,185,129,0.08); padding:0.4rem 0.2rem; border-radius:6px; border:1px solid rgba(16,185,129,0.2);">
+                <div style="color:#34d399; font-weight:700;">${d.year1 || 0}</div>
+                <div style="color:var(--text-muted); font-size:0.68rem;">1st Yr</div>
+              </div>
+              <div style="background:rgba(59,130,246,0.08); padding:0.4rem 0.2rem; border-radius:6px; border:1px solid rgba(59,130,246,0.2);">
+                <div style="color:#60a5fa; font-weight:700;">${d.year2 || 0}</div>
+                <div style="color:var(--text-muted); font-size:0.68rem;">2nd Yr</div>
+              </div>
+              <div style="background:rgba(139,92,246,0.08); padding:0.4rem 0.2rem; border-radius:6px; border:1px solid rgba(139,92,246,0.2);">
+                <div style="color:#a78bfa; font-weight:700;">${d.year3 || 0}</div>
+                <div style="color:var(--text-muted); font-size:0.68rem;">3rd Yr</div>
+              </div>
+              <div style="background:rgba(245,158,11,0.08); padding:0.4rem 0.2rem; border-radius:6px; border:1px solid rgba(245,158,11,0.2);">
+                <div style="color:#fbbf24; font-weight:700;">${d.year4 || 0}</div>
+                <div style="color:var(--text-muted); font-size:0.68rem;">4th Yr</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+let isCensusDropdownsPopulated = false;
+function populateCensusFilterOptions(stats) {
+  if (isCensusDropdownsPopulated) return;
+
+  const deptSelect = document.getElementById('regStudentDeptFilter');
+  if (deptSelect && stats.departments) {
+    const currentVal = deptSelect.value;
+    deptSelect.innerHTML = '<option value="all">All Departments</option>' +
+      stats.departments.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    deptSelect.value = currentVal;
+  }
+
+  const blockSelect = document.getElementById('regStudentBlockFilter');
+  if (blockSelect && stats.blocks) {
+    const currentVal = blockSelect.value;
+    blockSelect.innerHTML = '<option value="all">All Hostel Blocks</option>' +
+      stats.blocks.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+    blockSelect.value = currentVal;
+  }
+
+  isCensusDropdownsPopulated = true;
+}
+
+function renderRegisteredStudentsTable(students) {
+  const tableBody = document.getElementById('censusStudentsTableBody');
+  const countText = document.getElementById('censusResultsCountText');
+  if (!tableBody) return;
+
+  if (countText) {
+    const total = registeredStudentsState.total;
+    const start = total === 0 ? 0 : (registeredStudentsState.page - 1) * registeredStudentsState.limit + 1;
+    const end = Math.min(registeredStudentsState.page * registeredStudentsState.limit, total);
+    countText.textContent = `Showing ${start} - ${end} of ${total} registered students`;
+  }
+
+  if (!students || students.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-state-cell">
+          <div class="empty-state-content">
+            <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none" style="margin-bottom:0.5rem; opacity:0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>No students found matching the selected census filters.</span>
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = students.map(s => {
+    const yr = Number(s.yearOfStudy) || 1;
+    const yrClass = `year-pill-${yr}`;
+    const yrLabel = s.yearName || `Year ${yr}`;
+    const initial = (s.name || 'S').charAt(0).toUpperCase();
+
+    const isOutside = Boolean(s.isCurrentlyOutside);
+    const statusPill = isOutside
+      ? `<span class="status-badge" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); font-size:0.75rem; padding:3px 8px; border-radius:12px; font-weight:700;">● Outside Hostel</span>`
+      : `<span class="status-badge" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:0.75rem; padding:3px 8px; border-radius:12px; font-weight:700;">● Inside Hostel</span>`;
+
+    return `
+      <tr>
+        <td>
+          <div class="student-row-info">
+            <div class="student-avatar-initial">${initial}</div>
+            <div>
+              <div class="student-name-text">${escapeHtml(s.name)}</div>
+              <div class="student-reg-text">${escapeHtml(s.regNo)}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="year-pill ${yrClass}">${yrLabel}</span>
+        </td>
+        <td>
+          <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">${escapeHtml(s.department || 'General')}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${s.section ? `Sec ${escapeHtml(s.section)} • ` : ''}${escapeHtml(s.degreeCourse || 'B.E / B.Tech')}</div>
+        </td>
+        <td>
+          <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">${escapeHtml(s.roomNo || 'N/A')}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(s.hostelBlock || 'Hostel Block')}</div>
+        </td>
+        <td>
+          <div style="font-weight:600; font-size:0.85rem; color:var(--text-primary);">${escapeHtml(s.parentName || 'Parent')}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${escapeHtml(s.parentPhone || 'N/A')}</div>
+        </td>
+        <td>
+          ${statusPill}
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Passes: ${s.totalOutpasses || 0}</div>
+        </td>
+        <td>
+          <button type="button" class="secondary-btn" style="padding:0.4rem 0.75rem; font-size:0.8rem;" onclick="openStudentDetailsModal(${s.id})">
+            View Details
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderCensusPagination(p) {
+  const container = document.getElementById('censusPaginationControls');
+  if (!container || !p) return;
+
+  if (p.totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <button type="button" class="secondary-btn" style="padding:0.3rem 0.65rem; font-size:0.8rem;" ${p.page <= 1 ? 'disabled' : ''} onclick="loadWardenRegisteredStudents(${p.page - 1})">
+      ◀ Prev
+    </button>
+    <span style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">
+      Page ${p.page} of ${p.totalPages}
+    </span>
+    <button type="button" class="secondary-btn" style="padding:0.3rem 0.65rem; font-size:0.8rem;" ${p.page >= p.totalPages ? 'disabled' : ''} onclick="loadWardenRegisteredStudents(${p.page + 1})">
+      Next ▶
+    </button>
+  `;
+}
+
+function filterByYear(year) {
+  registeredStudentsState.currentYear = String(year);
+  registeredStudentsState.page = 1;
+
+  // Update pills UI
+  const pillBtns = document.querySelectorAll('#censusYearPills .census-filter-pill-btn');
+  pillBtns.forEach(btn => {
+    const bYear = btn.getAttribute('data-year');
+    if (bYear === String(year)) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // If currently not on registered-students tab, switch to it
+  if (activeTab !== 'registered-students') {
+    showWardenSection('registered-students');
+  } else {
+    loadWardenRegisteredStudents(1);
+  }
+}
+
+function onCensusFilterChange() {
+  const deptSelect = document.getElementById('regStudentDeptFilter');
+  const blockSelect = document.getElementById('regStudentBlockFilter');
+  registeredStudentsState.currentDept = deptSelect ? deptSelect.value : 'all';
+  registeredStudentsState.currentBlock = blockSelect ? blockSelect.value : 'all';
+  loadWardenRegisteredStudents(1);
+}
+
+let censusSearchDebounceTimer = null;
+function onCensusSearchInput(e) {
+  clearTimeout(censusSearchDebounceTimer);
+  const val = e.target.value;
+  censusSearchDebounceTimer = setTimeout(() => {
+    registeredStudentsState.searchQuery = val;
+    loadWardenRegisteredStudents(1);
+  }, 300);
+}
+
+function openStudentDetailsModal(studentId) {
+  const student = (registeredStudentsState.students || []).find(s => Number(s.id) === Number(studentId));
+  if (!student) return;
+
+  const modal = document.getElementById('studentDetailsModal');
+  const avatarEl = document.getElementById('modalStudentAvatar');
+  const nameEl = document.getElementById('modalStudentName');
+  const regNoEl = document.getElementById('modalStudentRegNo');
+  const bodyEl = document.getElementById('modalStudentBody');
+
+  if (avatarEl) avatarEl.textContent = (student.name || 'S').charAt(0).toUpperCase();
+  if (nameEl) nameEl.textContent = student.name;
+  if (regNoEl) regNoEl.textContent = `${student.regNo} • Year ${student.yearOfStudy} (${student.yearName || 'Academic Year'})`;
+
+  if (bodyEl) {
+    const isOutside = Boolean(student.isCurrentlyOutside);
+    bodyEl.innerHTML = `
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem; background:rgba(255,255,255,0.03); border:1px solid var(--border-main); border-radius:8px; padding:1rem;">
+        <div>
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Academic Enrollment</span>
+          <div style="font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-top:2px;">${escapeHtml(student.department || 'N/A')}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(student.degreeCourse || 'B.E')} • Section ${escapeHtml(student.section || 'A')}</div>
+        </div>
+        <div>
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Hostel Accommodation</span>
+          <div style="font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-top:2px;">Room ${escapeHtml(student.roomNo || 'N/A')}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(student.hostelBlock || 'Hostel Block')}</div>
+        </div>
+        <div>
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Student Contact</span>
+          <div style="font-weight:600; color:var(--text-primary); font-size:0.9rem; margin-top:2px; font-family:monospace;">${escapeHtml(student.phone || 'Not Provided')}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(student.email || 'N/A')}</div>
+        </div>
+        <div>
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Parent / Guardian</span>
+          <div style="font-weight:700; color:var(--text-primary); font-size:0.9rem; margin-top:2px;">${escapeHtml(student.parentName || 'Parent')}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); font-family:monospace;">📞 ${escapeHtml(student.parentPhone || 'N/A')}</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem; margin-top:0.75rem;">
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-main); border-radius:8px; padding:0.85rem;">
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Class Advisor</span>
+          <div style="font-weight:600; color:var(--text-primary); font-size:0.88rem; margin-top:2px;">${escapeHtml(student.advisorName || 'Not Assigned')}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(student.advisorDept || student.department || '')}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-main); border-radius:8px; padding:0.85rem;">
+          <span style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Live Gate Status</span>
+          <div style="margin-top:4px;">
+            ${isOutside 
+              ? '<span style="color:#ef4444; font-weight:700; font-size:0.9rem;">● Checked Out (Outside Hostel)</span>' 
+              : '<span style="color:#10b981; font-weight:700; font-size:0.9rem;">● Present Inside Hostel</span>'}
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Total Historical Passes: ${student.totalOutpasses || 0}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (modal) {
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
+}
+
+function closeStudentDetailsModal() {
+  const modal = document.getElementById('studentDetailsModal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+async function exportRegisteredStudentsCSV() {
+  const token = localStorage.getItem('sh_token') || sessionStorage.getItem('sh_token');
+  if (!token) return;
+
+  try {
+    showToast('Exporting registered students census...', 'info');
+    const params = new URLSearchParams();
+    if (registeredStudentsState.currentYear && registeredStudentsState.currentYear !== 'all') {
+      params.set('year', registeredStudentsState.currentYear);
+    }
+    if (registeredStudentsState.currentDept && registeredStudentsState.currentDept !== 'all') {
+      params.set('department', registeredStudentsState.currentDept);
+    }
+    if (registeredStudentsState.currentBlock && registeredStudentsState.currentBlock !== 'all') {
+      params.set('block', registeredStudentsState.currentBlock);
+    }
+    if (registeredStudentsState.searchQuery) {
+      params.set('search', registeredStudentsState.searchQuery.trim());
+    }
+    params.set('page', 1);
+    params.set('limit', 1000);
+
+    const res = await fetch(`/api/outpass/warden/registered-students?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    const students = (data.students && data.students.length > 0) ? data.students : registeredStudentsState.students;
+
+    if (!students || students.length === 0) {
+      showToast('No student records found to export.', 'warning');
+      return;
+    }
+
+    const lines = [];
+    lines.push('Registration Number,Student Name,Year of Study,Academic Level,Department,Section,Hostel Block,Room Number,Student Phone,Parent Name,Parent Phone,Total Outpasses,Current Gate Status');
+    students.forEach(s => {
+      lines.push([
+        escapeCsv(s.regNo),
+        escapeCsv(s.name),
+        s.yearOfStudy,
+        escapeCsv(s.yearName || ('Year ' + s.yearOfStudy)),
+        escapeCsv(s.department),
+        escapeCsv(s.section || ''),
+        escapeCsv(s.hostelBlock || ''),
+        escapeCsv(s.roomNo || ''),
+        escapeCsv(s.phone || ''),
+        escapeCsv(s.parentName || ''),
+        escapeCsv(s.parentPhone || ''),
+        s.totalOutpasses || 0,
+        escapeCsv(s.isCurrentlyOutside ? 'Outside Hostel' : 'Inside Hostel')
+      ].join(','));
+    });
+
+    const csvContent = lines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const yearTag = registeredStudentsState.currentYear === 'all' ? 'all_years' : `year_${registeredStudentsState.currentYear}`;
+    a.download = `warden_registered_students_${yearTag}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(`Exported ${students.length} student records successfully!`, 'success');
+  } catch (err) {
+    console.error('Error exporting CSV:', err);
+    showToast('Failed to export students CSV.', 'error');
+  }
+}
+
+window.loadWardenRegisteredStudents = loadWardenRegisteredStudents;
+window.filterByYear = filterByYear;
+window.onCensusFilterChange = onCensusFilterChange;
+window.onCensusSearchInput = onCensusSearchInput;
+window.openStudentDetailsModal = openStudentDetailsModal;
+window.closeStudentDetailsModal = closeStudentDetailsModal;
+window.exportRegisteredStudentsCSV = exportRegisteredStudentsCSV;
+
+/* ==========================================================
+   15. WARDEN PARENT FACE MANAGEMENT
+   ========================================================== */
+let selectedParentIdForRevoke = null;
+
+async function handleWardenParentSearch(event) {
+  if (event) event.preventDefault();
+  const token = localStorage.getItem('sh_token') || sessionStorage.getItem('sh_token');
+  if (!token) return;
+
+  const mobileInput = document.getElementById('inputWardenParentMobile');
+  const mobile = mobileInput ? mobileInput.value.trim() : '';
+  if (!mobile) {
+    showToast('Please enter a mobile number to search.', 'warning');
+    return;
+  }
+
+  const resultsContainer = document.getElementById('wardenParentSearchResults');
+  const emptyContainer = document.getElementById('wardenParentSearchEmpty');
+  const searchBtn = document.getElementById('btnWardenSearchParent');
+
+  if (searchBtn) searchBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/warden/parents/search?mobile=${encodeURIComponent(mobile)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      const parents = data.parents || [];
+      if (parents.length === 0) {
+        if (resultsContainer) {
+          resultsContainer.innerHTML = '';
+          resultsContainer.style.display = 'none';
+        }
+        if (emptyContainer) {
+          emptyContainer.style.display = 'block';
+        }
+      } else {
+        if (emptyContainer) emptyContainer.style.display = 'none';
+        if (resultsContainer) {
+          resultsContainer.style.display = 'grid';
+          resultsContainer.style.gap = '1rem';
+          resultsContainer.innerHTML = parents.map(p => renderWardenParentCard(p)).join('');
+        }
+      }
+    } else {
+      showToast(data.message || 'Error searching parent.', 'error');
+    }
+  } catch (err) {
+    showToast('Network error: ' + err.message, 'error');
+  } finally {
+    if (searchBtn) searchBtn.disabled = false;
+  }
+}
+
+function renderWardenParentCard(parent) {
+  const isRevoked = parent.faceStatus === 'REVOKED';
+  const isActive = parent.faceStatus === 'ACTIVE';
+  const statusColor = isActive ? '#10b981' : (isRevoked ? '#ef4444' : '#94a3b8');
+  const statusBg = isActive ? 'rgba(16,185,129,0.12)' : (isRevoked ? 'rgba(239,68,68,0.12)' : 'rgba(148,163,184,0.12)');
+  const statusBorder = isActive ? 'rgba(16,185,129,0.3)' : (isRevoked ? 'rgba(239,68,68,0.3)' : 'rgba(148,163,184,0.3)');
+
+  return `
+    <div class="profile-details-card" id="warden-parent-card-${parent.parentId}" style="padding:1.5rem; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem;">
+        <div>
+          <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.25rem;">
+            <h3 style="font-family:'Outfit'; font-size:1.2rem; font-weight:700; color:var(--text-primary); margin:0;">
+              ${escapeHtml(parent.parentName)}
+            </h3>
+            <span style="font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:999px; background:${statusBg}; color:${statusColor}; border:1px solid ${statusBorder}; font-weight:700; display:inline-flex; align-items:center; gap:0.35rem;">
+              <span style="width:6px; height:6px; border-radius:50%; background:${statusColor}; display:inline-block;"></span>
+              ${escapeHtml(parent.faceStatus || 'NOT_REGISTERED')}
+            </span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); display:flex; gap:1rem; flex-wrap:wrap;">
+            <span>📞 Mobile: <strong style="color:var(--text-primary); font-family:monospace;">${escapeHtml(parent.mobileNumber)}</strong></span>
+            <span>Relation: <strong>${escapeHtml(parent.relationship || 'Parent')}</strong></span>
+          </div>
+        </div>
+
+        <div>
+          ${isActive ? `
+            <button type="button" class="btn-reject" onclick="openWardenRevokeModal(${parent.parentId})" style="padding:0.5rem 1.1rem; font-size:0.85rem; font-weight:700; border-radius:8px; display:inline-flex; align-items:center; gap:0.4rem; cursor:pointer;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+              REVOKE FACE
+            </button>
+          ` : (isRevoked ? `
+            <span style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.9rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; color:#f87171; font-size:0.82rem; font-weight:600;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+              NO ACTIVE FACE
+            </span>
+          ` : `
+            <span style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.9rem; background:rgba(148,163,184,0.1); border:1px solid rgba(148,163,184,0.25); border-radius:8px; color:#94a3b8; font-size:0.82rem;">
+              NOT REGISTERED
+            </span>
+          `)}
+        </div>
+      </div>
+
+      <!-- Details grid -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.9rem; background:var(--bg-input); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.85rem;">
+        <div>
+          <span style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; font-weight:600; display:block;">Linked Student</span>
+          <strong style="color:var(--text-primary); font-size:0.92rem;">${escapeHtml(parent.studentName)}</strong>
+          <div style="color:var(--text-secondary); font-size:0.78rem; font-family:monospace;">${escapeHtml(parent.studentRollNo)}</div>
+        </div>
+        <div>
+          <span style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; font-weight:600; display:block;">Academic & Room</span>
+          <span style="color:var(--text-primary);">${escapeHtml(parent.studentDept)}</span>
+          <div style="color:var(--text-secondary); font-size:0.78rem;">${escapeHtml(parent.studentRoom)}</div>
+        </div>
+        <div>
+          <span style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; font-weight:600; display:block;">Biometric Status</span>
+          <span style="font-weight:600; color:${statusColor};">${isActive ? 'Active 128D Face Template' : (isRevoked ? 'Face Revoked by Warden' : 'Face Scan Pending')}</span>
+          <div style="color:var(--text-secondary); font-size:0.78rem;">${parent.registeredAt ? 'Enrolled: ' + formatDateTime(parent.registeredAt) : (isRevoked && parent.revokedAt ? 'Revoked: ' + formatDateTime(parent.revokedAt) : 'No template')}</div>
+        </div>
+      </div>
+
+      ${isRevoked ? `
+        <div style="margin-top:0.9rem; padding:0.6rem 0.85rem; background:rgba(239,68,68,0.06); border:1px dashed rgba(239,68,68,0.25); border-radius:6px; font-size:0.8rem; color:#fca5a5; display:flex; align-items:center; gap:0.5rem;">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>Face registration is currently revoked. The parent will be required to re-register their face before approving future outpass requests.</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function openWardenRevokeModal(parentId) {
+  selectedParentIdForRevoke = parentId;
+  const modal = document.getElementById('wardenRevokeFaceModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+  }
+}
+
+function closeWardenRevokeModal() {
+  selectedParentIdForRevoke = null;
+  const modal = document.getElementById('wardenRevokeFaceModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+async function executeWardenRevokeFace() {
+  if (!selectedParentIdForRevoke) return;
+  const token = localStorage.getItem('sh_token') || sessionStorage.getItem('sh_token');
+  if (!token) return;
+
+  const btnConfirm = document.getElementById('btnConfirmRevokeFace');
+  if (btnConfirm) btnConfirm.disabled = true;
+
+  try {
+    const res = await fetch('/api/warden/parents/revoke-face', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        parentId: selectedParentIdForRevoke,
+        reason: 'Revoked by Warden administration from Parent Face Management panel'
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      closeWardenRevokeModal();
+      showToast('Parent face registration has been revoked successfully.', 'success');
+      // Re-trigger search to update the card state
+      handleWardenParentSearch();
+    } else {
+      showToast(data.message || 'Failed to revoke parent face.', 'error');
+    }
+  } catch (err) {
+    showToast('Network error: ' + err.message, 'error');
+  } finally {
+    if (btnConfirm) btnConfirm.disabled = false;
+  }
+}
+
+window.handleWardenParentSearch = handleWardenParentSearch;
+window.openWardenRevokeModal = openWardenRevokeModal;
+window.closeWardenRevokeModal = closeWardenRevokeModal;
+window.executeWardenRevokeFace = executeWardenRevokeFace;
+
+
 
 
 

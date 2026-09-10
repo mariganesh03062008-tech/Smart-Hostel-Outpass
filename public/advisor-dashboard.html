@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/warden-dashboard.css">
   <link rel="stylesheet" href="css/advisor-dashboard.css">
   <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/dashboard-theme.css">
 </head>
 <body>
   <div class="app-wrapper">
@@ -105,8 +106,14 @@
 
           <button class="advisor-nav-btn" data-tab="duty-queue">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
-            <span>Pending One-Day Duties</span>
+            <span>One-Day Duty Queue</span>
             <span class="nav-badge-pill purple" id="navBadgeDuty" style="display:none;">0</span>
+          </button>
+
+          <button class="advisor-nav-btn" data-tab="special-queue">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Special Outpass Queue</span>
+            <span class="nav-badge-pill purple" id="navBadgeSpecial" style="display:none;">0</span>
           </button>
 
           <button class="advisor-nav-btn" data-tab="approved-list">
@@ -137,22 +144,27 @@
             <div class="advisor-flow-banner">
               <div class="flow-step-item">
                 <div class="flow-step-num">1</div>
-                <span class="flow-step-text">Student Applies for One-Day Duty</span>
-              </div>
-              <span class="flow-arrow">→</span>
-              <div class="flow-step-item active">
-                <div class="flow-step-num">2</div>
-                <span class="flow-step-text" style="color:#c084fc; font-weight:700;">Class Advisor Verification (You)</span>
+                <span class="flow-step-text">Student Submission</span>
               </div>
               <span class="flow-arrow">→</span>
               <div class="flow-step-item">
+                <div class="flow-step-num">2</div>
+                <span class="flow-step-text">Parent Face Verification</span>
+              </div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-step-item active">
                 <div class="flow-step-num">3</div>
-                <span class="flow-step-text">Principal Final Approval</span>
+                <span class="flow-step-text" style="color:#c084fc; font-weight:700;">Advisor Clearance (You)</span>
               </div>
               <span class="flow-arrow">→</span>
               <div class="flow-step-item">
                 <div class="flow-step-num">4</div>
-                <span class="flow-step-text">Gate Pass Issued</span>
+                <span class="flow-step-text">Principal Clearance</span>
+              </div>
+              <span class="flow-arrow">→</span>
+              <div class="flow-step-item">
+                <div class="flow-step-num">5</div>
+                <span class="flow-step-text">QR Gate Pass</span>
               </div>
             </div>
 
@@ -160,13 +172,24 @@
             <div class="advisor-overview-grid">
               <div class="advisor-metric-card card-purple" onclick="switchTab('duty-queue')">
                 <div class="card-top">
-                  <span class="metric-label">Pending OD Requests</span>
+                  <span class="metric-label">Pending One-Day Duties</span>
                   <div class="metric-icon" style="background:rgba(168,85,247,0.15); color:#c084fc;">
                     <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
                   </div>
                 </div>
                 <div class="metric-count" id="statPendingDuty">0</div>
                 <small style="color:var(--text-muted); font-size:0.75rem;">Awaiting academic clearance</small>
+              </div>
+
+              <div class="advisor-metric-card" style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.3); border-radius:var(--radius-md); padding:1rem; cursor:pointer;" onclick="switchTab('special-queue')">
+                <div class="card-top">
+                  <span class="metric-label" style="color:#a78bfa;">Pending Special Outpasses</span>
+                  <div class="metric-icon" style="background:rgba(139,92,246,0.2); color:#a78bfa;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statPendingSpecial" style="color:#a78bfa;">0</div>
+                <small style="color:var(--text-muted); font-size:0.75rem;">Tier 2 Faculty Clearance</small>
               </div>
 
               <div class="advisor-metric-card card-green" onclick="switchTab('approved-list')">
@@ -189,17 +212,6 @@
                 </div>
                 <div class="metric-count" id="statRejectedToday" style="color:#ef4444;">0</div>
                 <small style="color:var(--text-muted); font-size:0.75rem;">Denied today</small>
-              </div>
-
-              <div class="advisor-metric-card card-blue" onclick="switchTab('approved-list')">
-                <div class="card-top">
-                  <span class="metric-label">Total Cleared</span>
-                  <div class="metric-icon" style="background:rgba(59,130,246,0.15); color:#3b82f6;">
-                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  </div>
-                </div>
-                <div class="metric-count" id="statTotalApproved">0</div>
-                <small style="color:var(--text-muted); font-size:0.75rem;">Lifetime OD approvals</small>
               </div>
             </div>
 
@@ -235,18 +247,45 @@
             </div>
           </section>
 
-          <!-- TAB 2: PENDING ONE-DAY DUTIES -->
+          <!-- TAB 2: PENDING ONE-DAY DUTY QUEUE -->
           <section class="tab-section" id="tab-duty-queue">
-            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
               <div>
-                <span class="portal-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border-color:rgba(139,92,246,0.3);">Department Queue</span>
-                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Pending One-Day Duty Requests</h2>
-                <p style="font-size:0.84rem; color:var(--text-secondary);">Verify event details and attendance eligibility before granting clearance.</p>
+                <span class="portal-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border-color:rgba(139,92,246,0.3);">Faculty Academic Clearance</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">🎓 One-Day Duty Requests Queue</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Review event attendance and academic justification before clearing for Principal approval.</p>
+              </div>
+              <div>
+                <button class="secondary-btn" onclick="switchTab('special-queue')" style="border-color:#8b5cf6; color:#a78bfa;">
+                  <span>Switch to Special Outpass Queue →</span>
+                </button>
               </div>
             </div>
 
+            <!-- ONE-DAY DUTY CONTAINER (ONLY one_day_duty) -->
             <div class="queue-card-grid" id="dutyQueueContainer">
-              <!-- Populated dynamically via advisor-dashboard.js -->
+              <!-- Populated dynamically: ONLY canonical type 'one_day_duty' -->
+            </div>
+          </section>
+
+          <!-- TAB 2B: PENDING SPECIAL OUTPASS QUEUE -->
+          <section class="tab-section" id="tab-special-queue">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid rgba(139,92,246,0.3); border-radius:var(--radius-lg); margin-bottom:1.25rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(139,92,246,0.25); color:#a78bfa; border-color:rgba(139,92,246,0.5);">Tier 2 Faculty Clearance</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem; color:#a78bfa;">⭐ Special Outpass Requests Queue</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Pre-cleared by Parent Biometrics (D ≤ 0.45). Clear academic eligibility before forwarding to Principal.</p>
+              </div>
+              <div>
+                <button class="secondary-btn" onclick="switchTab('duty-queue')">
+                  <span>← Switch to One-Day Duty Queue</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- SPECIAL OUTPASS CONTAINER (ONLY special) -->
+            <div class="queue-card-grid" id="specialQueueContainer">
+              <!-- Populated dynamically: ONLY canonical type 'special' -->
             </div>
           </section>
 
@@ -431,5 +470,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/advisor-dashboard.js"></script>
+  <script src="js/dashboard-bg.js"></script>
 </body>
 </html>

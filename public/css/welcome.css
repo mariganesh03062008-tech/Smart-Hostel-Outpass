@@ -1,0 +1,547 @@
+/* ==========================================================
+   GCE ERODE SMART HOSTEL OUTPASS SYSTEM - WELCOME PAGE STYLES
+   Visual design strictly reproducing reference_image.png:
+   - Fullscreen natural GCE Erode campus visibility
+   - Ambient nature + tech mood (green, teal, cyan, warm sunlight)
+   - Luminous graduation cap icon & sleek centered typography
+   - Pill ENTER button with emerald -> teal -> blue gradient
+   - Luminous laser trails & subtle corner foliage framing
+   - High-performance cursor parallax & ambient lighting
+   ========================================================== */
+
+/* Fullscreen Welcome Overlay Container */
+.welcome-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #050709;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.65s ease;
+  will-change: opacity, transform, filter;
+}
+
+.welcome-screen.welcome-exiting {
+  opacity: 0;
+  transform: scale(1.035);
+  filter: blur(8px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.welcome-screen.welcome-hidden {
+  display: none !important;
+}
+
+/* ==========================================================
+   1. CAMPUS BACKGROUND WITH CURSOR PARALLAX (DARK CINEMATIC)
+   ========================================================== */
+.welcome-bg-viewport {
+  position: absolute;
+  inset: -45px; /* Extra margin for smooth parallax movement without clipping */
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.welcome-campus-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: url('/images/gce_erode_campus.jpg') center center / cover no-repeat;
+  /* Cinematic night mood with campus clearly visible */
+  filter: brightness(0.80) contrast(1.10) saturate(1.05);
+  transform: translate3d(0, 0, 0) scale(1.02);
+  transition: transform 0.12s cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* Atmospheric Gradients: Dark transparent black overlay + Teal / Cyan / Green ambient lighting */
+.welcome-atmosphere-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* Soft cyan/teal ambient light over campus sky */
+    radial-gradient(circle at 88% 14%, rgba(6, 182, 212, 0.18) 0%, transparent 50%),
+    /* Soft green ambient flora glow on left */
+    radial-gradient(circle at 14% 18%, rgba(16, 185, 129, 0.14) 0%, transparent 45%),
+    /* Dark transparent gradient maintaining campus visibility while creating cinematic depth */
+    linear-gradient(180deg, rgba(5, 7, 9, 0.40) 0%, rgba(7, 11, 15, 0.68) 50%, rgba(5, 7, 9, 0.94) 100%);
+  mix-blend-mode: normal;
+}
+
+/* ==========================================================
+   2. CURSOR-FOLLOWING AMBIENT SOFT LIGHT (TEAL + CYAN + GREEN)
+   Illuminates trees and campus environment softly as cursor moves
+   ========================================================== */
+.welcome-cursor-glow {
+  position: absolute;
+  width: 580px;
+  height: 580px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle,
+    rgba(13, 148, 136, 0.28) 0%,
+    rgba(6, 182, 212, 0.20) 35%,
+    rgba(16, 185, 129, 0.10) 55%,
+    transparent 70%
+  );
+  filter: blur(55px);
+  mix-blend-mode: normal;
+  transform: translate3d(-50%, -50%, 0);
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+  will-change: left, top;
+}
+
+/* ==========================================================
+   3. LUMINOUS LASER ARCS & CORNER FOLIAGE FRAMING
+   ========================================================== */
+.welcome-decor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+/* Luminous SVG Laser Arc in Top-Right */
+.welcome-laser-top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(70vw, 680px);
+  height: min(50vh, 420px);
+  opacity: 0.88;
+  filter: drop-shadow(0 0 12px rgba(6, 182, 212, 0.75)) drop-shadow(0 0 24px rgba(16, 185, 129, 0.45));
+  animation: laserPulseTop 6s ease-in-out infinite alternate;
+}
+
+/* Luminous SVG Laser Arc in Bottom-Left */
+.welcome-laser-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: min(65vw, 620px);
+  height: min(45vh, 380px);
+  opacity: 0.88;
+  filter: drop-shadow(0 0 12px rgba(6, 182, 212, 0.75)) drop-shadow(0 0 24px rgba(16, 185, 129, 0.45));
+  animation: laserPulseBottom 7s ease-in-out infinite alternate;
+}
+
+@keyframes laserPulseTop {
+  0% {
+    opacity: 0.78;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 0.95;
+    transform: scale(1.02) translate(-6px, 4px);
+  }
+}
+
+@keyframes laserPulseBottom {
+  0% {
+    opacity: 0.78;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 0.95;
+    transform: scale(1.02) translate(6px, -4px);
+  }
+}
+
+/* Soft translucent natural green foliage framing the corners */
+.welcome-foliage-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* Top-left soft foliage aura */
+    radial-gradient(ellipse at 0% 0%, rgba(16, 185, 129, 0.16) 0%, rgba(13, 148, 136, 0.06) 35%, transparent 58%),
+    /* Bottom-left soft foliage cluster */
+    radial-gradient(ellipse at 0% 100%, rgba(16, 185, 129, 0.18) 0%, rgba(6, 182, 212, 0.08) 35%, transparent 60%),
+    /* Top-right subtle leaf edge */
+    radial-gradient(ellipse at 100% 0%, rgba(245, 158, 11, 0.12) 0%, transparent 45%),
+    /* Bottom-right foreground flora */
+    radial-gradient(ellipse at 100% 100%, rgba(13, 148, 136, 0.14) 0%, transparent 50%);
+  mix-blend-mode: normal;
+}
+
+/* Floating particles canvas */
+.welcome-particles-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ==========================================================
+   4. CENTER CONTENT ARCHITECTURE (LIGHT THEME TYPOGRAPHY)
+   ========================================================== */
+.welcome-center-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem;
+  max-width: 900px;
+  width: 100%;
+  user-select: none;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* Graduation Cap Icon with fine horizontal accent lines */
+.welcome-cap-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.welcome-cap-wing {
+  width: 75px;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(45, 212, 191, 0.85) 100%);
+  border-radius: 9999px;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.45);
+}
+
+.welcome-cap-wing.right {
+  background: linear-gradient(90deg, rgba(45, 212, 191, 0.85) 0%, transparent 100%);
+}
+
+.welcome-cap-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2dd4bf;
+  filter: drop-shadow(0 0 14px rgba(45, 212, 191, 0.65));
+  animation: capHoverFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes capHoverFloat {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-4px);
+  }
+}
+
+.welcome-cap-icon-wrapper svg {
+  width: 52px;
+  height: 52px;
+}
+
+/* Main Title: "GCE Erode" - Luminous Pure White with Cyan/Teal Gradient & Ambient Glow */
+.welcome-title {
+  font-family: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(3rem, 6.2vw, 5.2rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+  background: linear-gradient(135deg, #ffffff 30%, #5eead4 75%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0.25rem 0 0.4rem 0;
+  filter: drop-shadow(0 0 24px rgba(45, 212, 191, 0.35));
+}
+
+/* Subtitle: "SMART HOSTEL OUTPASS SYSTEM" - High-Contrast Light Slate with Cyan Glow */
+.welcome-subtitle {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(0.82rem, 1.55vw, 1.15rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #cbd5e1;
+  letter-spacing: clamp(4px, 0.42em, 8px);
+  margin: 0 0 1.25rem 0;
+  padding-left: clamp(4px, 0.42em, 8px); /* Compensate trailing letter-spacing to ensure true center */
+  text-shadow: 0 0 14px rgba(6, 182, 212, 0.35);
+  opacity: 0.95;
+}
+
+/* Sprout Divider with glowing hairline accents */
+.welcome-sprout-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 440px;
+  margin-bottom: 2.2rem;
+}
+
+.welcome-sprout-line {
+  flex: 1;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(52, 211, 153, 0.8) 100%);
+  border-radius: 9999px;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.45);
+}
+
+.welcome-sprout-line.right {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.8) 0%, transparent 100%);
+}
+
+.welcome-sprout-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #34d399;
+  filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.65));
+}
+
+.welcome-sprout-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ==========================================================
+   5. ENTER PILL BUTTON (DARK CINEMATIC GLASSMORPHISM)
+   - Large rounded pill
+   - Semi-transparent glassmorphism
+   - Emerald -> Teal -> Soft Blue gradient
+   - Luminous glowing border & soft shadow
+   - Interactive hover scale & glow
+   ========================================================== */
+.welcome-enter-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.95rem;
+  padding: clamp(14px, 2.2vh, 18px) clamp(38px, 4.8vw, 56px);
+  border-radius: 9999px;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  cursor: pointer;
+  text-decoration: none;
+  outline: none;
+  overflow: hidden;
+
+  /* Emerald -> Teal -> Sky Blue gradient */
+  background: linear-gradient(
+    95deg,
+    rgba(16, 185, 129, 0.90) 0%,
+    rgba(13, 148, 136, 0.92) 38%,
+    rgba(14, 165, 233, 0.94) 76%,
+    rgba(37, 99, 235, 0.92) 100%
+  );
+  background-size: 140% 100%;
+  background-position: 0% 50%;
+
+  /* Glassmorphic border and dual glow */
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.65),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
+    0 10px 32px -4px rgba(6, 182, 212, 0.50),
+    0 0 24px rgba(16, 185, 129, 0.40);
+
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    background-position 0.4s ease,
+    border-color 0.28s ease,
+    filter 0.28s ease;
+
+  will-change: transform, box-shadow;
+}
+
+/* Glossy glass reflection sweep */
+.welcome-enter-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 9999px 9999px 0 0;
+  pointer-events: none;
+}
+
+/* Door entry icon and arrow */
+.welcome-enter-icon,
+.welcome-enter-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.welcome-enter-icon svg,
+.welcome-enter-arrow svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.welcome-enter-text {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+/* Button Hover State */
+.welcome-enter-btn:hover {
+  transform: scale(1.05);
+  background-position: 100% 50%;
+  border-color: rgba(255, 255, 255, 0.85);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1.5px 3px rgba(255, 255, 255, 0.85),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.2),
+    0 16px 45px -4px rgba(6, 182, 212, 0.70),
+    0 0 35px rgba(16, 185, 129, 0.55);
+}
+
+.welcome-enter-btn:hover .welcome-enter-arrow {
+  transform: translateX(4px);
+}
+
+.welcome-enter-btn:hover .welcome-enter-icon {
+  transform: translateX(-2px);
+}
+
+/* Button Active / Press State */
+.welcome-enter-btn:active {
+  transform: scale(0.98);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 6px 20px -2px rgba(6, 182, 212, 0.4);
+}
+
+/* ==========================================================
+   6. TRANSITION INTEGRATION WITH EXISTING LOGIN PAGE
+   ========================================================== */
+.app-wrapper {
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+/* When welcome screen is active initially */
+body.welcome-active,
+html.show-welcome body:not(.welcome-transitioning) {
+  overflow: hidden !important;
+}
+
+body.welcome-active .app-wrapper,
+html.show-welcome body:not(.welcome-transitioning) .app-wrapper {
+  opacity: 0;
+  transform: translateY(14px);
+  pointer-events: none;
+}
+
+/* When transition to login occurs */
+body.welcome-transitioning .app-wrapper {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ==========================================================
+   7. RESPONSIVE DESIGN (DESKTOP, TABLET, MOBILE)
+   ========================================================== */
+@media (max-width: 768px) {
+  .welcome-screen {
+    padding: 1.25rem;
+  }
+
+  .welcome-cap-block {
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .welcome-cap-wing {
+    width: 45px;
+  }
+
+  .welcome-cap-icon-wrapper svg {
+    width: 42px;
+    height: 42px;
+  }
+
+  .welcome-title {
+    font-size: clamp(2.4rem, 9vw, 3.4rem);
+  }
+
+  .welcome-subtitle {
+    letter-spacing: 3px;
+    padding-left: 3px;
+    margin-bottom: 1rem;
+  }
+
+  .welcome-sprout-divider {
+    max-width: 280px;
+    margin-bottom: 1.8rem;
+  }
+
+  .welcome-enter-btn {
+    padding: 14px 38px;
+    font-size: 1.05rem;
+    gap: 0.75rem;
+  }
+
+  .welcome-laser-top {
+    width: 90vw;
+    height: 35vh;
+  }
+
+  .welcome-laser-bottom {
+    width: 90vw;
+    height: 35vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-cap-wing {
+    width: 32px;
+  }
+
+  .welcome-enter-btn {
+    padding: 13px 32px;
+    font-size: 0.98rem;
+  }
+}
+
+/* Accessibility: Reduce Motion */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-campus-image,
+  .welcome-cap-icon-wrapper,
+  .welcome-title,
+  .welcome-laser-top,
+  .welcome-laser-bottom {
+    animation: none !important;
+    transition: none !important;
+  }
+}

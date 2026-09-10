@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/student-dashboard.css">
   <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/dashboard-theme.css">
 </head>
 <body>
   <div class="app-wrapper">
@@ -72,10 +73,10 @@
             <h1 id="studentName">Loading Student Profile...</h1>
             <div class="student-tags-row">
               <span class="portal-badge" style="margin-bottom:0;">Student Portal</span>
-              <span class="student-tag" id="studentRegNo">Roll: 21CS042</span>
-              <span class="student-tag" id="studentDept">CSE</span>
-              <span class="student-tag" id="studentYearSem">Year 3 • Sem 6</span>
-              <span class="student-tag" id="studentBlockRoom">Block A • Room A-304</span>
+              <span class="student-tag" id="studentRegNo">Roll: --</span>
+              <span class="student-tag" id="studentDept">--</span>
+              <span class="student-tag" id="studentYearSem">--</span>
+              <span class="student-tag" id="studentBlockRoom">--</span>
             </div>
           </div>
         </div>
@@ -180,7 +181,7 @@
                       <input type="radio" name="request_type" id="typeNormal" value="normal" checked>
                       <div class="type-card-content">
                         <h4>🏠 Normal Outpass</h4>
-                        <p>Personal errands, home visits, or weekend leaves. Routes directly to Warden.</p>
+                        <p>Personal errands, home visits, or weekend leaves. Apply at least 10 hours before departure. Routes directly to Warden.</p>
                       </div>
                     </div>
 
@@ -188,7 +189,23 @@
                       <input type="radio" name="request_type" id="typeDuty" value="one_day_duty">
                       <div class="type-card-content">
                         <h4>🎓 One-Day Duty (OD)</h4>
-                        <p>Official symposiums, expos, or competitions. Routes to Class Advisor → Warden.</p>
+                        <p>Official symposiums, expos, or competitions. Apply at least 6 hours before departure. Routes to Class Advisor → Principal → QR.</p>
+                      </div>
+                    </div>
+
+                    <div class="type-card-option" id="typeOptionEmergency">
+                      <input type="radio" name="request_type" id="typeEmergency" value="emergency">
+                      <div class="type-card-content">
+                        <h4>🚨 Emergency Outpass</h4>
+                        <p>Direct Warden Approval for urgent medical or family situations. Bypasses advance lock.</p>
+                      </div>
+                    </div>
+
+                    <div class="type-card-option" id="typeOptionSpecial">
+                      <input type="radio" name="request_type" id="typeSpecial" value="special">
+                      <div class="type-card-content">
+                        <h4>⭐ Special Outpass</h4>
+                        <p>Planned college-day absence / multi-day requests. Parent Verification → Advisor → Principal → Warden.</p>
                       </div>
                     </div>
                   </div>
@@ -212,15 +229,65 @@
                     </div>
                   </div>
 
+                  <div class="form-group">
+                    <label for="dutyDateInput">Duty Date *</label>
+                    <input type="date" id="dutyDateInput" />
+                  </div>
+                </div>
+
+                <!-- Conditional Emergency Fields Box -->
+                <div class="duty-fields-box hidden" id="emergencyFieldsBox" style="border-left: 4px solid #ef4444;">
+                  <div class="duty-fields-header" style="color: #ef4444;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                    <span>Emergency Outpass Details (Direct Warden Approval)</span>
+                  </div>
+
                   <div class="form-grid-2">
                     <div class="form-group">
-                      <label for="dutyDateInput">Duty Date *</label>
-                      <input type="date" id="dutyDateInput" />
+                      <label for="emergencyTypeSelect">Emergency Category *</label>
+                      <select id="emergencyTypeSelect" class="form-control" style="width:100%; background:var(--surface-dark, #1e293b); color:var(--text-main, #f8fafc); border:1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius:8px; padding:10px;">
+                        <option value="medical">🏥 Medical Emergency</option>
+                        <option value="family_emergency">👨‍👩‍👧 Family Emergency</option>
+                        <option value="critical_incident">⚠️ Critical Incident</option>
+                        <option value="other">Other Genuine Emergency</option>
+                      </select>
                     </div>
                     <div class="form-group">
-                      <label for="dutyDescInput">Duty Description / Purpose</label>
-                      <input type="text" id="dutyDescInput" placeholder="e.g. Paper Presentation & Project Exhibition" />
+                      <label for="emergencyContactInput">Emergency Contact Number *</label>
+                      <input type="tel" id="emergencyContactInput" placeholder="e.g. 9876543210 (Doctor / Relative / Hospital)" />
                     </div>
+                  </div>
+                </div>
+
+                <!-- Conditional Special Outpass Fields Box -->
+                <div class="duty-fields-box hidden" id="specialFieldsBox" style="border-left: 4px solid #8b5cf6;">
+                  <div class="duty-fields-header" style="color: #8b5cf6;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    <span>Special Permission Information (Parent Verification → Advisor → Principal → Warden)</span>
+                  </div>
+
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="specialTypeSelect">Special Outpass Type *</label>
+                      <select id="specialTypeSelect" class="form-control" style="width:100%; background:var(--surface-dark, #1e293b); color:var(--text-main, #f8fafc); border:1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius:8px; padding:10px;">
+                        <option value="Home Visit / Family Function">🏡 Home Visit / Family Function</option>
+                        <option value="Internship">🏢 Internship</option>
+                        <option value="Hackathon">💻 Hackathon</option>
+                        <option value="Competition / Event">🏆 Competition / Event</option>
+                        <option value="Placement / Interview">💼 Placement / Interview</option>
+                        <option value="Official College Work">🏛️ Official College Work</option>
+                        <option value="Other">📋 Other</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="specialEmergencyContactInput">Emergency Contact Number *</label>
+                      <input type="tel" id="specialEmergencyContactInput" placeholder="e.g. 9876543210 (Parent / Relative)" />
+                    </div>
+                  </div>
+
+                  <div class="form-group" style="margin-top: 10px;">
+                    <label for="specialAttachmentInput">Supporting Document / Invitation Link (Optional)</label>
+                    <input type="url" id="specialAttachmentInput" placeholder="https://drive.google.com/... or official invitation URL" style="width:100%; background:var(--surface-dark, #1e293b); color:var(--text-main, #f8fafc); border:1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius:8px; padding:10px;" />
                   </div>
                 </div>
 
@@ -247,13 +314,10 @@
                   </div>
                 </div>
 
-                <div class="form-group">
-                  <label for="reasonInput">Purpose of Visit / Reason *</label>
+                <div class="form-group" id="reasonFormGroup">
+                  <label for="reasonInput" id="reasonInputLabel">Purpose of Visit / Reason *</label>
                   <div class="input-wrapper">
-                    <span class="input-icon">
-                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-                    </span>
-                    <input type="text" id="reasonInput" placeholder="e.g. Family function / Medical appointment / Weekend hometown visit" required />
+                    <textarea id="reasonInput" rows="3" placeholder="e.g. Family function / Medical appointment / Weekend hometown visit" required style="width:100%; background:var(--surface-dark, #1e293b); color:var(--text-main, #f8fafc); border:1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius:8px; padding:10px; font-family:inherit; resize:vertical;"></textarea>
                   </div>
                 </div>
 
@@ -292,7 +356,7 @@
                       Advance Notice Required
                     </div>
                     <div id="advanceNoticeText" style="color: var(--text-secondary, #94a3b8); line-height: 1.4;">
-                      Normal outpass requests must be submitted at least 18 hours before departure.
+                      Apply at least 10 hours before departure.
                     </div>
                   </div>
                 </div>
@@ -300,7 +364,7 @@
                 <!-- Workflow Visualizer Box -->
                 <div class="workflow-visualizer-box">
                   <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--text-muted);" id="workflowTitle">
-                    Approval Workflow Routing (Normal Outpass: Student → Parent → Warden → QR)
+                    Approval Workflow Routing (Normal Outpass: Student → Parent Face Verification → Warden → QR)
                   </div>
                   <div class="workflow-steps">
                     <div class="step-node active">
@@ -310,7 +374,7 @@
                     <div class="step-connector"></div>
                     <div class="step-node" id="stepMiddleNode">
                       <div class="step-circle">2</div>
-                      <span class="step-label" id="stepMiddleLabel">Parent Consent</span>
+                      <span class="step-label" id="stepMiddleLabel">Parent Face Verification</span>
                     </div>
                     <div class="step-connector"></div>
                     <div class="step-node" id="stepFinalNode">
@@ -340,15 +404,25 @@
           <!-- TAB 2: MY REQUESTS -->
           <section class="tab-section" id="tab-my-requests">
             <div class="table-container">
-              <div class="table-header-bar">
+              <div class="table-header-bar" style="flex-wrap:wrap; gap:0.75rem;">
                 <div>
                   <h3>Submitted Outpass History</h3>
                   <p style="font-size:0.8rem; color:var(--text-secondary);">Track status of all your submitted outpasses and duty passes.</p>
                 </div>
-                <button class="secondary-btn" id="btnRefreshRequests">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                  <span>Refresh</span>
-                </button>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <!-- Type Filter Tabs -->
+                  <div class="student-type-filter-group" style="display:flex; gap:0.25rem; background:rgba(0,0,0,0.25); padding:3px; border-radius:6px; border:1px solid var(--border-color);">
+                    <button type="button" class="student-type-filter-btn active" data-type="all" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none; background:var(--primary, #6366f1); color:#fff; cursor:pointer; font-weight:600;">All <span id="badgeCountAll">(0)</span></button>
+                    <button type="button" class="student-type-filter-btn" data-type="normal" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; font-weight:600;">Normal <span id="badgeCountNormal">(0)</span></button>
+                    <button type="button" class="student-type-filter-btn" data-type="one_day_duty" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; font-weight:600;">One-Day <span id="badgeCountDuty">(0)</span></button>
+                    <button type="button" class="student-type-filter-btn" data-type="emergency" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; font-weight:600;">Emergency <span id="badgeCountEmergency">(0)</span></button>
+                    <button type="button" class="student-type-filter-btn" data-type="special" style="padding:4px 10px; font-size:0.75rem; border-radius:4px; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; font-weight:600;">Special <span id="badgeCountSpecial">(0)</span></button>
+                  </div>
+                  <button class="secondary-btn" id="btnRefreshRequests">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span>Refresh</span>
+                  </button>
+                </div>
               </div>
 
               <div style="overflow-x:auto;">
@@ -907,5 +981,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/student-dashboard.js"></script>
+  <script src="js/dashboard-bg.js"></script>
 </body>
 </html>

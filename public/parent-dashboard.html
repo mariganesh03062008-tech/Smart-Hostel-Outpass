@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/warden-dashboard.css">
   <link rel="stylesheet" href="css/parent-dashboard.css">
   <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/dashboard-theme.css">
 </head>
 <body>
   <div class="app-wrapper">
@@ -70,7 +71,7 @@
           <div class="parent-avatar" id="parentAvatar">P</div>
           <div class="student-details">
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-              <h1 id="parentName" style="margin:0;">Robert Doe</h1>
+              <h1 id="parentName" style="margin:0;">Loading Parent Profile...</h1>
               <button class="secondary-btn" id="btnOpenEditProfileHero" onclick="openEditProfileModal()" style="padding:0.25rem 0.65rem; font-size:0.75rem;">
                 <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                 <span>Edit Profile</span>
@@ -78,7 +79,7 @@
             </div>
             <div class="student-tags-row">
               <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border-color:rgba(245,158,11,0.3); margin-bottom:0;">Parent Guardian</span>
-              <span class="student-tag" id="parentPhonePill">Phone: 9876543210</span>
+              <span class="student-tag" id="parentPhonePill">Phone: --</span>
               <span class="student-tag" id="studentMetaPill" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:rgba(59,130,246,0.3);">
                 Ward: Loading Student...
               </span>
@@ -98,7 +99,7 @@
       <!-- Guardian Face Biometric Security Card -->
       <section class="biometric-card verified" id="faceSecurityCard" style="border-left: 4px solid #10b981;">
         <div class="biometric-left">
-          <div class="fingerprint-sensor-box" id="faceSecurityIconBox" onclick="openFaceRegisterModal()" style="background: rgba(16, 185, 129, 0.15); color: #34d399; cursor:pointer;" title="Click to Enroll / Update Face Biometrics">
+          <div class="fingerprint-sensor-box" id="faceSecurityIconBox" style="background: rgba(16, 185, 129, 0.15); color: #34d399;" title="Parent Biometric Face Protection">
             <svg viewBox="0 0 24 24" width="34" height="34" stroke="currentColor" stroke-width="2" fill="none">
               <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
               <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
@@ -114,22 +115,22 @@
               <span class="dev-badge-warning" id="verifiedMobileBadge" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.35);">
                 Verified Mobile: <span id="heroParentMobile">Loading...</span>
               </span>
-              <span class="dev-badge-warning" id="heroThresholdBadge" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:rgba(59,130,246,0.35);">
-                Biometrics: <span id="heroFaceStatus">Checking...</span>
+              <span class="dev-badge-warning" id="heroThresholdBadge" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.35);">
+                Face Verification: <span id="heroFaceStatus">ACTIVE</span>
               </span>
             </div>
             <h3 style="font-family:'Outfit'; font-size:1.15rem; margin-top:0.35rem;" id="securityCardTitle">Parent Face Biometric Authentication</h3>
             <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.2rem;" id="securityCardSubtext">
-              High-accuracy 128D facial feature matching. Outpass approvals strictly require verified real-time biometric face authentication.
+              Your registered face is used to verify outpass approvals.
             </p>
           </div>
         </div>
 
-        <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
-          <button type="button" class="btn-primary" id="btnOpenFaceEnrollHero" onclick="openFaceRegisterModal()" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem; font-size:0.82rem; font-weight:700; border-radius:var(--radius-md); background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border:none; box-shadow:0 3px 12px rgba(16,185,129,0.35); cursor:pointer;">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="9" cy="9" r="1"></circle><circle cx="15" cy="9" r="1"></circle></svg>
-            <span id="heroFaceBtnText">Enroll Face Biometrics</span>
-          </button>
+        <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;" id="heroSecurityBadgeContainer">
+          <span class="auth-verified-chip" id="faceActivePill" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); padding:0.4rem 0.9rem; font-weight:700; border-radius:var(--radius-md);">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span id="faceActiveLabel">Biometrics Active</span>
+          </span>
         </div>
       </section>
 
@@ -179,9 +180,47 @@
               </div>
             </div>
 
-            <div class="queue-card-grid" id="pendingQueueContainer">
-              <!-- Populated dynamically via parent-dashboard.js -->
+            <!-- Normal Outpass Queue Section -->
+            <div style="margin-bottom: 2rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <h3 style="font-family:'Outfit'; font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  <span>🏠 Normal Outpasses Awaiting Consent</span>
+                  <span class="nav-badge-pill" id="badgePendingNormal" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); font-size:0.75rem; padding:2px 8px;">0</span>
+                </h3>
+              </div>
+              <div class="queue-card-grid" id="pendingNormalContainer">
+                <!-- Populated dynamically via parent-dashboard.js: ONLY canonical type 'normal' -->
+              </div>
             </div>
+
+            <!-- One-Day Duty Outpass Queue Section -->
+            <div style="margin-bottom: 2rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <h3 style="font-family:'Outfit'; font-size:1.1rem; color:#38bdf8; display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  <span>🎯 One-Day Duty Passes Awaiting Consent</span>
+                  <span class="nav-badge-pill" id="badgePendingDuty" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.4); font-size:0.75rem; padding:2px 8px;">0</span>
+                </h3>
+              </div>
+              <div class="queue-card-grid" id="pendingDutyContainer">
+                <!-- Populated dynamically via parent-dashboard.js: ONLY canonical type 'one_day_duty' -->
+              </div>
+            </div>
+
+            <!-- Special Outpass Queue Section -->
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <h3 style="font-family:'Outfit'; font-size:1.1rem; color:#a78bfa; display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  <span>⭐ Special Outpasses Awaiting Consent (Tier 1 of 4)</span>
+                  <span class="nav-badge-pill" id="badgePendingSpecial" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid rgba(139,92,246,0.4); font-size:0.75rem; padding:2px 8px;">0</span>
+                </h3>
+              </div>
+              <div class="queue-card-grid" id="pendingSpecialContainer">
+                <!-- Populated dynamically via parent-dashboard.js: ONLY canonical type 'special' -->
+              </div>
+            </div>
+
+            <!-- Hidden container for backwards compatibility -->
+            <div id="pendingQueueContainer" style="display:none;"></div>
           </section>
 
           <!-- TAB 2: APPROVED REQUESTS -->
@@ -265,23 +304,23 @@
               <div class="profile-grid">
                 <div class="profile-field">
                   <span class="field-label">Parent / Guardian Name</span>
-                  <span class="field-value" id="profParentName">Robert Doe</span>
+                  <span class="field-value" id="profParentName">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Relationship with Student</span>
-                  <span class="field-value" id="profRelationship">Father</span>
+                  <span class="field-value" id="profRelationship">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Registered Mobile</span>
-                  <span class="field-value" id="profParentPhone">9876543210</span>
+                  <span class="field-value" id="profParentPhone">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Email Address</span>
-                  <span class="field-value" id="profParentEmail">parent@example.com</span>
+                  <span class="field-value" id="profParentEmail">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Residential Address</span>
-                  <span class="field-value" id="profParentAddr">42 Palm Avenue, Chennai, TN</span>
+                  <span class="field-value" id="profParentAddr">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Approval Security Model</span>
@@ -303,19 +342,19 @@
               <div class="profile-grid">
                 <div class="profile-field">
                   <span class="field-label">Student Name</span>
-                  <span class="field-value" id="profStudentName">John Doe</span>
+                  <span class="field-value" id="profStudentName">Not Linked Yet</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Roll Number / Reg No</span>
-                  <span class="field-value" id="profStudentReg">21CS042</span>
+                  <span class="field-value" id="profStudentReg">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Department & Year</span>
-                  <span class="field-value" id="profStudentDept">Computer Science & Engineering</span>
+                  <span class="field-value" id="profStudentDept">-</span>
                 </div>
                 <div class="profile-field">
                   <span class="field-label">Hostel Details & Room</span>
-                  <span class="field-value" id="profStudentRoom">Block A - A-304</span>
+                  <span class="field-value" id="profStudentRoom">-</span>
                 </div>
               </div>
             </div>
@@ -376,12 +415,12 @@
 
             <div class="form-group">
               <label for="setupStudentName">Student Name (Ward) *</label>
-              <input type="text" id="setupStudentName" placeholder="e.g. John Doe" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+              <input type="text" id="setupStudentName" placeholder="Enter student's full name" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
             </div>
 
             <div class="form-group">
               <label for="setupStudentRegNo">Student Roll / Reg Number *</label>
-              <input type="text" id="setupStudentRegNo" placeholder="e.g. 21CS042" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); text-transform:uppercase;" />
+              <input type="text" id="setupStudentRegNo" placeholder="Enter student roll number" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); text-transform:uppercase;" />
             </div>
 
             <div class="form-group">
@@ -703,5 +742,6 @@
   <script src="js/notifications.js"></script>
   <script src="js/face-api.min.js"></script>
   <script src="js/parent-dashboard.js"></script>
+  <script src="js/dashboard-bg.js"></script>
 </body>
 </html>

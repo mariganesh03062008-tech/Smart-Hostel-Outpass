@@ -209,7 +209,8 @@
   display: block;
 }
 
-.warden-nav-btn {
+.warden-nav-btn,
+.principal-nav-btn {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -228,18 +229,21 @@
   position: relative;
 }
 
-.warden-nav-btn svg {
+.warden-nav-btn svg,
+.principal-nav-btn svg {
   flex-shrink: 0;
   transition: transform var(--transition-fast);
 }
 
-.warden-nav-btn:hover {
+.warden-nav-btn:hover,
+.principal-nav-btn:hover {
   background: var(--bg-surface-hover);
   color: var(--text-main);
   border-color: var(--border-main);
 }
 
-.warden-nav-btn.active {
+.warden-nav-btn.active,
+.principal-nav-btn.active {
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: #ffffff;
   font-weight: 700;
@@ -248,7 +252,8 @@
   position: relative;
 }
 
-.warden-nav-btn.active::before {
+.warden-nav-btn.active::before,
+.principal-nav-btn.active::before {
   content: '';
   position: absolute;
   left: 0;
@@ -284,6 +289,71 @@
 }
 
 /* ----------------------------------------------------------
+   STRICT PRINCIPAL SECTION NAVIGATION & CONTENT ISOLATION
+   ---------------------------------------------------------- */
+.principal-section,
+.tab-section {
+  display: none !important;
+  animation: principalFadeIn 0.25s ease;
+}
+
+.principal-section.active,
+.tab-section.active {
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* Scoped reports container: strictly hidden unless active */
+#tab-reports,
+#principalReportsSection {
+  display: none !important;
+}
+
+#tab-reports.active,
+#principalReportsSection.active {
+  display: flex !important;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Scoped profile container: strictly hidden unless active */
+#tab-profile,
+#principalProfileSection {
+  display: none !important;
+}
+
+#tab-profile.active,
+#principalProfileSection.active {
+  display: flex !important;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Scoped settings container: strictly hidden unless active */
+#tab-settings,
+#principalSettingsSection {
+  display: none !important;
+}
+
+#tab-settings.active,
+#principalSettingsSection.active {
+  display: flex !important;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@keyframes principalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ----------------------------------------------------------
    5. METRIC OVERVIEW CARDS
    ---------------------------------------------------------- */
 .stats-summary-grid {
@@ -293,14 +363,14 @@
 }
 
 .stat-metric-card {
-  background: linear-gradient(180deg, rgba(20, 30, 52, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+  background: var(--bg-surface);
   border: 1px solid var(--border-main);
   border-radius: var(--radius-md);
   padding: 1.15rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  box-shadow: 0 4px 18px -2px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 

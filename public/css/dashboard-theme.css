@@ -1,0 +1,706 @@
+/* ==========================================================
+   GCE ERODE SMART HOSTEL OUTPASS SYSTEM - DASHBOARD THEME (DARK)
+   Unified Premium Black / Dark Design System:
+   - Fullscreen GCE Erode campus background with controlled dark cinematic overlay
+   - Palette: Black + Dark Charcoal + Dark Slate + Teal + Cyan + Natural Green + Soft Blue
+   - Translucent frosted dark glass panels (#10181c, #121c20) with subtle borders
+   - Smooth cursor-based parallax & gentle ambient light tracking
+   - 100% preservation of existing layout, content, and functionality
+   ========================================================== */
+
+/* ==========================================================
+   1. DASHBOARD CAMPUS BACKGROUND WITH PARALLAX & AMBIENT GLOW
+   ========================================================== */
+.dashboard-bg-viewport {
+  position: fixed;
+  inset: -25px; /* Margin to accommodate smooth parallax without clipping */
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dashboard-bg-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: url('/images/gce_erode_campus.jpg') center center / cover no-repeat;
+  /* Cinematic night richness with campus clearly recognizable */
+  filter: brightness(0.78) contrast(1.12) saturate(1.05);
+  transform: translate3d(0, 0, 0) scale(1.025);
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.dashboard-bg-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* Soft cyan/teal ambient light over campus sky */
+    radial-gradient(circle at 88% 14%, rgba(6, 182, 212, 0.16) 0%, transparent 50%),
+    /* Soft green ambient light over campus trees */
+    radial-gradient(circle at 14% 18%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
+    /* Dark transparent gradient maintaining campus visibility while creating rich depth */
+    linear-gradient(180deg, rgba(5, 7, 9, 0.82) 0%, rgba(11, 17, 20, 0.90) 50%, rgba(5, 7, 9, 0.96) 100%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* Cursor-following ambient light in dashboard background (Teal + Cyan + Green Glow) */
+.dashboard-cursor-glow {
+  position: absolute;
+  width: 540px;
+  height: 540px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle,
+    rgba(13, 148, 136, 0.26) 0%,
+    rgba(6, 182, 212, 0.18) 35%,
+    rgba(16, 185, 129, 0.08) 55%,
+    transparent 70%
+  );
+  filter: blur(55px);
+  mix-blend-mode: normal;
+  transform: translate3d(-50%, -50%, 0);
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+  will-change: left, top;
+}
+
+/* Base Body Surface & Font Configuration */
+body {
+  position: relative;
+  background-color: #050709 !important;
+  color: var(--text-main, #f8fafc) !important;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+}
+
+.app-wrapper,
+.dashboard-page,
+.dashboard-main,
+.warden-app-shell {
+  position: relative;
+  z-index: 2;
+  background: transparent !important;
+}
+
+/* ==========================================================
+   2. TOP NAVIGATION BAR (FROSTED DARK GLASS WITH TEAL ACCENTS)
+   ========================================================== */
+.dashboard-navbar,
+.app-header,
+.navbar {
+  background: rgba(11, 17, 20, 0.88) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65) !important;
+}
+
+.navbar-brand .brand-logo-badge,
+.logo-icon-wrapper {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(6, 182, 212, 0.18) 100%) !important;
+  border: 1px solid rgba(45, 212, 191, 0.38) !important;
+  color: #2dd4bf !important;
+  box-shadow: 0 2px 10px rgba(13, 148, 136, 0.25) !important;
+}
+
+.navbar-brand .brand-title,
+.logo-text {
+  color: #ffffff !important;
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+.navbar-brand .brand-subtitle {
+  color: #2dd4bf !important;
+  letter-spacing: 0.05em !important;
+  font-weight: 600 !important;
+}
+
+/* User Profile Chip in Navbar */
+.nav-user-chip {
+  background: rgba(16, 24, 28, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.nav-user-avatar {
+  background: linear-gradient(135deg, #059669 0%, #0d9488 45%, #0284c7 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* System Status Chip & Server Time Box */
+.system-status-chip,
+.server-time-box {
+  background: rgba(16, 24, 28, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.status-dot.online,
+.status-dot.pulsing {
+  background: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35), 0 0 10px #10b981 !important;
+}
+
+.db-badge.connected {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+}
+
+/* Theme Toggle Button Hidden (Application Locked to Dark Theme) */
+#themeToggleBtn,
+.theme-toggle-btn {
+  display: none !important;
+}
+
+/* Icon Buttons (Notifications bell, menu button) */
+.icon-button,
+.mobile-menu-btn {
+  background: #121c20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.icon-button:hover,
+.theme-toggle-btn:hover,
+.mobile-menu-btn:hover {
+  background: rgba(13, 148, 136, 0.15) !important;
+  border-color: rgba(45, 212, 191, 0.45) !important;
+  color: #2dd4bf !important;
+  box-shadow: 0 2px 10px rgba(13, 148, 136, 0.25) !important;
+}
+
+/* Logout Button */
+.logout-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.logout-btn:hover {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 2px 14px rgba(239, 68, 68, 0.5) !important;
+}
+
+/* ==========================================================
+   3. HERO PROFILE BARS (DARK THEME)
+   ========================================================== */
+.dash-hero-bar,
+.student-hero-bar,
+.advisor-hero-bar,
+.warden-hero-bar,
+.principal-hero-bar,
+.caretaker-hero-bar,
+.watchman-hero-bar {
+  background: rgba(16, 24, 28, 0.92) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+.dash-hero-bar::before,
+.student-hero-bar::before,
+.advisor-hero-bar::before,
+.warden-hero-bar::before,
+.principal-hero-bar::before,
+.caretaker-hero-bar::before,
+.watchman-hero-bar::before {
+  background: linear-gradient(180deg, #10b981 0%, #06b6d4 50%, #3b82f6 100%) !important;
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.5) !important;
+}
+
+.dash-avatar,
+.student-avatar,
+.advisor-avatar,
+.warden-avatar,
+.principal-avatar,
+.caretaker-avatar,
+.watchman-avatar {
+  background: linear-gradient(135deg, #059669 0%, #0d9488 45%, #0284c7 100%) !important;
+  border: 2px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.student-tag,
+.dash-tag {
+  background: #0b1114 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+.portal-badge {
+  background: rgba(13, 148, 136, 0.16) !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
+  color: #2dd4bf !important;
+  font-weight: 700 !important;
+}
+
+.hostel-status-pill.inside {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+}
+
+.hostel-status-pill.status-outside {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  color: #fbbf24 !important;
+  font-weight: 600 !important;
+}
+
+/* ==========================================================
+   4. SIDEBAR NAVIGATION (DARK GLASS + ACTIVE TEAL INDICATOR)
+   ========================================================== */
+.dash-sidebar,
+.student-sidebar,
+.advisor-sidebar,
+.warden-sidebar,
+.principal-sidebar,
+.caretaker-sidebar,
+.watchman-sidebar,
+.dashboard-sidebar {
+  background: rgba(11, 17, 20, 0.92) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.6) !important;
+}
+
+.sidebar-heading {
+  color: #2dd4bf !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-nav-btn,
+.student-nav-btn,
+.advisor-nav-btn,
+.parent-nav-btn,
+.warden-nav-btn,
+.principal-nav-btn,
+.nav-item {
+  color: #cbd5e1 !important;
+  border: 1px solid transparent !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.sidebar-nav-btn:hover,
+.student-nav-btn:hover,
+.advisor-nav-btn:hover,
+.parent-nav-btn:hover,
+.warden-nav-btn:hover,
+.principal-nav-btn:hover,
+.nav-item:hover {
+  background: rgba(13, 148, 136, 0.12) !important;
+  color: #2dd4bf !important;
+  border-color: rgba(45, 212, 191, 0.25) !important;
+  transform: translateX(3px) !important;
+}
+
+/* Active State: Emerald -> Teal gradient matching Welcome Page */
+.sidebar-nav-btn.active,
+.student-nav-btn.active,
+.advisor-nav-btn.active,
+.parent-nav-btn.active,
+.warden-nav-btn.active,
+.principal-nav-btn.active,
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(13, 148, 136, 0.24) 100%) !important;
+  border: 1px solid rgba(45, 212, 191, 0.40) !important;
+  color: #2dd4bf !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-nav-btn.active::before,
+.student-nav-btn.active::before,
+.advisor-nav-btn.active::before,
+.parent-nav-btn.active::before,
+.warden-nav-btn.active::before,
+.principal-nav-btn.active::before,
+.nav-item.active::before {
+  background: #14b8a6 !important;
+  box-shadow: 0 0 10px #14b8a6 !important;
+}
+
+/* Count badge on nav buttons */
+.nav-badge-count {
+  background: #0d9488 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ==========================================================
+   5. DASHBOARD CARDS & STAT METRICS (PREMIUM DARK CARDS)
+   ========================================================== */
+.stat-card,
+.metric-card,
+.kpi-card,
+.dashboard-card,
+.stat-card-glass,
+.stat-metric-card,
+.caretaker-metric-card,
+.watchman-metric-card,
+.warden-metric-card,
+.advisor-metric-card,
+.summary-card,
+.report-section-card,
+.scanner-container-card,
+.queue-card,
+.student-card,
+.parent-card,
+.ward-card,
+.ward-status-card,
+.security-hero-banner,
+.table-header-bar {
+  background: rgba(18, 28, 32, 0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.24s ease !important;
+}
+
+.stat-card:hover,
+.metric-card:hover,
+.kpi-card:hover,
+.dashboard-card:hover,
+.caretaker-metric-card:hover,
+.watchman-metric-card:hover,
+.warden-metric-card:hover,
+.advisor-metric-card:hover,
+.summary-card:hover,
+.report-section-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(45, 212, 191, 0.35) !important;
+  box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.65), 0 0 14px rgba(13, 148, 136, 0.20) !important;
+}
+
+.stat-icon,
+.metric-icon {
+  background: rgba(13, 148, 136, 0.16) !important;
+  border: 1px solid rgba(45, 212, 191, 0.30) !important;
+  color: #2dd4bf !important;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25) !important;
+}
+
+.stat-value,
+.metric-value,
+.metric-count,
+.stat-count {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+.stat-label,
+.metric-label {
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+}
+
+/* ==========================================================
+   6. FORMS, ACTION CARDS & CONTAINERS
+   ========================================================== */
+.form-card,
+.table-card,
+.section-card,
+.card,
+.chart-card,
+.qr-scanner-card,
+.profile-card,
+.pass-detail-card,
+.duty-card {
+  background: rgba(18, 28, 32, 0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.request-details-grid {
+  background: #0b1114 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.form-card-header,
+.table-card-header,
+.section-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.form-card-header h2,
+.table-card-header h2,
+.section-header h2,
+.form-card-header h3,
+.table-card-header h3,
+.section-header h3 {
+  color: #ffffff !important;
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* Input Fields & Textareas */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+select,
+textarea,
+.search-input {
+  background: #0b1114 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+  border-radius: var(--radius-md, 8px) !important;
+  transition: all 0.2s ease !important;
+}
+
+input::placeholder,
+textarea::placeholder,
+.search-input::placeholder {
+  color: #64748b !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.search-input:focus {
+  border-color: #0d9488 !important;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.25) !important;
+  background: #0e161a !important;
+}
+
+/* ==========================================================
+   7. BUTTONS (DARK THEME SYSTEM)
+   ========================================================== */
+/* Primary Buttons: Teal -> Cyan gradient */
+.primary-btn,
+.btn-primary,
+.btn-submit,
+.submit-btn {
+  background: linear-gradient(
+    95deg,
+    rgba(16, 185, 129, 0.94) 0%,
+    rgba(13, 148, 136, 0.96) 42%,
+    rgba(14, 165, 233, 0.96) 78%,
+    rgba(37, 99, 235, 0.94) 100%
+  ) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    0 6px 20px -2px rgba(13, 148, 136, 0.35) !important;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.primary-btn:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.btn-submit:hover:not(:disabled),
+.submit-btn:hover:not(:disabled) {
+  filter: brightness(1.08) !important;
+  transform: translateY(-1px) scale(1.01) !important;
+  border-color: rgba(255, 255, 255, 0.60) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    0 10px 26px -2px rgba(13, 148, 136, 0.45) !important;
+}
+
+/* Secondary Buttons */
+.secondary-btn,
+.btn-secondary,
+.outline-btn {
+  background: #121c20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #cbd5e1 !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.secondary-btn:hover,
+.btn-secondary:hover,
+.outline-btn:hover {
+  background: #172328 !important;
+  border-color: rgba(45, 212, 191, 0.40) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Approval / Success Buttons */
+.btn-approve,
+.action-btn.approve,
+.btn-success {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  border: 1px solid rgba(52, 211, 153, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+.btn-approve:hover,
+.action-btn.approve:hover,
+.btn-success:hover {
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.50) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Rejection / Danger Buttons */
+.btn-reject,
+.action-btn.reject,
+.btn-danger {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35) !important;
+}
+
+.btn-reject:hover,
+.action-btn.reject:hover,
+.btn-danger:hover {
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.50) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ==========================================================
+   8. DATA TABLES (READABLE DARK THEME STYLE)
+   ========================================================== */
+.table-container,
+.data-table-wrapper,
+.table-responsive {
+  background: #10181c !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+table thead th,
+.data-table th {
+  background: #0e161a !important;
+  color: #2dd4bf !important;
+  border-bottom: 2px solid rgba(45, 212, 191, 0.35) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  font-size: 0.78rem !important;
+}
+
+table tbody td,
+.data-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #cbd5e1 !important;
+}
+
+table tbody tr:hover td,
+.data-table tr:hover td {
+  background: rgba(13, 148, 136, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* Status Badges in Tables */
+.status-badge.approved,
+.badge-approved {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+}
+
+.status-badge.pending,
+.badge-pending {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  color: #fbbf24 !important;
+  font-weight: 600 !important;
+}
+
+.status-badge.rejected,
+.badge-rejected {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border: 1px solid rgba(248, 113, 113, 0.35) !important;
+  color: #f87171 !important;
+  font-weight: 600 !important;
+}
+
+/* ==========================================================
+   9. MODALS, DRAWERS & DIALOGS
+   ========================================================== */
+.modal,
+.modal-content,
+.modal-dialog,
+.drawer,
+.drawer-content {
+  background: rgba(16, 24, 28, 0.96) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: 0 25px 65px rgba(0, 0, 0, 0.8) !important;
+  border-radius: 18px !important;
+  color: #f8fafc !important;
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.modal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ==========================================================
+   10. QR CODES, BIOMETRIC WIDGETS & NOTIFICATIONS
+   ========================================================== */
+.qr-code-wrapper,
+.qr-card {
+  background: #121c20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.notification-item,
+.notification-card {
+  background: #10181c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+  border-radius: 12px !important;
+  color: #cbd5e1 !important;
+}
+
+.notification-item:hover,
+.notification-card:hover {
+  border-color: rgba(45, 212, 191, 0.40) !important;
+  background: #141f24 !important;
+  color: #ffffff !important;
+}

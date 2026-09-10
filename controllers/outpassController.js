@@ -3,18 +3,55 @@ const QRCode = require('qrcode');
 const { pool } = require('../utils/db');
 const notificationService = require('../services/notificationService');
 const { validateAdvanceSubmissionTime } = require('../utils/timeValidator');
+const { normalizeOutpassType } = require('../utils/typeNormalizer');
 
 /**
  * Helper to generate a unique request code
  * e.g., OUT-2026-8741 or OD-2026-9214
  */
 function generateRequestCode(type) {
-  const prefix = type === 'one_day_duty' ? 'OD' : 'OUT';
+  let prefix = 'OUT';
+  if (type === 'one_day_duty') prefix = 'OD';
+  else if (type === 'emergency') prefix = 'EMG';
+  else if (type === 'special') prefix = 'SPC';
   const year = new Date().getFullYear();
   const timeSuffix = Date.now().toString().slice(-4);
   const rand = Math.floor(100 + Math.random() * 900);
   return `${prefix}-${year}-${timeSuffix}${rand}`;
 }
+
+/**
+ * Helper to record multi-tier approval history in outpass_approval_history table
+ */
+async function recordApprovalHistory(dbClient, {
+  outpassId,
+  studentId,
+  parentId = null,
+  advisorId = null,
+  principalId = null,
+  wardenId = null,
+  role,
+  userId = null,
+  action,
+  message = null,
+  previousStatus = null,
+  newStatus
+}) {
+  try {
+    await dbClient.query(`
+      INSERT INTO outpass_approval_history (
+        outpass_id, student_id, parent_id, advisor_id, principal_id, warden_id,
+        role, user_id, action, message, previous_status, new_status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `, [
+      outpassId, studentId, parentId, advisorId, principalId, wardenId,
+      role, userId, action, message, previousStatus, newStatus
+    ]);
+  } catch (err) {
+    console.warn('[Approval History Error]:', err.message);
+  }
+}
+exports.recordApprovalHistory = recordApprovalHistory;
 
 /* ==========================================================
    1. STUDENT CONTROLLERS
@@ -22,7 +59,7 @@ function generateRequestCode(type) {
 
 /**
  * POST /api/outpass
- * Submit a new outpass request (Normal Outpass or One-Day Duty)
+ * Submit a new outpass request (Normal Outpass, One-Day Duty, Emergency, or Special)
  * Accessible ONLY by authenticated students
  */
 exports.createOutpass = async (req, res, next) => {
@@ -57,12 +94,27 @@ exports.createOutpass = async (req, res, next) => {
       event_name,
       event_location,
       duty_date,
-      duty_description
+      duty_description,
+      emergency_type,
+      special_type,
+      emergency_contact,
+      additional_remarks,
+      attachment_url
     } = req.body;
 
     // 1. Validate request_type
-    const outpassType = (request_type === 'duty' || request_type === 'one_day_duty') ? 'one_day_duty' : 'normal';
+    let outpassType = 'normal';
+    if (request_type === 'duty' || request_type === 'one_day_duty') {
+      outpassType = 'one_day_duty';
+    } else if (request_type === 'emergency') {
+      outpassType = 'emergency';
+    } else if (request_type === 'special') {
+      outpassType = 'special';
+    }
+
     const isDuty = outpassType === 'one_day_duty';
+    const isEmergency = outpassType === 'emergency';
+    const isSpecial = outpassType === 'special';
 
     // 2. Common Required Field Validation
     if (!reason || typeof reason !== 'string' || !reason.trim()) {
@@ -107,7 +159,7 @@ exports.createOutpass = async (req, res, next) => {
       });
     }
 
-    // 3.1 Advance Request Time Validation (Normal: 18h advance, One-Day: 12h advance)
+    // 3. Advance Request Time Validation (Normal: 10h, Duty: 6h, Emergency: 0h immediate)
     const advanceValidation = validateAdvanceSubmissionTime(outpassType, fromDate, new Date());
     if (!advanceValidation.allowed) {
       return res.status(400).json({
@@ -120,7 +172,7 @@ exports.createOutpass = async (req, res, next) => {
       });
     }
 
-    // 4. One-Day Duty Specific Validation
+    // 4. Specific Validations
     if (isDuty) {
       if (!event_name || typeof event_name !== 'string' || !event_name.trim()) {
         return res.status(400).json({
@@ -142,6 +194,14 @@ exports.createOutpass = async (req, res, next) => {
       }
     }
 
+    // Clean Emergency & Special metadata
+    const cleanEmergencyType = isEmergency
+      ? (emergency_type && typeof emergency_type === 'string' && emergency_type.trim() ? emergency_type.trim() : 'Medical')
+      : null;
+    const cleanSpecialType = isSpecial
+      ? (special_type && typeof special_type === 'string' && special_type.trim() ? special_type.trim() : 'Other')
+      : null;
+
     // 5. Phone Validation
     const contactPhone = (student_phone && typeof student_phone === 'string' && student_phone.trim()) 
       ? student_phone.trim() 
@@ -154,13 +214,47 @@ exports.createOutpass = async (req, res, next) => {
       });
     }
 
+    const cleanEmergencyContact = (emergency_contact && typeof emergency_contact === 'string' && emergency_contact.trim())
+      ? emergency_contact.trim()
+      : contactPhone;
+    const cleanRemarks = (additional_remarks && typeof additional_remarks === 'string' && additional_remarks.trim())
+      ? additional_remarks.trim()
+      : null;
+    const cleanAttachment = (attachment_url && typeof attachment_url === 'string' && attachment_url.trim())
+      ? attachment_url.trim()
+      : null;
+
     // 6. Workflow Status Determination
-    // Normal Outpass: Student -> Parent -> Warden (Status: PENDING_PARENT)
+    // Normal: Student -> Parent -> Warden (Status: PENDING_PARENT)
     // One-Day Duty: Student -> Class Advisor -> Principal (Status: PENDING_ADVISOR)
-    const initialStatus = isDuty ? 'PENDING_ADVISOR' : 'PENDING_PARENT';
-    const parentStatus = isDuty ? 'not_required' : 'pending';
-    const advisorStatus = isDuty ? 'pending' : 'not_required';
-    const wardenStatus = 'pending';
+    // Emergency: Student -> Parent (Face Verified) -> Warden (Status: PENDING_PARENT)
+    // Special: Student -> Parent -> Advisor -> Principal -> Warden (Status: PENDING_PARENT)
+    let initialStatus = 'PENDING_PARENT';
+    let parentStatus = 'pending';
+    let advisorStatus = 'not_required';
+    let wardenStatus = 'pending';
+    let principalStatus = 'not_required';
+
+    if (isDuty) {
+      initialStatus = 'PENDING_PARENT';
+      parentStatus = 'pending';
+      advisorStatus = 'pending';
+      principalStatus = 'pending';
+      wardenStatus = 'not_required';
+    } else if (isEmergency) {
+      initialStatus = 'PENDING_WARDEN';
+      parentStatus = 'not_required';
+      advisorStatus = 'not_required';
+      principalStatus = 'not_required';
+      wardenStatus = 'pending';
+    } else if (isSpecial) {
+      initialStatus = 'PENDING_PARENT';
+      parentStatus = 'pending';
+      advisorStatus = 'pending';
+      principalStatus = 'pending';
+      wardenStatus = 'pending';
+    }
+
     const requestCode = generateRequestCode(outpassType);
 
     // 7. Insert Outpass Request in MySQL
@@ -169,10 +263,15 @@ exports.createOutpass = async (req, res, next) => {
         request_code,
         student_id,
         outpass_type,
+        emergency_type,
+        special_type,
         reason,
         destination,
         semester,
         student_phone,
+        emergency_contact,
+        additional_remarks,
+        attachment_url,
         event_name,
         event_location,
         duty_date,
@@ -185,15 +284,20 @@ exports.createOutpass = async (req, res, next) => {
         principal_approval_status,
         status,
         overall_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'not_required', ?, 'pending')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [
       requestCode,
       student.id,
       outpassType,
+      cleanEmergencyType,
+      cleanSpecialType,
       reason.trim(),
       destination.trim(),
       semester || `Semester ${student.year_of_study * 2}`,
       contactPhone,
+      cleanEmergencyContact,
+      cleanRemarks,
+      cleanAttachment,
       isDuty ? event_name.trim() : null,
       isDuty ? event_location.trim() : null,
       isDuty ? duty_date : null,
@@ -203,10 +307,23 @@ exports.createOutpass = async (req, res, next) => {
       parentStatus,
       advisorStatus,
       wardenStatus,
+      principalStatus,
       initialStatus
     ]);
 
     const outpassId = insertResult.insertId;
+
+    // Record submission into outpass_approval_history
+    await recordApprovalHistory(pool, {
+      outpassId,
+      studentId: student.id,
+      role: 'student',
+      userId: student.id,
+      action: 'SUBMITTED',
+      message: reason.trim(),
+      previousStatus: null,
+      newStatus: initialStatus
+    });
 
     // If duty, also record into one_day_duty_requests table for full referential parity
     if (isDuty) {
@@ -237,19 +354,43 @@ exports.createOutpass = async (req, res, next) => {
 
     // 8. Trigger Workflow Notifications
     if (isDuty) {
-      // Notify Class Advisor
-      await notificationService.notifyAdvisor({
-        advisorId: student.class_advisor_id,
-        department: student.department,
-        title: 'New One-Day Permission Request',
-        message: `Student ${student.name} (${student.reg_no}) submitted a One-Day Duty request (${requestCode}) for ${event_name.trim()} on ${duty_date}.`,
-        type: 'OUTPASS_SUBMITTED',
+      // Notify Linked Parent (OD starts at Parent with Face Verification)
+      if (student.parent_id) {
+        await notificationService.notifyParent({
+          parentId: student.parent_id,
+          title: 'One-Day Duty Request Submitted',
+          message: `Your ward ${student.name} (${student.reg_no}) submitted a One-Day Duty request (${requestCode}) for ${event_name.trim()} on ${duty_date}. Parent Face Biometric Verification and Consent required.`,
+          type: 'OUTPASS_SUBMITTED',
+          referenceId: outpassId,
+          linkUrl: '/parent-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
+    } else if (isEmergency) {
+      // Emergency Outpass: Notify Warden directly for immediate authorization
+      await notificationService.notifyWarden({
+        title: '🚨 Urgent: Emergency Outpass Submitted',
+        message: `Student ${student.name} (${student.reg_no}) submitted an Emergency Outpass (${cleanEmergencyType}) to ${destination.trim()}. Immediate Warden review required.`,
+        type: 'EMERGENCY_OUTPASS_SUBMITTED',
         referenceId: outpassId,
-        linkUrl: '/advisor-dashboard.html',
+        linkUrl: '/warden-dashboard.html',
         io: req.io
       }).catch(err => console.warn('[Notif Error]:', err.message));
+    } else if (isSpecial) {
+      // Notify Linked Parent
+      if (student.parent_id) {
+        await notificationService.notifyParent({
+          parentId: student.parent_id,
+          title: 'Special Outpass Request Submitted',
+          message: `Your ward ${student.name} (${student.reg_no}) submitted a Special Outpass (${cleanSpecialType}) to ${destination.trim()}. Parent Face Biometric Verification and Consent required.`,
+          type: 'OUTPASS_SUBMITTED',
+          referenceId: outpassId,
+          linkUrl: '/parent-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
     } else {
-      // Notify Parent
+      // Normal Outpass: Notify Parent
       if (student.parent_id) {
         await notificationService.notifyParent({
           parentId: student.parent_id,
@@ -263,18 +404,26 @@ exports.createOutpass = async (req, res, next) => {
       }
     }
 
+    let typeLabel = 'Normal Outpass';
+    if (isDuty) typeLabel = 'One-Day Duty';
+    else if (isEmergency) typeLabel = 'Emergency Outpass';
+    else if (isSpecial) typeLabel = 'Special Outpass';
+
     return res.status(201).json({
       success: true,
-      message: 'Outpass request submitted successfully.',
+      message: `${typeLabel} request submitted successfully.`,
       data: {
         id: outpassId,
         outpassId: outpassId,
         requestCode,
-        requestType: isDuty ? 'One-Day Duty' : 'Normal Outpass',
+        requestType: typeLabel,
+        outpassType,
         status: initialStatus,
         destination: destination.trim(),
         fromDatetime: fromDatetimeStr,
         toDatetime: toDatetimeStr,
+        emergencyType: cleanEmergencyType,
+        specialType: cleanSpecialType,
         submittedAt: new Date().toISOString()
       }
     });
@@ -297,6 +446,11 @@ exports.getMyRequests = async (req, res, next) => {
         o.id,
         o.request_code AS requestCode,
         o.outpass_type AS requestType,
+        o.emergency_type AS emergencyType,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
         o.reason AS purpose,
         o.destination,
         o.semester,
@@ -309,7 +463,9 @@ exports.getMyRequests = async (req, res, next) => {
         o.to_datetime AS returnDatetime,
         o.status,
         o.parent_approval_status AS parentStatus,
+        o.parent_face_verified AS parentFaceVerified,
         o.advisor_approval_status AS advisorStatus,
+        o.principal_approval_status AS principalStatus,
         o.warden_approval_status AS wardenStatus,
         o.overall_status AS overallStatus,
         o.rejection_reason AS rejectionReason,
@@ -327,25 +483,36 @@ exports.getMyRequests = async (req, res, next) => {
       ORDER BY o.created_at DESC
     `, [studentId]);
 
-    // Format formatted display properties
-    const formattedRequests = rows.map(r => {
-      const isDuty = r.requestType === 'one_day_duty' || r.requestType === 'duty';
+    const filterType = req.query.type ? normalizeOutpassType(req.query.type) : null;
+
+    // Format formatted display properties with canonical outpass_type
+    let formattedRequests = rows.map(r => {
+      const canonicalType = normalizeOutpassType(r.requestType || r.outpass_type);
+
+      let displayType = 'Normal Outpass';
+      if (canonicalType === 'one_day_duty') {
+        displayType = 'One-Day Duty';
+      } else if (canonicalType === 'emergency') {
+        displayType = 'Emergency Outpass';
+      } else if (canonicalType === 'special') {
+        displayType = 'Special Outpass';
+      }
       
       let displayStatus = r.status || 'PENDING_PARENT';
       let badgeClass = 'status-pending-parent';
 
       if (displayStatus === 'PENDING_PARENT') {
-        displayStatus = 'Pending Parent';
-        badgeClass = 'status-pending-parent';
+        displayStatus = 'Pending Parent Approval';
+        badgeClass = canonicalType === 'emergency' ? 'status-pending-emergency' : 'status-pending-parent';
       } else if (displayStatus === 'PENDING_ADVISOR') {
         displayStatus = 'Pending Class Advisor';
         badgeClass = 'status-pending-advisor';
       } else if (displayStatus === 'PENDING_PRINCIPAL') {
-        displayStatus = 'Advisor Approved • Pending Principal';
+        displayStatus = canonicalType === 'special' ? 'Advisor Cleared • Pending Principal' : 'Advisor Approved • Pending Principal';
         badgeClass = 'status-pending-principal';
       } else if (displayStatus === 'PENDING_WARDEN') {
-        displayStatus = 'Parent Approved • Pending Warden';
-        badgeClass = 'status-pending-warden';
+        displayStatus = canonicalType === 'special' ? 'Principal Cleared • Pending Warden' : 'Parent Approved • Pending Warden';
+        badgeClass = canonicalType === 'emergency' ? 'status-emergency-warden' : 'status-pending-warden';
       } else if (displayStatus === 'APPROVED') {
         displayStatus = 'Approved';
         badgeClass = 'status-approved';
@@ -362,19 +529,33 @@ exports.getMyRequests = async (req, res, next) => {
 
       return {
         ...r,
-        displayType: isDuty ? 'One-Day Duty' : 'Normal Outpass',
+        outpass_type: canonicalType,
+        requestType: canonicalType,
+        displayType,
         displayStatus,
         badgeClass,
         effectiveRejectionReason: r.rejectionReason || r.advisorRejectionReason || r.parentRejectionReason || null
       };
     });
 
+    const normalRequests = formattedRequests.filter(r => r.outpass_type === 'normal');
+    const dutyRequests = formattedRequests.filter(r => r.outpass_type === 'one_day_duty');
+    const emergencyRequests = formattedRequests.filter(r => r.outpass_type === 'emergency');
+    const specialRequests = formattedRequests.filter(r => r.outpass_type === 'special');
+
+    if (filterType) {
+      formattedRequests = formattedRequests.filter(r => r.outpass_type === filterType);
+    }
+
     return res.status(200).json({
       success: true,
       count: formattedRequests.length,
-      requests: formattedRequests
+      requests: formattedRequests,
+      normalRequests,
+      dutyRequests,
+      emergencyRequests,
+      specialRequests
     });
-
   } catch (error) {
     next(error);
   }
@@ -443,136 +624,6 @@ exports.getStatusSummary = async (req, res, next) => {
   }
 };
 
-/**
- * POST /api/outpass/student/location & /api/student/location
- * Records the student's live GPS position captured via browser Geolocation API
- * Validates coordinate ranges and positive accuracy.
- * Never stores fake/fallback coordinates.
- */
-exports.updateStudentLocation = async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const { latitude, longitude, accuracy, captured_at, source } = req.body || {};
-
-    // 1. Validate existence and numeric types
-    if (latitude === undefined || longitude === undefined || accuracy === undefined ||
-        latitude === null || longitude === null || accuracy === null ||
-        isNaN(Number(latitude)) || isNaN(Number(longitude)) || isNaN(Number(accuracy))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid GPS coordinates (latitude, longitude) and accuracy are required.'
-      });
-    }
-
-    const lat = Number(latitude);
-    const lng = Number(longitude);
-    const acc = Number(accuracy);
-
-    // 2. Validate Coordinate Ranges (Section 4)
-    if (lat < -90 || lat > 90) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid latitude. Must be between -90 and 90 degrees.'
-      });
-    }
-
-    if (lng < -180 || lng > 180) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid longitude. Must be between -180 and 180 degrees.'
-      });
-    }
-
-    // 3. Accuracy must be a positive number
-    if (acc <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'GPS accuracy must be a positive number.'
-      });
-    }
-
-    const capturedAt = (captured_at && !isNaN(new Date(captured_at).getTime()))
-      ? new Date(captured_at)
-      : new Date();
-    const locSource = (source && typeof source === 'string') ? source.trim() : 'browser_gps';
-
-    // 4. Store latest valid location in MySQL student_locations table
-    await pool.query(`
-      INSERT INTO student_locations (student_id, latitude, longitude, accuracy, captured_at, source)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        latitude = VALUES(latitude),
-        longitude = VALUES(longitude),
-        accuracy = VALUES(accuracy),
-        captured_at = VALUES(captured_at),
-        source = VALUES(source),
-        updated_at = CURRENT_TIMESTAMP;
-    `, [studentId, lat, lng, acc, capturedAt, locSource]);
-
-    const locData = {
-      studentId,
-      latitude: lat,
-      longitude: lng,
-      accuracy: acc,
-      capturedAt,
-      source: locSource
-    };
-
-    return res.status(200).json({
-      success: true,
-      message: 'Student live GPS location recorded successfully.',
-      data: locData,
-      location: locData
-    });
-
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * GET /api/outpass/student/location & /api/student/location
- * Returns the current stored live location and freshness status for authenticated student
- */
-exports.getStudentLocation = async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const [rows] = await pool.query(
-      'SELECT latitude, longitude, accuracy, captured_at, updated_at, source FROM student_locations WHERE student_id = ? ORDER BY COALESCE(captured_at, updated_at) DESC LIMIT 1',
-      [studentId]
-    );
-
-    if (rows.length === 0) {
-      return res.status(200).json({
-        success: true,
-        hasLocation: false,
-        location: null,
-        message: 'No live GPS location recorded for this student.'
-      });
-    }
-
-    const loc = rows[0];
-    const timestamp = loc.captured_at || loc.updated_at;
-    const ageMinutes = (Date.now() - new Date(timestamp).getTime()) / (1000 * 60);
-
-    return res.status(200).json({
-      success: true,
-      hasLocation: true,
-      isFresh: ageMinutes <= 5,
-      ageMinutes: Math.round(ageMinutes * 10) / 10,
-      max_allowed_accuracy: 50,
-      location: {
-        latitude: Number(loc.latitude),
-        longitude: Number(loc.longitude),
-        accuracy: Number(loc.accuracy),
-        capturedAt: timestamp,
-        source: loc.source
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /* ==========================================================
    2. WARDEN CONTROLLERS & WORKFLOW
@@ -611,6 +662,21 @@ exports.getWardenOverview = async (req, res, next) => {
       WHERE r.id IS NULL;
     `);
 
+    const [regTotal] = await pool.query("SELECT COUNT(*) AS count FROM students WHERE is_active = 1;");
+    const [regYears] = await pool.query(`
+      SELECT year_of_study, COUNT(*) AS count 
+      FROM students 
+      WHERE is_active = 1 
+      GROUP BY year_of_study 
+      ORDER BY year_of_study ASC;
+    `);
+
+    const yearCounts = { year1: 0, year2: 0, year3: 0, year4: 0 };
+    regYears.forEach(r => {
+      const y = Number(r.year_of_study);
+      if (y >= 1 && y <= 4) yearCounts[`year${y}`] = Number(r.count);
+    });
+
     const [recentRows] = await pool.query(`
       SELECT 
         o.id,
@@ -641,7 +707,9 @@ exports.getWardenOverview = async (req, res, next) => {
         approvedTotal: Number(approvedCount[0].count) || 0,
         rejectedTotal: Number(rejectedCount[0].count) || 0,
         activeOutpasses: Number(activeCount[0].count) || 0,
-        studentsOutside: Number(outsideCount[0].count) || 0
+        studentsOutside: Number(outsideCount[0].count) || 0,
+        registeredTotal: Number(regTotal[0].count) || 0,
+        registeredByYear: yearCounts
       },
       recentRequests: recentRows
     });
@@ -657,11 +725,32 @@ exports.getWardenOverview = async (req, res, next) => {
  */
 exports.getWardenPending = async (req, res, next) => {
   try {
+    const filterType = req.query.type ? normalizeOutpassType(req.query.type) : null;
+
+    let stageCondition = `(
+      (o.outpass_type IN ('normal', 'regular') AND o.parent_approval_status = 'approved') OR
+      (o.outpass_type = 'emergency') OR
+      (o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.advisor_approval_status = 'approved' AND o.principal_approval_status = 'approved')
+    )`;
+
+    if (filterType === 'normal') {
+      stageCondition = "(o.outpass_type IN ('normal', 'regular') AND o.parent_approval_status = 'approved')";
+    } else if (filterType === 'emergency') {
+      stageCondition = "(o.outpass_type = 'emergency')";
+    } else if (filterType === 'special') {
+      stageCondition = "(o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.advisor_approval_status = 'approved' AND o.principal_approval_status = 'approved')";
+    }
+
     const [rows] = await pool.query(`
       SELECT 
         o.id,
         o.request_code AS requestCode,
         o.outpass_type AS requestType,
+        o.emergency_type AS emergencyType,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
         o.reason AS purpose,
         o.destination,
         o.semester,
@@ -670,6 +759,7 @@ exports.getWardenPending = async (req, res, next) => {
         o.to_datetime AS returnDatetime,
         o.status,
         o.advisor_approval_status AS advisorStatus,
+        o.principal_approval_status AS principalStatus,
         o.parent_approval_status AS parentStatus,
         o.parent_approval_status AS parentApprovalStatus,
         o.created_at AS submittedDate,
@@ -694,22 +784,45 @@ exports.getWardenPending = async (req, res, next) => {
         END AS biometricVerificationResult,
         COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
         o.parent_approved_at AS parentApprovedAt,
-        o.parent_face_verified_at AS parentFaceVerifiedAt
+        o.parent_face_verified_at AS parentFaceVerifiedAt,
+        adv.name AS advisorName,
+        prc.name AS principalName
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       LEFT JOIN parents p ON s.parent_id = p.id
+      LEFT JOIN staff adv ON o.advisor_approved_by_id = adv.id
+      LEFT JOIN staff prc ON o.principal_approved_by_id = prc.id
       LEFT JOIN parent_messages pm ON pm.id = (
         SELECT MAX(id) FROM parent_messages
         WHERE outpass_request_id = o.id
       )
-      WHERE o.status = 'PENDING_WARDEN' AND (o.outpass_type = 'normal' OR o.outpass_type = 'regular')
-      ORDER BY o.created_at ASC
+      WHERE o.status = 'PENDING_WARDEN' 
+        AND ${stageCondition}
+      ORDER BY 
+        CASE WHEN o.outpass_type = 'emergency' THEN 0 ELSE 1 END,
+        o.created_at ASC
     `);
+
+    const normalizedRows = rows.map(r => {
+      const canonicalType = normalizeOutpassType(r.requestType || r.outpass_type);
+      return {
+        ...r,
+        outpass_type: canonicalType,
+        requestType: canonicalType
+      };
+    });
+
+    const normalRequests = normalizedRows.filter(r => r.outpass_type === 'normal');
+    const emergencyRequests = normalizedRows.filter(r => r.outpass_type === 'emergency');
+    const specialRequests = normalizedRows.filter(r => r.outpass_type === 'special');
 
     return res.status(200).json({
       success: true,
-      count: rows.length,
-      pendingRequests: rows
+      count: normalizedRows.length,
+      pendingRequests: normalizedRows,
+      normalRequests,
+      emergencyRequests,
+      specialRequests
     });
 
   } catch (error) {
@@ -857,7 +970,13 @@ exports.approveOutpass = async (req, res, next) => {
 
     // 1. Verify request exists
     const [rows] = await pool.query(
-      'SELECT id, request_code, outpass_type, status, student_id FROM outpass_requests WHERE id = ?',
+      `SELECT o.id, o.request_code, o.outpass_type, o.status, o.student_id,
+              o.parent_face_verified, o.parent_approval_status,
+              o.advisor_approval_status, o.principal_approval_status,
+              s.name AS studentName, s.parent_id
+       FROM outpass_requests o
+       INNER JOIN students s ON o.student_id = s.id
+       WHERE o.id = ?`,
       [requestId]
     );
 
@@ -870,7 +989,7 @@ exports.approveOutpass = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 2. Workflow Guard: Warden ONLY approves Normal Outpasses (Rule 11)
+    // 2. Workflow Guard: Warden ONLY approves Normal, Emergency, or Special Outpasses
     if (request.outpass_type === 'one_day_duty' || request.outpass_type === 'duty') {
       return res.status(403).json({
         success: false,
@@ -886,7 +1005,31 @@ exports.approveOutpass = async (req, res, next) => {
       });
     }
 
-    // 4. Update status to APPROVED and record warden audit timestamp
+    // 4. Strict Hierarchy Verification
+    if (request.outpass_type === 'emergency') {
+      // Emergency Outpass routes directly to Warden: no Parent approval required
+    } else if (request.outpass_type === 'special') {
+      if (request.parent_face_verified !== 1 || request.parent_approval_status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Parent approval with Face Biometric Verification.'
+        });
+      }
+      if (request.advisor_approval_status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Class Advisor approval before Warden authorization.'
+        });
+      }
+      if (request.principal_approval_status !== 'approved') {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Principal review before Warden final authorization.'
+        });
+      }
+    }
+
+    // 5. Update status to APPROVED and record warden audit timestamp
     const now = new Date();
     await pool.query(`
       UPDATE outpass_requests
@@ -899,16 +1042,43 @@ exports.approveOutpass = async (req, res, next) => {
       WHERE id = ?
     `, [wardenId, now, requestId]);
 
+    // Record in outpass_approval_history
+    await recordApprovalHistory(pool, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      wardenId,
+      role: 'warden',
+      userId: wardenId,
+      action: 'WARDEN_APPROVED',
+      message: 'Approved by Warden',
+      previousStatus: 'PENDING_WARDEN',
+      newStatus: 'APPROVED'
+    });
+
+    const typeLabel = request.outpass_type === 'emergency' ? 'Emergency Outpass' : (request.outpass_type === 'special' ? 'Special Outpass' : 'Normal Outpass');
+
     // Send notifications to Student and Parent
     await notificationService.notifyStudent({
       studentId: request.student_id,
-      title: 'Outpass Approved by Warden',
-      message: `Your Normal Outpass (${request.request_code}) has been approved by the Hostel Warden. Gate Pass QR is ready for generation.`,
+      title: `${typeLabel} Approved by Warden`,
+      message: `Your ${typeLabel} (${request.request_code}) has been approved by the Hostel Warden. Gate Pass QR is ready for generation.`,
       type: 'WARDEN_APPROVED',
       referenceId: requestId,
       linkUrl: '/student-dashboard.html',
       io: req.io
     }).catch(err => console.warn('[Notif Error]:', err.message));
+
+    if (request.parent_id && request.outpass_type !== 'emergency') {
+      await notificationService.notifyParent({
+        parentId: request.parent_id,
+        title: `${typeLabel} Final Approval Granted`,
+        message: `${typeLabel} (${request.request_code}) for your ward ${request.studentName || 'Student'} has received final approval from the Warden.`,
+        type: 'WARDEN_APPROVED',
+        referenceId: requestId,
+        linkUrl: '/parent-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+    }
 
     // Real-time synchronization event for Warden monitoring dashboards
     if (req.io) {
@@ -940,7 +1110,7 @@ exports.approveOutpass = async (req, res, next) => {
 /**
  * PATCH /api/outpass/:id/reject
  * Reject an outpass request with reason
- * Accessible ONLY by authenticated Warden staff for Normal Outpasses
+ * Accessible ONLY by authenticated Warden staff
  */
 exports.rejectOutpass = async (req, res, next) => {
   try {
@@ -957,7 +1127,10 @@ exports.rejectOutpass = async (req, res, next) => {
 
     // 1. Verify request exists
     const [rows] = await pool.query(
-      'SELECT id, request_code, outpass_type, status, student_id FROM outpass_requests WHERE id = ?',
+      `SELECT o.id, o.request_code, o.outpass_type, o.status, o.student_id, s.name AS studentName, s.parent_id
+       FROM outpass_requests o
+       INNER JOIN students s ON o.student_id = s.id
+       WHERE o.id = ?`,
       [requestId]
     );
 
@@ -970,7 +1143,7 @@ exports.rejectOutpass = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 2. Workflow Guard: Warden ONLY rejects Normal Outpasses
+    // 2. Workflow Guard: Warden ONLY rejects Normal, Emergency, or Special Outpasses
     if (request.outpass_type === 'one_day_duty' || request.outpass_type === 'duty') {
       return res.status(403).json({
         success: false,
@@ -1000,16 +1173,44 @@ exports.rejectOutpass = async (req, res, next) => {
       WHERE id = ?
     `, [wardenId, now, rejection_reason.trim(), requestId]);
 
+    // Record in outpass_approval_history
+    await recordApprovalHistory(pool, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      wardenId,
+      role: 'warden',
+      userId: wardenId,
+      action: 'WARDEN_REJECTED',
+      message: rejection_reason.trim(),
+      previousStatus: 'PENDING_WARDEN',
+      newStatus: 'REJECTED'
+    });
+
+    const typeLabel = request.outpass_type === 'emergency' ? 'Emergency Outpass' : (request.outpass_type === 'special' ? 'Special Outpass' : 'Normal Outpass');
+
     // Notify Student
     await notificationService.notifyStudent({
       studentId: request.student_id,
-      title: 'Outpass Rejected by Warden',
-      message: `Your Normal Outpass (${request.request_code}) was rejected by Warden: ${rejection_reason.trim()}`,
+      title: `${typeLabel} Rejected by Warden`,
+      message: `Your ${typeLabel} (${request.request_code}) was rejected by Warden: ${rejection_reason.trim()}`,
       type: 'WARDEN_REJECTED',
       referenceId: requestId,
       linkUrl: '/student-dashboard.html',
       io: req.io
     }).catch(err => console.warn('[Notif Error]:', err.message));
+
+    // Notify Parent
+    if (request.parent_id && request.outpass_type !== 'emergency') {
+      await notificationService.notifyParent({
+        parentId: request.parent_id,
+        title: `${typeLabel} Declined by Warden`,
+        message: `${typeLabel} (${request.request_code}) for your ward was rejected by Warden: ${rejection_reason.trim()}`,
+        type: 'WARDEN_REJECTED',
+        referenceId: requestId,
+        linkUrl: '/parent-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+    }
 
     // Real-time synchronization event for Warden monitoring dashboards
     if (req.io) {
@@ -1056,7 +1257,13 @@ exports.principalApprove = async (req, res, next) => {
 
     // 1. Fetch request with row-lock
     const [rows] = await connection.query(
-      'SELECT id, request_code, student_id, outpass_type, status, advisor_approval_status, advisor_approved_by_id FROM outpass_requests WHERE id = ? FOR UPDATE;',
+      `SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status,
+              o.parent_approval_status, o.parent_face_verified,
+              o.advisor_approval_status, o.advisor_approved_by_id,
+              s.name AS studentName, s.parent_id, s.class_advisor_id
+       FROM outpass_requests o
+       INNER JOIN students s ON o.student_id = s.id
+       WHERE o.id = ? FOR UPDATE;`,
       [requestId]
     );
 
@@ -1067,10 +1274,10 @@ exports.principalApprove = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 2. Verify request type is ONE_DAY_DUTY
-    if (request.outpass_type !== 'one_day_duty' && request.outpass_type !== 'duty') {
+    // 2. Verify request type is ONE_DAY_DUTY or SPECIAL
+    if (request.outpass_type !== 'one_day_duty' && request.outpass_type !== 'duty' && request.outpass_type !== 'special') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Principal can only approve One-Day Permission (Duty) requests.' });
+      return res.status(400).json({ success: false, message: 'Principal can only review One-Day Permission and Special Outpass requests.' });
     }
 
     // 3. Verify status is PENDING_PRINCIPAL
@@ -1079,53 +1286,104 @@ exports.principalApprove = async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Request cannot be approved. Current status is "${request.status}".` });
     }
 
-    // 4. Verify Class Advisor has approved it
+    // 4. Verify Class Advisor clearance
     const isAdvisorApproved = request.advisor_approved_by_id || request.advisor_approval_status === 'approved';
     if (!isAdvisorApproved) {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Class Advisor must approve One-Day Duty before Principal authorization.' });
+      return res.status(400).json({ success: false, message: 'Class Advisor must approve request before Principal authorization.' });
     }
 
-    // 5. Update status to APPROVED with Principal audit details
+    // 4b. For Special Outpass and One-Day Duty, verify Parent has approved with Face Verification
+    if (request.outpass_type === 'special' || request.outpass_type === 'one_day_duty' || request.outpass_type === 'duty') {
+      if (request.parent_approval_status !== 'approved' || request.parent_face_verified !== 1) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Request must have Parent Face Biometric Verification and Approval before Principal review.' });
+      }
+    }
+
+    // 5. Update status:
+    // One-Day Duty: moves to APPROVED
+    // Special Outpass: moves to PENDING_WARDEN (forwarding to Warden for final approval)
+    const isSpecial = request.outpass_type === 'special';
+    const nextStatus = isSpecial ? 'PENDING_WARDEN' : 'APPROVED';
     const now = new Date();
+
     await connection.query(`
       UPDATE outpass_requests
       SET 
-        status = 'APPROVED',
-        overall_status = 'approved',
+        status = ?,
+        overall_status = ?,
         principal_approval_status = 'approved',
         principal_approved_by_id = ?,
         principal_approved_at = ?
       WHERE id = ?;
-    `, [principalId, now, requestId]);
+    `, [nextStatus, isSpecial ? 'pending' : 'approved', principalId, now, requestId]);
 
-    // Update one_day_duty_requests table if exists
-    await connection.query(`
-      UPDATE one_day_duty_requests
-      SET overall_status = 'approved'
-      WHERE request_code = ?;
-    `, [request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    if (!isSpecial) {
+      await connection.query(`
+        UPDATE one_day_duty_requests
+        SET overall_status = 'approved'
+        WHERE request_code = ?;
+      `, [request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    }
+
+    // Record in outpass_approval_history
+    await recordApprovalHistory(connection, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      principalId,
+      role: 'principal',
+      userId: principalId,
+      action: 'PRINCIPAL_APPROVED',
+      message: 'Approved by Principal',
+      previousStatus: 'PENDING_PRINCIPAL',
+      newStatus: nextStatus
+    });
 
     await connection.commit();
 
-    // Notify Student of Principal Approval
-    await notificationService.notifyStudent({
-      studentId: request.student_id,
-      title: 'One-Day Permission Approved by Principal',
-      message: `Your One-Day Permission (${request.request_code}) has been approved by Principal. Gate Pass QR is eligible for generation.`,
-      type: 'PRINCIPAL_APPROVED',
-      referenceId: requestId,
-      linkUrl: '/student-dashboard.html',
-      io: req.io
-    }).catch(err => console.warn('[Notif Error]:', err.message));
+    if (isSpecial) {
+      // Forward to Warden
+      await notificationService.notifyWarden({
+        title: 'Special Outpass Requires Final Approval',
+        message: `Special Outpass for ${request.studentName} (${request.request_code}) was cleared by Principal and is waiting for your final approval.`,
+        type: 'PRINCIPAL_APPROVED',
+        referenceId: requestId,
+        linkUrl: '/warden-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+
+      await notificationService.notifyStudent({
+        studentId: request.student_id,
+        title: 'Special Outpass Cleared by Principal',
+        message: `Your Special Outpass (${request.request_code}) was cleared by Principal and forwarded to Warden for final clearance.`,
+        type: 'PRINCIPAL_APPROVED',
+        referenceId: requestId,
+        linkUrl: '/student-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+    } else {
+      // Notify Student of OD Approval
+      await notificationService.notifyStudent({
+        studentId: request.student_id,
+        title: 'One-Day Permission Approved by Principal',
+        message: `Your One-Day Permission (${request.request_code}) has been approved by Principal. Gate Pass QR is eligible for generation.`,
+        type: 'PRINCIPAL_APPROVED',
+        referenceId: requestId,
+        linkUrl: '/student-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+    }
 
     return res.status(200).json({
       success: true,
-      message: 'One-Day Permission approved successfully by Principal. Eligible for digital security QR generation.',
+      message: isSpecial
+        ? 'Special Outpass cleared by Principal and forwarded to Warden for final approval.'
+        : 'One-Day Permission approved successfully by Principal. Eligible for digital security QR generation.',
       data: {
         id: request.id,
         requestCode: request.request_code,
-        status: 'APPROVED',
+        status: nextStatus,
         principalApprovedAt: now.toISOString(),
         principalId
       }
@@ -1141,7 +1399,7 @@ exports.principalApprove = async (req, res, next) => {
 
 /**
  * PATCH /api/outpass/:id/principal-reject
- * Reject One-Day Permission request
+ * Reject One-Day Permission or Special Outpass request
  * Accessible ONLY by authenticated Principal role
  */
 exports.principalReject = async (req, res, next) => {
@@ -1160,7 +1418,11 @@ exports.principalReject = async (req, res, next) => {
 
     // 1. Fetch request with row-lock
     const [rows] = await connection.query(
-      'SELECT id, request_code, student_id, outpass_type, status FROM outpass_requests WHERE id = ? FOR UPDATE;',
+      `SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status,
+              s.name AS studentName, s.parent_id, s.class_advisor_id
+       FROM outpass_requests o
+       INNER JOIN students s ON o.student_id = s.id
+       WHERE o.id = ? FOR UPDATE;`,
       [requestId]
     );
 
@@ -1171,10 +1433,10 @@ exports.principalReject = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 2. Verify request type is ONE_DAY_DUTY
-    if (request.outpass_type !== 'one_day_duty' && request.outpass_type !== 'duty') {
+    // 2. Verify request type is ONE_DAY_DUTY or SPECIAL
+    if (request.outpass_type !== 'one_day_duty' && request.outpass_type !== 'duty' && request.outpass_type !== 'special') {
       await connection.rollback();
-      return res.status(400).json({ success: false, message: 'Principal can only reject One-Day Permission (Duty) requests.' });
+      return res.status(400).json({ success: false, message: 'Principal can only reject One-Day Permission and Special Outpass requests.' });
     }
 
     // 3. Verify status is PENDING_PRINCIPAL
@@ -1206,22 +1468,63 @@ exports.principalReject = async (req, res, next) => {
       WHERE request_code = ?;
     `, [cleanReason, request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
 
+    // Record in outpass_approval_history
+    await recordApprovalHistory(connection, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      principalId,
+      role: 'principal',
+      userId: principalId,
+      action: 'PRINCIPAL_REJECTED',
+      message: cleanReason,
+      previousStatus: 'PENDING_PRINCIPAL',
+      newStatus: 'REJECTED'
+    });
+
     await connection.commit();
 
-    // Notify Student of Principal Rejection
-    notificationService.notifyStudent({
+    const typeLabel = request.outpass_type === 'special' ? 'Special Outpass' : 'One-Day Permission';
+
+    // Notify Student
+    await notificationService.notifyStudent({
       studentId: request.student_id,
-      title: 'One-Day Permission Rejected by Principal',
-      message: `Your One-Day Permission (${request.request_code}) was rejected by Principal: ${cleanReason}`,
+      title: `${typeLabel} Rejected by Principal`,
+      message: `Your ${typeLabel} (${request.request_code}) was rejected by Principal: ${cleanReason}`,
       type: 'PRINCIPAL_REJECTED',
       referenceId: requestId,
       linkUrl: '/student-dashboard.html',
       io: req.io
     }).catch(err => console.warn('[Notif Error]:', err.message));
 
+    // If special outpass, notify parent & advisor as required by prompt
+    if (request.outpass_type === 'special') {
+      if (request.parent_id) {
+        await notificationService.notifyParent({
+          parentId: request.parent_id,
+          title: 'Special Outpass Rejected by Principal',
+          message: `Special Outpass for your ward was rejected by Principal: ${cleanReason}`,
+          type: 'PRINCIPAL_REJECTED',
+          referenceId: requestId,
+          linkUrl: '/parent-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
+      if (request.class_advisor_id) {
+        await notificationService.notifyAdvisor({
+          advisorId: request.class_advisor_id,
+          title: 'Special Outpass Rejected by Principal',
+          message: `Special Outpass for ${request.studentName} was rejected by Principal: ${cleanReason}`,
+          type: 'PRINCIPAL_REJECTED',
+          referenceId: requestId,
+          linkUrl: '/advisor-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'One-Day Permission rejected by Principal.',
+      message: `${typeLabel} rejected by Principal.`,
       data: {
         id: request.id,
         requestCode: request.request_code,
@@ -1260,15 +1563,27 @@ exports.getAdvisorOverview = async (req, res, next) => {
 
     const advisorDept = advRows.length > 0 ? advRows[0].department : null;
 
-    // 1. Pending One-Day Duty Requests in Advisor's department
-    const [pendingRows] = await pool.query(`
+    // 1. Pending One-Day Duty requests
+    const [pendingDutyRows] = await pool.query(`
       SELECT COUNT(*) AS count
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.status = 'PENDING_ADVISOR'
         AND (o.outpass_type = 'one_day_duty' OR o.outpass_type = 'duty')
-        AND (s.department = ? OR s.class_advisor_id = ?);
-    `, [advisorDept, advisorId]);
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?));
+    `, [advisorId, advisorDept]);
+
+    // 1B. Pending Special Outpass requests (Tier 2 Clearance - Parent Approved + Face Biometric Verified)
+    const [pendingSpecialRows] = await pool.query(`
+      SELECT COUNT(*) AS count
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      WHERE o.status = 'PENDING_ADVISOR'
+        AND o.outpass_type = 'special'
+        AND o.parent_approval_status = 'approved'
+        AND o.parent_face_verified = 1
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?));
+    `, [advisorId, advisorDept]);
 
     // 2. Approved Today by this advisor
     const [approvedTodayRows] = await pool.query(`
@@ -1316,39 +1631,44 @@ exports.getAdvisorOverview = async (req, res, next) => {
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE (o.outpass_type = 'one_day_duty' OR o.outpass_type = 'duty')
-        AND (s.department = ? OR s.class_advisor_id = ?)
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at DESC
       LIMIT 6;
-    `, [advisorDept, advisorId]);
+    `, [advisorId, advisorDept]);
 
-    return res.status(200).json({
-      success: true,
-      stats: {
-        pendingCount: Number(pendingRows[0].count) || 0,
-        approvedTodayCount: Number(approvedTodayRows[0].count) || 0,
-        rejectedTodayCount: Number(rejectedTodayRows[0].count) || 0,
-        totalApprovedCount: Number(totalApprovedRows[0].count) || 0,
-        totalRejectedCount: Number(totalRejectedRows[0].count) || 0
-      },
-      advisorDept,
-      recentActivity: recentRows
-    });
+      const dutyCount = Number(pendingDutyRows[0].count) || 0;
+      const specialCount = Number(pendingSpecialRows[0].count) || 0;
 
-  } catch (error) {
-    next(error);
-  }
-};
+      return res.status(200).json({
+        success: true,
+        stats: {
+          pendingDutyCount: dutyCount,
+          pendingSpecialCount: specialCount,
+          pendingCount: dutyCount + specialCount,
+          approvedTodayCount: Number(approvedTodayRows[0].count) || 0,
+          rejectedTodayCount: Number(rejectedTodayRows[0].count) || 0,
+          totalApprovedCount: Number(totalApprovedRows[0].count) || 0,
+          totalRejectedCount: Number(totalRejectedRows[0].count) || 0
+        },
+        advisorDept,
+        recentActivity: recentRows
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  };
 
 /**
- * GET /api/outpass/advisor/pending
+ * GET /api/advisor/duty/pending or /api/advisor/one-day/pending
  * Pending One-Day Duty requests queue for Class Advisor
- * Filtered securely by advisor's assigned department
+ * Strictly filters outpass_type IN ('one_day_duty', 'duty')
+ * Zero Special Outpasses returned.
  */
-exports.getAdvisorPending = async (req, res, next) => {
+exports.getAdvisorDutyPending = async (req, res, next) => {
   try {
     const advisorId = req.user.id;
 
-    // Get Advisor Department
     const [advRows] = await pool.query(
       'SELECT id, name, department FROM staff WHERE id = ?',
       [advisorId]
@@ -1360,7 +1680,8 @@ exports.getAdvisorPending = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
-        o.outpass_type AS requestType,
+        'one_day_duty' AS requestType,
+        'one_day_duty' AS outpass_type,
         o.event_name AS eventName,
         o.event_location AS eventLocation,
         o.duty_date AS dutyDate,
@@ -1381,25 +1702,261 @@ exports.getAdvisorPending = async (req, res, next) => {
         s.section AS studentSection,
         s.room_no AS studentRoom,
         s.hostel_block AS studentBlock,
+        s.phone AS studentRegisteredPhone
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      WHERE o.status = 'PENDING_ADVISOR'
+        AND o.outpass_type IN ('one_day_duty', 'duty')
+        AND o.parent_approval_status = 'approved'
+        AND o.parent_face_verified = 1
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
+      ORDER BY o.created_at ASC
+    `, [advisorId, advisorDept]);
+
+    const dutyRequests = rows.map(r => ({
+      ...r,
+      outpass_type: 'one_day_duty',
+      requestType: 'one_day_duty'
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: dutyRequests.length,
+      advisorDept,
+      requests: dutyRequests,
+      dutyRequests,
+      pendingDutyRequests: dutyRequests
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/advisor/special/pending
+ * Pending Special Outpass requests queue for Class Advisor
+ * Strictly filters outpass_type = 'special'
+ * ONLY returns requests that have completed Parent Face Biometrics (Tier 1)
+ * Zero One-Day Duty requests returned.
+ */
+exports.getAdvisorSpecialPending = async (req, res, next) => {
+  try {
+    const advisorId = req.user.id;
+
+    const [advRows] = await pool.query(
+      'SELECT id, name, department FROM staff WHERE id = ?',
+      [advisorId]
+    );
+
+    const advisorDept = advRows.length > 0 ? advRows[0].department : null;
+
+    const [rows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        'special' AS requestType,
+        'special' AS outpass_type,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
+        o.reason AS purpose,
+        o.destination,
+        o.semester,
+        o.student_phone AS contactPhone,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.advisor_approval_status AS advisorStatus,
+        o.parent_approval_status AS parentApprovalStatus,
+        o.parent_face_verified AS parentFaceVerified,
+        CASE 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          ELSE 'UNVERIFIED' 
+        END AS faceVerificationResult,
+        COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
+        o.parent_approved_at AS parentApprovedAt,
+        o.created_at AS submittedDate,
+        s.reg_no AS studentRegNo,
+        s.name AS studentName,
+        s.department AS studentDept,
+        s.year_of_study AS studentYear,
+        s.section AS studentSection,
+        s.room_no AS studentRoom,
+        s.hostel_block AS studentBlock,
         s.phone AS studentRegisteredPhone,
         p.father_name AS parentName,
         p.primary_phone AS parentPhone
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       LEFT JOIN parents p ON s.parent_id = p.id
+      LEFT JOIN parent_messages pm ON pm.id = (
+        SELECT MAX(id) FROM parent_messages
+        WHERE outpass_request_id = o.id
+      )
       WHERE o.status = 'PENDING_ADVISOR'
-        AND (o.outpass_type = 'one_day_duty' OR o.outpass_type = 'duty')
-        AND (s.department = ? OR s.class_advisor_id = ?)
+        AND o.outpass_type = 'special'
+        AND o.parent_approval_status = 'approved'
+        AND o.parent_face_verified = 1
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at ASC
-    `, [advisorDept, advisorId]);
+    `, [advisorId, advisorDept]);
+
+    const specialRequests = rows.map(r => ({
+      ...r,
+      outpass_type: 'special',
+      requestType: 'special'
+    }));
 
     return res.status(200).json({
       success: true,
-      count: rows.length,
+      count: specialRequests.length,
       advisorDept,
-      pendingDutyRequests: rows
+      requests: specialRequests,
+      specialRequests,
+      pendingSpecialRequests: specialRequests
     });
+  } catch (error) {
+    next(error);
+  }
+};
 
+/**
+ * GET /api/outpass/advisor/pending
+ * Pending One-Day Duty and Special Outpass requests partitioned for Class Advisor
+ * Filtered securely by advisor's assigned department
+ */
+exports.getAdvisorPending = async (req, res, next) => {
+  try {
+    const filterType = req.query.type ? normalizeOutpassType(req.query.type) : null;
+
+    if (filterType === 'one_day_duty') {
+      return exports.getAdvisorDutyPending(req, res, next);
+    }
+    if (filterType === 'special') {
+      return exports.getAdvisorSpecialPending(req, res, next);
+    }
+
+    const advisorId = req.user.id;
+
+    // Get Advisor Department
+    const [advRows] = await pool.query(
+      'SELECT id, name, department FROM staff WHERE id = ?',
+      [advisorId]
+    );
+
+    const advisorDept = advRows.length > 0 ? advRows[0].department : null;
+
+    // 1. Fetch One-Day Duty requests
+    const [dutyRows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        'one_day_duty' AS requestType,
+        'one_day_duty' AS outpass_type,
+        o.event_name AS eventName,
+        o.event_location AS eventLocation,
+        o.duty_date AS dutyDate,
+        o.duty_description AS dutyDescription,
+        o.reason AS purpose,
+        o.destination,
+        o.semester,
+        o.student_phone AS contactPhone,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.advisor_approval_status AS advisorStatus,
+        o.created_at AS submittedDate,
+        s.reg_no AS studentRegNo,
+        s.name AS studentName,
+        s.department AS studentDept,
+        s.year_of_study AS studentYear,
+        s.section AS studentSection,
+        s.room_no AS studentRoom,
+        s.hostel_block AS studentBlock,
+        s.phone AS studentRegisteredPhone
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      WHERE o.status = 'PENDING_ADVISOR'
+        AND o.outpass_type IN ('one_day_duty', 'duty')
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
+      ORDER BY o.created_at ASC
+    `, [advisorId, advisorDept]);
+
+    // 2. Fetch Special Outpass requests (Only Tier 1 Parent Face Verified)
+    const [specialRows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        'special' AS requestType,
+        'special' AS outpass_type,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
+        o.reason AS purpose,
+        o.destination,
+        o.semester,
+        o.student_phone AS contactPhone,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.advisor_approval_status AS advisorStatus,
+        o.parent_approval_status AS parentApprovalStatus,
+        o.parent_face_verified AS parentFaceVerified,
+        CASE 
+          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          ELSE 'UNVERIFIED' 
+        END AS faceVerificationResult,
+        COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
+        o.parent_approved_at AS parentApprovedAt,
+        o.created_at AS submittedDate,
+        s.reg_no AS studentRegNo,
+        s.name AS studentName,
+        s.department AS studentDept,
+        s.year_of_study AS studentYear,
+        s.section AS studentSection,
+        s.room_no AS studentRoom,
+        s.hostel_block AS studentBlock,
+        s.phone AS studentRegisteredPhone,
+        p.father_name AS parentName,
+        p.primary_phone AS parentPhone
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      LEFT JOIN parents p ON s.parent_id = p.id
+      LEFT JOIN parent_messages pm ON pm.id = (
+        SELECT MAX(id) FROM parent_messages
+        WHERE outpass_request_id = o.id
+      )
+      WHERE o.status = 'PENDING_ADVISOR'
+        AND o.outpass_type = 'special'
+        AND o.parent_approval_status = 'approved'
+        AND o.parent_face_verified = 1
+        AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
+      ORDER BY o.created_at ASC
+    `, [advisorId, advisorDept]);
+
+    const dutyRequests = dutyRows.map(r => ({
+      ...r,
+      outpass_type: 'one_day_duty',
+      requestType: 'one_day_duty'
+    }));
+
+    const specialRequests = specialRows.map(r => ({
+      ...r,
+      outpass_type: 'special',
+      requestType: 'special'
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: dutyRequests.length + specialRequests.length,
+      advisorDept,
+      dutyRequests,
+      specialRequests,
+      pendingDutyRequests: dutyRequests, // Strictly duty only!
+      pendingSpecialRequests: specialRequests // Strictly special only!
+    });
   } catch (error) {
     next(error);
   }
@@ -1417,6 +1974,8 @@ exports.getAdvisorApproved = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.outpass_type AS requestType,
+        o.special_type AS specialType,
         o.event_name AS eventName,
         o.event_location AS eventLocation,
         o.duty_date AS dutyDate,
@@ -1460,6 +2019,8 @@ exports.getAdvisorRejected = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.outpass_type AS requestType,
+        o.special_type AS specialType,
         o.event_name AS eventName,
         o.event_location AS eventLocation,
         o.duty_date AS dutyDate,
@@ -1488,7 +2049,7 @@ exports.getAdvisorRejected = async (req, res, next) => {
 
 /**
  * PATCH /api/outpass/:id/advisor-approve
- * Approve OD request by Class Advisor -> moves to PENDING_PRINCIPAL
+ * Approve One-Day Duty or Special Outpass by Class Advisor -> moves to PENDING_PRINCIPAL
  * Enforces Department-level authorization and transaction safety
  */
 exports.advisorApprove = async (req, res, next) => {
@@ -1515,7 +2076,9 @@ exports.advisorApprove = async (req, res, next) => {
 
     // 2. Fetch request with row lock and check student department
     const [rows] = await connection.query(`
-      SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status, s.department AS studentDept, s.class_advisor_id, s.name AS studentName
+      SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status,
+             o.parent_approval_status, o.parent_face_verified,
+             s.department AS studentDept, s.class_advisor_id, s.name AS studentName, s.parent_id
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.id = ?
@@ -1529,16 +2092,23 @@ exports.advisorApprove = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 3. Department Authorization Check
-    if (request.studentDept !== advisorDept && request.class_advisor_id !== advisorId) {
+    // 3. Department / Advisor Assignment Authorization Check
+    let isAdvisorAuthorized = false;
+    if (request.class_advisor_id) {
+      isAdvisorAuthorized = (Number(request.class_advisor_id) === Number(advisorId));
+    } else {
+      isAdvisorAuthorized = (request.studentDept === advisorDept);
+    }
+
+    if (!isAdvisorAuthorized) {
       await connection.rollback();
       return res.status(403).json({
         success: false,
-        message: `Department Mismatch: You can only approve requests from your department (${advisorDept}). This student belongs to (${request.studentDept}).`
+        message: `Authorization Error: You are not authorized to approve requests for this student.`
       });
     }
 
-    // 4. Verify request is a One-Day Duty and pending
+    // 4. Verify request is pending
     if (request.status !== 'PENDING_ADVISOR') {
       await connection.rollback();
       return res.status(400).json({
@@ -1547,7 +2117,19 @@ exports.advisorApprove = async (req, res, next) => {
       });
     }
 
-    // 5. Update status to PENDING_PRINCIPAL (forwarding to Principal for final authorization)
+    // 4b. For Special Outpass and One-Day Duty, verify Parent has approved with Face Verification
+    if (request.outpass_type === 'special' || request.outpass_type === 'one_day_duty' || request.outpass_type === 'duty') {
+      if (request.parent_approval_status !== 'approved' || request.parent_face_verified !== 1) {
+        await connection.rollback();
+        const typeTitle = (request.outpass_type === 'special') ? 'Special Outpass' : 'One-Day Duty';
+        return res.status(400).json({
+          success: false,
+          message: `${typeTitle} must have Parent Face Biometric Verification and Approval before Class Advisor clearance.`
+        });
+      }
+    }
+
+    // 5. Update status to PENDING_PRINCIPAL (forwarding to Principal)
     const now = new Date();
     await connection.query(`
       UPDATE outpass_requests
@@ -1559,19 +2141,37 @@ exports.advisorApprove = async (req, res, next) => {
       WHERE id = ?;
     `, [advisorId, now, requestId]);
 
-    // Also update one_day_duty_requests table if present
-    await connection.query(`
-      UPDATE one_day_duty_requests
-      SET advisor_approval_status = 'approved'
-      WHERE request_code = ?;
-    `, [request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    // Also update one_day_duty_requests table if duty
+    if (request.outpass_type !== 'special') {
+      await connection.query(`
+        UPDATE one_day_duty_requests
+        SET advisor_approval_status = 'approved'
+        WHERE request_code = ?;
+      `, [request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    }
+
+    // Record in outpass_approval_history
+    await recordApprovalHistory(connection, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      advisorId,
+      role: 'class_advisor',
+      userId: advisorId,
+      action: 'ADVISOR_APPROVED',
+      message: 'Approved by Class Advisor',
+      previousStatus: 'PENDING_ADVISOR',
+      newStatus: 'PENDING_PRINCIPAL'
+    });
 
     await connection.commit();
 
-    // 6. Notify Principal (Rule 5)
+    const isSpecial = request.outpass_type === 'special';
+    const typeLabel = isSpecial ? 'Special Outpass' : 'One-Day Permission';
+
+    // 6. Notify Principal
     await notificationService.notifyPrincipal({
-      title: 'One-Day Permission Requires Approval',
-      message: 'A Class Advisor has approved a One-Day Permission request and it is waiting for your final approval.',
+      title: `${typeLabel} Requires Approval`,
+      message: `A Class Advisor has approved a ${typeLabel} request (${request.request_code}) and it is waiting for your final approval.`,
       type: 'PRINCIPAL_PENDING',
       referenceId: requestId,
       linkUrl: '/principal-dashboard.html',
@@ -1581,8 +2181,8 @@ exports.advisorApprove = async (req, res, next) => {
     // 7. Notify Student
     await notificationService.notifyStudent({
       studentId: request.student_id,
-      title: 'One-Day Permission Cleared by Advisor',
-      message: `Your One-Day Duty request (${request.request_code}) was approved by your Class Advisor and forwarded to Principal for final approval.`,
+      title: `${typeLabel} Cleared by Advisor`,
+      message: `Your ${typeLabel} (${request.request_code}) was approved by your Class Advisor and forwarded to Principal for review.`,
       type: 'ADVISOR_APPROVED',
       referenceId: requestId,
       linkUrl: '/student-dashboard.html',
@@ -1591,7 +2191,7 @@ exports.advisorApprove = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: 'One-Day Permission approved by Class Advisor and forwarded to Principal for final authorization.',
+      message: `${typeLabel} approved by Class Advisor and forwarded to Principal for authorization.`,
       data: {
         id: request.id,
         requestCode: request.request_code,
@@ -1611,7 +2211,7 @@ exports.advisorApprove = async (req, res, next) => {
 
 /**
  * PATCH /api/outpass/:id/advisor-reject
- * Reject OD request by Class Advisor
+ * Reject OD or Special request by Class Advisor
  * Enforces Department-level authorization and transaction safety
  */
 exports.advisorReject = async (req, res, next) => {
@@ -1643,7 +2243,7 @@ exports.advisorReject = async (req, res, next) => {
 
     // 2. Fetch request with row lock and check student department
     const [rows] = await connection.query(`
-      SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status, s.department AS studentDept, s.class_advisor_id
+      SELECT o.id, o.request_code, o.student_id, o.outpass_type, o.status, s.department AS studentDept, s.class_advisor_id, s.name AS studentName, s.parent_id
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.id = ?
@@ -1657,12 +2257,19 @@ exports.advisorReject = async (req, res, next) => {
 
     const request = rows[0];
 
-    // 3. Department Authorization Check
-    if (request.studentDept !== advisorDept && request.class_advisor_id !== advisorId) {
+    // 3. Department / Advisor Assignment Authorization Check
+    let isAdvisorAuthorized = false;
+    if (request.class_advisor_id) {
+      isAdvisorAuthorized = (Number(request.class_advisor_id) === Number(advisorId));
+    } else {
+      isAdvisorAuthorized = (request.studentDept === advisorDept);
+    }
+
+    if (!isAdvisorAuthorized) {
       await connection.rollback();
       return res.status(403).json({
         success: false,
-        message: `Department Mismatch: You can only reject requests from your department (${advisorDept}). This student belongs to (${request.studentDept}).`
+        message: `Authorization Error: You are not authorized to reject requests for this student.`
       });
     }
 
@@ -1690,29 +2297,59 @@ exports.advisorReject = async (req, res, next) => {
       WHERE id = ?;
     `, [advisorId, now, cleanReason, cleanReason, requestId]);
 
-    // Also sync one_day_duty_requests table
-    await connection.query(`
-      UPDATE one_day_duty_requests
-      SET advisor_approval_status = 'rejected', overall_status = 'rejected', rejection_reason = ?
-      WHERE request_code = ?;
-    `, [cleanReason, request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    if (request.outpass_type !== 'special') {
+      await connection.query(`
+        UPDATE one_day_duty_requests
+        SET advisor_approval_status = 'rejected', overall_status = 'rejected', rejection_reason = ?
+        WHERE request_code = ?;
+      `, [cleanReason, request.request_code]).catch(err => console.warn('[OD Table Sync]:', err.message));
+    }
+
+    // Record in outpass_approval_history
+    await recordApprovalHistory(connection, {
+      outpassId: requestId,
+      studentId: request.student_id,
+      advisorId,
+      role: 'class_advisor',
+      userId: advisorId,
+      action: 'ADVISOR_REJECTED',
+      message: cleanReason,
+      previousStatus: 'PENDING_ADVISOR',
+      newStatus: 'REJECTED'
+    });
 
     await connection.commit();
+
+    const isSpecial = request.outpass_type === 'special';
+    const typeLabel = isSpecial ? 'Special Outpass' : 'One-Day Duty';
 
     // 5. Notify Student
     await notificationService.notifyStudent({
       studentId: request.student_id,
-      title: 'One-Day Duty Request Rejected',
-      message: `Your One-Day Duty request (${request.request_code}) was rejected by your Class Advisor: ${cleanReason}`,
+      title: `${typeLabel} Request Rejected`,
+      message: `Your ${typeLabel} request (${request.request_code}) was rejected by your Class Advisor: ${cleanReason}`,
       type: 'ADVISOR_REJECTED',
       referenceId: requestId,
       linkUrl: '/student-dashboard.html',
       io: req.io
     }).catch(err => console.warn('[Notif Error]:', err.message));
 
+    // If special outpass, notify parent as required by prompt
+    if (isSpecial && request.parent_id) {
+      await notificationService.notifyParent({
+        parentId: request.parent_id,
+        title: 'Special Outpass Rejected by Advisor',
+        message: `Special Outpass for your ward was rejected by Class Advisor: ${cleanReason}`,
+        type: 'ADVISOR_REJECTED',
+        referenceId: requestId,
+        linkUrl: '/parent-dashboard.html',
+        io: req.io
+      }).catch(err => console.warn('[Notif Error]:', err.message));
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'One-Day Duty request rejected by Class Advisor.',
+      message: `${typeLabel} request rejected by Class Advisor.`,
       data: {
         id: request.id,
         requestCode: request.request_code,
@@ -2146,4 +2783,530 @@ exports.getWardenReports = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/outpass/:id
+ * Secure endpoint to fetch details of a single outpass request
+ * Strictly enforces server-side access control:
+ * - Student can ONLY view their own outpass (request.student_id === req.user.id) -> 403 Forbidden otherwise
+ * - Parent can ONLY view their linked student's outpass (request.parent_id === req.user.id) -> 403 Forbidden otherwise
+ * - Class Advisor can ONLY view their assigned student's outpass (or dept match if unassigned) -> 403 Forbidden otherwise
+ * - Principal & Warden can view institutionally
+ */
+exports.getOutpassById = async (req, res, next) => {
+  try {
+    const requestId = req.params.id;
+    const user = req.user;
+
+    const [rows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        o.outpass_type AS requestType,
+        o.outpass_type,
+        o.emergency_type AS emergencyType,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
+        o.reason AS purpose,
+        o.destination,
+        o.semester,
+        o.student_phone AS contactPhone,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.overall_status,
+        o.parent_approval_status AS parentStatus,
+        o.parent_face_verified AS parentFaceVerified,
+        o.advisor_approval_status AS advisorStatus,
+        o.principal_approval_status AS principalStatus,
+        o.warden_approval_status AS wardenStatus,
+        o.created_at AS submittedDate,
+        s.id AS studentId,
+        s.reg_no AS studentRegNo,
+        s.name AS studentName,
+        s.department AS studentDept,
+        s.year_of_study AS studentYear,
+        s.room_no AS studentRoom,
+        s.hostel_block AS studentBlock,
+        s.parent_id AS parentId,
+        s.class_advisor_id AS classAdvisorId,
+        p.father_name AS parentName,
+        p.primary_phone AS parentPhone
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      LEFT JOIN parents p ON s.parent_id = p.id
+      WHERE o.id = ?
+    `, [requestId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Outpass request not found.'
+      });
+    }
+
+    const request = rows[0];
+    const role = (user.role || '').toLowerCase().trim();
+
+    // 1. Student Authorization: must own the request
+    if (role === 'student') {
+      if (Number(request.studentId) !== Number(user.id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not authorized to access another student\'s outpass request.'
+        });
+      }
+    }
+    // 2. Parent Authorization: must be linked parent
+    else if (role === 'parent') {
+      if (Number(request.parentId) !== Number(user.id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not authorized to access an outpass request for another student.'
+        });
+      }
+    }
+    // 3. Class Advisor Authorization: must match assignment or dept
+    else if (role === 'class_advisor' || role === 'advisor') {
+      const [advRows] = await pool.query('SELECT department FROM staff WHERE id = ?', [user.id]);
+      const advDept = advRows.length > 0 ? advRows[0].department : null;
+      let isAuthorized = false;
+      if (request.classAdvisorId) {
+        isAuthorized = (Number(request.classAdvisorId) === Number(user.id));
+      } else {
+        isAuthorized = (request.studentDept === advDept);
+      }
+      if (!isAuthorized) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: You are not authorized to view requests for students outside your assignment.'
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      request
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/outpass/warden/registered-students/stats
+ * Census metrics: total registered students, year-wise breakdown, department-wise breakdown, block distribution
+ */
+exports.getWardenRegisteredStudentsStats = async (req, res, next) => {
+  try {
+    const [totalRows] = await pool.query('SELECT COUNT(*) AS total FROM students WHERE is_active = 1;');
+    const totalStudents = Number(totalRows[0].total) || 0;
+
+    const [yearRows] = await pool.query(`
+      SELECT year_of_study, COUNT(*) AS count
+      FROM students
+      WHERE is_active = 1
+      GROUP BY year_of_study
+      ORDER BY year_of_study ASC;
+    `);
+
+    const yearCounts = { year1: 0, year2: 0, year3: 0, year4: 0, other: 0 };
+    yearRows.forEach(r => {
+      const y = Number(r.year_of_study);
+      if (y >= 1 && y <= 4) {
+        yearCounts[`year${y}`] = Number(r.count);
+      } else {
+        yearCounts.other += Number(r.count);
+      }
+    });
+
+    const [deptRows] = await pool.query(`
+      SELECT department, year_of_study, COUNT(*) AS count
+      FROM students
+      WHERE is_active = 1
+      GROUP BY department, year_of_study
+      ORDER BY department ASC, year_of_study ASC;
+    `);
+
+    const [blockRows] = await pool.query(`
+      SELECT hostel_block, COUNT(*) AS count
+      FROM students
+      WHERE is_active = 1
+      GROUP BY hostel_block
+      ORDER BY hostel_block ASC;
+    `);
+
+    const [deptList] = await pool.query('SELECT DISTINCT department FROM students WHERE is_active = 1 AND department IS NOT NULL ORDER BY department;');
+    const [blockList] = await pool.query('SELECT DISTINCT hostel_block FROM students WHERE is_active = 1 AND hostel_block IS NOT NULL ORDER BY hostel_block;');
+
+    return res.status(200).json({
+      success: true,
+      stats: {
+        totalStudents,
+        yearCounts,
+        byYear: yearRows.map(r => ({ year: Number(r.year_of_study), count: Number(r.count) })),
+        byDept: deptRows.map(r => ({ department: r.department, year: Number(r.year_of_study), count: Number(r.count) })),
+        byBlock: blockRows.map(r => ({ block: r.hostel_block, count: Number(r.count) })),
+        departments: deptList.map(d => d.department),
+        blocks: blockList.map(b => b.hostel_block)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/outpass/warden/registered-students
+ * Filterable & searchable directory of registered hostel students with year of study
+ */
+exports.getWardenRegisteredStudents = async (req, res, next) => {
+  try {
+    const { year, department, block, search, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (pageNum - 1) * limitNum;
+
+    const whereClauses = ['s.is_active = 1'];
+    const params = [];
+
+    if (year && year !== 'all' && !isNaN(parseInt(year, 10))) {
+      whereClauses.push('s.year_of_study = ?');
+      params.push(parseInt(year, 10));
+    }
+
+    if (department && department !== 'all') {
+      whereClauses.push('s.department = ?');
+      params.push(department);
+    }
+
+    if (block && block !== 'all') {
+      whereClauses.push('s.hostel_block = ?');
+      params.push(block);
+    }
+
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      whereClauses.push('(s.name LIKE ? OR s.reg_no LIKE ? OR s.room_no LIKE ? OR s.phone LIKE ? OR s.email LIKE ?)');
+      params.push(q, q, q, q, q);
+    }
+
+    const whereSql = whereClauses.join(' AND ');
+
+    // Total count for pagination
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM students s WHERE ${whereSql}`,
+      params
+    );
+    const total = Number(countRows[0].total) || 0;
+
+    // Student records with parent and advisor details
+    const [students] = await pool.query(`
+      SELECT 
+        s.id,
+        s.reg_no AS regNo,
+        s.name,
+        s.email,
+        s.phone,
+        s.department,
+        s.year_of_study AS yearOfStudy,
+        s.section,
+        s.room_no AS roomNo,
+        s.hostel_block AS hostelBlock,
+        s.is_active AS isActive,
+        s.profile_completed AS profileCompleted,
+        s.created_at AS registeredAt,
+        COALESCE(p.father_name, p.mother_name, 'Not Listed') AS parentName,
+        p.primary_phone AS parentPhone,
+        p.secondary_phone AS parentSecondaryPhone,
+        p.email AS parentEmail,
+        adv.name AS advisorName,
+        (
+          SELECT COUNT(*) 
+          FROM outpass_requests o 
+          WHERE o.student_id = s.id
+        ) AS totalOutpasses,
+        (
+          SELECT COUNT(*) 
+          FROM exit_logs e
+          LEFT JOIN return_logs r ON e.outpass_request_id = r.outpass_request_id
+          WHERE e.student_id = s.id AND r.id IS NULL
+        ) AS isCurrentlyOutside
+      FROM students s
+      LEFT JOIN parents p ON s.parent_id = p.id
+      LEFT JOIN staff adv ON s.class_advisor_id = adv.id
+      WHERE ${whereSql}
+      ORDER BY s.year_of_study ASC, s.reg_no ASC
+      LIMIT ? OFFSET ?
+    `, [...params, limitNum, offset]);
+
+    // Year summary
+    const [yearSummaryRows] = await pool.query(`
+      SELECT year_of_study, COUNT(*) AS count
+      FROM students
+      WHERE is_active = 1
+      GROUP BY year_of_study
+      ORDER BY year_of_study ASC;
+    `);
+
+    const yearSummary = { total: 0, year1: 0, year2: 0, year3: 0, year4: 0 };
+    yearSummaryRows.forEach(r => {
+      const y = Number(r.year_of_study);
+      const c = Number(r.count);
+      yearSummary.total += c;
+      if (y >= 1 && y <= 4) yearSummary[`year${y}`] = c;
+    });
+
+    return res.status(200).json({
+      success: true,
+      students,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum) || 1
+      },
+      yearSummary
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/warden/parents/search
+ * Server-side parent search by mobile number with strict Warden role enforcement
+ */
+exports.searchWardenParentByMobile = async (req, res, next) => {
+  try {
+    // 1. Role enforcement
+    if (req.user?.role !== 'warden') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only authorized Wardens can access Parent Face Management.'
+      });
+    }
+
+    const rawMobile = req.query.mobile || req.query.q || req.query.phone || '';
+    if (!rawMobile || typeof rawMobile !== 'string' || !rawMobile.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parent mobile number is required for search.'
+      });
+    }
+
+    const cleanMobile = rawMobile.replace(/\D/g, '').trim();
+    if (cleanMobile.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter at least 3 digits of the mobile number.'
+      });
+    }
+
+    // 2. Query parents with joined student details
+    const [rows] = await pool.query(`
+      SELECT 
+        p.id AS parentId,
+        p.father_name AS fatherName,
+        p.mother_name AS motherName,
+        p.primary_phone AS mobileNumber,
+        p.secondary_phone AS secondaryPhone,
+        p.relationship,
+        p.face_registered AS faceRegistered,
+        p.face_status AS faceStatus,
+        p.face_registered_at AS faceRegisteredAt,
+        p.face_revoked_at AS faceRevokedAt,
+        p.face_revoked_by AS faceRevokedBy,
+        p.face_revocation_reason AS faceRevocationReason,
+        s.id AS studentId,
+        s.reg_no AS studentRollNo,
+        s.name AS studentName,
+        s.department AS studentDept,
+        s.year_of_study AS studentYear,
+        s.room_no AS studentRoom,
+        s.hostel_block AS studentBlock
+      FROM parents p
+      LEFT JOIN students s ON s.parent_id = p.id AND s.is_active = true
+      WHERE p.primary_phone = ? 
+         OR p.primary_phone LIKE ?
+         OR p.secondary_phone = ?
+      ORDER BY p.id DESC
+      LIMIT 10;
+    `, [cleanMobile, `%${cleanMobile}%`, cleanMobile]);
+
+    if (rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        parents: [],
+        message: 'No parent found matching the provided mobile number.'
+      });
+    }
+
+    // Deduplicate/group by parentId in case parent has multiple linked students
+    const parentMap = new Map();
+
+    for (const r of rows) {
+      if (!parentMap.has(r.parentId)) {
+        const resolvedFaceStatus = r.faceStatus || (r.faceRegistered ? 'ACTIVE' : 'NOT_REGISTERED');
+        parentMap.set(r.parentId, {
+          parentId: r.parentId,
+          parentName: r.fatherName || r.motherName || 'Parent Guardian',
+          mobileNumber: r.mobileNumber,
+          relationship: r.relationship || 'Father',
+          faceStatus: resolvedFaceStatus,
+          isRevoked: resolvedFaceStatus === 'REVOKED',
+          isActive: resolvedFaceStatus === 'ACTIVE',
+          registeredAt: r.faceRegisteredAt,
+          revokedAt: r.faceRevokedAt,
+          revocationReason: r.faceRevocationReason,
+          studentName: r.studentName || 'Not Linked',
+          studentRollNo: r.studentRollNo || 'N/A',
+          studentDept: r.studentDept || 'N/A',
+          studentRoom: r.studentRoom ? `${r.studentBlock || ''} - Room ${r.studentRoom}` : 'N/A',
+          students: []
+        });
+      }
+      if (r.studentId) {
+        parentMap.get(r.parentId).students.push({
+          id: r.studentId,
+          name: r.studentName,
+          rollNo: r.studentRollNo,
+          dept: r.studentDept,
+          room: `${r.studentBlock || ''} - ${r.studentRoom || ''}`
+        });
+      }
+    }
+
+    const parentResults = Array.from(parentMap.values());
+
+    return res.status(200).json({
+      success: true,
+      count: parentResults.length,
+      parents: parentResults
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/warden/parents/revoke-face
+ * Revokes parent face registration with audit logging and session token cancellation
+ */
+exports.revokeParentFace = async (req, res, next) => {
+  try {
+    // 1. Strict Warden authorization
+    if (req.user?.role !== 'warden') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only authorized Wardens can revoke parent face biometrics.'
+      });
+    }
+
+    const parentId = req.body.parentId || req.params.id;
+    const reason = (req.body.reason || 'Warden authorized face registration revocation').trim();
+
+    if (!parentId || isNaN(Number(parentId))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid Parent ID is required.'
+      });
+    }
+
+    // 2. Fetch parent
+    const [parents] = await pool.query(
+      'SELECT id, father_name, mother_name, primary_phone, face_status, face_registered FROM parents WHERE id = ?',
+      [parentId]
+    );
+
+    if (parents.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parent account not found.'
+      });
+    }
+
+    const parent = parents[0];
+    const currentStatus = parent.face_status || (parent.face_registered ? 'ACTIVE' : 'NOT_REGISTERED');
+
+    if (currentStatus === 'REVOKED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Parent face registration is already revoked.'
+      });
+    }
+
+    const now = new Date();
+    const wardenId = req.user.id;
+
+    // 3. Soft-revoke: update parents table
+    await pool.query(`
+      UPDATE parents 
+      SET 
+        face_status = 'REVOKED',
+        face_registered = 0,
+        face_revoked_at = ?,
+        face_revoked_by = ?,
+        face_revocation_reason = ?
+      WHERE id = ?
+    `, [now, wardenId, reason, parentId]);
+
+    // 4. Soft-revoke: update parent_face_templates
+    await pool.query(`
+      UPDATE parent_face_templates 
+      SET status = 'REVOKED', updated_at = ?
+      WHERE parent_id = ?
+    `, [now, parentId]);
+
+    // 5. Invalidate all active verification sessions for this parent
+    await pool.query(`
+      UPDATE parent_face_verifications 
+      SET status = 'EXPIRED'
+      WHERE parent_id = ? AND status = 'ACTIVE'
+    `, [parentId]);
+
+    // 6. Record audit log entry
+    await pool.query(`
+      INSERT INTO parent_face_audit_logs (parent_id, warden_id, action, reason, metadata, created_at)
+      VALUES (?, ?, 'FACE_REVOKED', ?, ?, ?)
+    `, [
+      parentId,
+      wardenId,
+      reason,
+      JSON.stringify({
+        wardenStaffId: req.user.identifier || req.user.staffId || null,
+        revokedAt: now.toISOString(),
+        previousStatus: currentStatus
+      }),
+      now
+    ]).catch(err => console.warn('[Audit Log Insert Warning]:', err.message));
+
+    // 7. Emit real-time WebSocket notification if socket instance present
+    if (req.io) {
+      req.io.to(`role_parent`).emit('sh:parent:face_revoked', {
+        parentId: Number(parentId),
+        revokedAt: now.toISOString(),
+        reason
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Parent face registration successfully revoked. Parent must complete new face registration before approving future outpasses.',
+      parentId: Number(parentId),
+      faceStatus: 'REVOKED',
+      revokedAt: now.toISOString()
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 

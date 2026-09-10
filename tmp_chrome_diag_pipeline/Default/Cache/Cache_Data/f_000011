@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parent Portal - Smart Hostel Outpass</title>
+  <meta name="description" content="Parent Consent & Biometric Verification Portal for Hostel Outpass Applications">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/warden-dashboard.css">
+  <link rel="stylesheet" href="css/parent-dashboard.css">
+  <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/dashboard-theme.css">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="app-header navbar dashboard-navbar">
+      <div class="header-left navbar-brand">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle Navigation" title="Toggle Navigation">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="logo-icon-wrapper brand-logo-badge" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        </div>
+        <div class="brand-text">
+          <span class="logo-text brand-title">SmartHostel</span>
+          <span class="brand-subtitle">Parent Consent Portal</span>
+        </div>
+      </div>
+
+      <div class="header-right navbar-actions">
+        <!-- Live Server Time -->
+        <div class="server-time-box" id="liveClockDisplay">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="liveClockTime">--:--:--</span>
+        </div>
+
+        <!-- Notification Bell Mount Point -->
+        <div id="headerNotificationMount" class="header-notification-mount"></div>
+
+        <!-- Theme Toggle Button -->
+        <button class="icon-button" id="themeToggleBtn" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg id="themeIconDark" class="theme-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconLight" class="theme-icon hidden" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="nav-user-chip" id="navUserChip" title="Logged in parent guardian">
+          <div class="nav-user-avatar" id="navUserAvatar">P</div>
+          <span id="navUserName">Parent</span>
+        </div>
+
+        <!-- Logout Button -->
+        <button class="logout-btn" id="logoutBtn" title="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="dashboard-main">
+      
+      <!-- Parent Profile Hero Header -->
+      <section class="parent-hero-bar">
+        <div class="student-meta-left">
+          <div class="parent-avatar" id="parentAvatar">P</div>
+          <div class="student-details">
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <h1 id="parentName" style="margin:0;">Loading Parent Profile...</h1>
+              <button class="secondary-btn" id="btnOpenEditProfileHero" onclick="openEditProfileModal()" style="padding:0.25rem 0.65rem; font-size:0.75rem;">
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                <span>Edit Profile</span>
+              </button>
+            </div>
+            <div class="student-tags-row">
+              <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border-color:rgba(245,158,11,0.3); margin-bottom:0;">Parent Guardian</span>
+              <span class="student-tag" id="parentPhonePill">Phone: --</span>
+              <span class="student-tag" id="studentMetaPill" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:rgba(59,130,246,0.3);">
+                Ward: Loading Student...
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="student-meta-right">
+          <span class="auth-verified-chip" id="authVerifiedBadge" style="background:rgba(245,158,11,0.12); color:#fbbf24; border:1px solid rgba(245,158,11,0.35); padding:0.35rem 0.85rem; font-weight:700;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span id="authBadgeLabel">Verified Guardian Access</span>
+          </span>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Digital Consent & Safety Assurance</small>
+        </div>
+      </section>
+
+      <!-- Guardian Face Biometric Security Card -->
+      <section class="biometric-card verified" id="faceSecurityCard" style="border-left: 4px solid #10b981;">
+        <div class="biometric-left">
+          <div class="fingerprint-sensor-box" id="faceSecurityIconBox" style="background: rgba(16, 185, 129, 0.15); color: #34d399;" title="Parent Biometric Face Protection">
+            <svg viewBox="0 0 24 24" width="34" height="34" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+              <circle cx="9" cy="9" r="1"></circle>
+              <circle cx="15" cy="9" r="1"></circle>
+              <path d="M10 13c.5.5 1.5 1 2 1s1.5-.5 2-1"></path>
+            </svg>
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <span class="dev-badge-warning" id="verifiedMobileBadge" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.35);">
+                Verified Mobile: <span id="heroParentMobile">Loading...</span>
+              </span>
+              <span class="dev-badge-warning" id="heroThresholdBadge" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.35);">
+                Face Verification: <span id="heroFaceStatus">ACTIVE</span>
+              </span>
+            </div>
+            <h3 style="font-family:'Outfit'; font-size:1.15rem; margin-top:0.35rem;" id="securityCardTitle">Parent Face Biometric Authentication</h3>
+            <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.2rem;" id="securityCardSubtext">
+              Your registered face is used to verify outpass approvals.
+            </p>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;" id="heroSecurityBadgeContainer">
+          <span class="auth-verified-chip" id="faceActivePill" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.4); padding:0.4rem 0.9rem; font-weight:700; border-radius:var(--radius-md);">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span id="faceActiveLabel">Biometrics Active</span>
+          </span>
+        </div>
+      </section>
+
+      <!-- Dashboard Layout: Sidebar + Tab Content -->
+      <div class="parent-dashboard-layout">
+        <!-- Backdrop for mobile drawer -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        
+        <!-- Sidebar Navigation -->
+        <aside class="advisor-sidebar" id="dashboardSidebar">
+          <span class="sidebar-heading">Navigation</span>
+          
+          <button class="advisor-nav-btn parent-nav-btn active" data-tab="pending-queue">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>Pending Outpasses</span>
+            <span class="nav-badge-pill" id="navBadgePending" style="display:none; background:rgba(245,158,11,0.2); color:#fbbf24; border-color:rgba(245,158,11,0.4);">0</span>
+          </button>
+
+          <button class="advisor-nav-btn parent-nav-btn" data-tab="approved-list">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span>Approved Requests</span>
+          </button>
+
+          <button class="advisor-nav-btn parent-nav-btn" data-tab="rejected-list">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <span>Rejected Requests</span>
+          </button>
+
+          <span class="sidebar-heading" style="margin-top:0.6rem;">Account</span>
+
+          <button class="advisor-nav-btn parent-nav-btn" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Profile</span>
+          </button>
+        </aside>
+
+        <!-- Main Tab Content Area -->
+        <div class="dash-tab-content">
+          
+          <!-- TAB 1: PENDING OUTPASS REQUESTS -->
+          <section class="tab-section active" id="tab-pending-queue">
+            <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border-color:rgba(245,158,11,0.3);">Consent Required</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Outpass Requests from Your Ward</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Review purpose, leaving and return timings before providing biometric-verified consent.</p>
+              </div>
+            </div>
+
+            <!-- Normal Outpass Queue Section -->
+            <div style="margin-bottom: 2rem;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <h3 style="font-family:'Outfit'; font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  <span>🏠 Normal Outpasses Awaiting Consent</span>
+                  <span class="nav-badge-pill" id="badgePendingNormal" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); font-size:0.75rem; padding:2px 8px;">0</span>
+                </h3>
+              </div>
+              <div class="queue-card-grid" id="pendingNormalContainer">
+                <!-- Populated dynamically via parent-dashboard.js: ONLY canonical type 'normal' -->
+              </div>
+            </div>
+
+            <!-- Special Outpass Queue Section -->
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <h3 style="font-family:'Outfit'; font-size:1.1rem; color:#a78bfa; display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  <span>⭐ Special Outpasses Awaiting Consent (Tier 1 of 4)</span>
+                  <span class="nav-badge-pill" id="badgePendingSpecial" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid rgba(139,92,246,0.4); font-size:0.75rem; padding:2px 8px;">0</span>
+                </h3>
+              </div>
+              <div class="queue-card-grid" id="pendingSpecialContainer">
+                <!-- Populated dynamically via parent-dashboard.js: ONLY canonical type 'special' -->
+              </div>
+            </div>
+
+            <!-- Hidden container for backwards compatibility -->
+            <div id="pendingQueueContainer" style="display:none;"></div>
+          </section>
+
+          <!-- TAB 2: APPROVED REQUESTS -->
+          <section class="tab-section" id="tab-approved-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Approved Outpasses</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">History of outpass applications approved by you with biometric face verification.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Destination & Purpose</th>
+                      <th>Leaving Schedule</th>
+                      <th>Expected Return</th>
+                      <th>Current Status</th>
+                      <th>Approved On</th>
+                    </tr>
+                  </thead>
+                  <tbody id="approvedTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 3: REJECTED REQUESTS -->
+          <section class="tab-section" id="tab-rejected-list">
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3>Rejected Outpasses</h3>
+                  <p style="font-size:0.8rem; color:var(--text-secondary);">History of requests denied parental consent.</p>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="requests-table">
+                  <thead>
+                    <tr>
+                      <th>Request Code</th>
+                      <th>Destination</th>
+                      <th>Stated Reason</th>
+                      <th>Status</th>
+                      <th>Rejected On</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rejectedTableBody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+
+
+          <!-- TAB 5: PROFILE -->
+          <section class="tab-section" id="tab-profile">
+            <div class="profile-details-card" style="margin-bottom:1.5rem;">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  <span>Parent Official Profile</span>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                  <button class="secondary-btn" onclick="openEditProfileModal()" style="padding:0.35rem 0.85rem; font-size:0.8rem;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    <span>Edit Profile</span>
+                  </button>
+                  <span class="security-chip">Registered Guardian</span>
+                </div>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Parent / Guardian Name</span>
+                  <span class="field-value" id="profParentName">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Relationship with Student</span>
+                  <span class="field-value" id="profRelationship">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Registered Mobile</span>
+                  <span class="field-value" id="profParentPhone">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Email Address</span>
+                  <span class="field-value" id="profParentEmail">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Residential Address</span>
+                  <span class="field-value" id="profParentAddr">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Approval Security Model</span>
+                  <span class="field-value" id="profSecurityModel" style="color:#10b981; font-weight:600;">Verified Mobile + 128D Face Biometrics</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Linked Ward Card -->
+            <div class="profile-details-card">
+              <div class="card-header">
+                <div class="card-title" style="color:#3b82f6;">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                  <span>Linked Student (Ward Information)</span>
+                </div>
+                <span class="security-chip">Relationship Verified</span>
+              </div>
+
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Student Name</span>
+                  <span class="field-value" id="profStudentName">Not Linked Yet</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Roll Number / Reg No</span>
+                  <span class="field-value" id="profStudentReg">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Department & Year</span>
+                  <span class="field-value" id="profStudentDept">-</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Hostel Details & Room</span>
+                  <span class="field-value" id="profStudentRoom">-</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>© 2026 Smart Hostel Outpass Management System • Parent Guardian Module • Biometric Consent Security</p>
+    </footer>
+  </div>
+
+  <!-- ==========================================================
+       MODALS SYSTEM
+       ========================================================== -->
+
+  <!-- 1. PARENT PROFILE SETUP MODAL ("COMPLETE YOUR PROFILE") -->
+  <div class="modal-overlay" id="profileSetupModal">
+    <div class="modal-container" style="max-width:540px;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="color:#f59e0b; display:flex; align-items:center; gap:0.5rem; margin:0;">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span>Complete Your Profile • சுயவிவரத்தை நிரப்பவும்</span>
+        </h3>
+        <button type="button" class="modal-close-btn" onclick="exitToParentLogin()" title="Exit Setup & Back to Login">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="profileSetupForm" onsubmit="handleProfileSetupSubmit(event)">
+        <div class="modal-body" style="padding:1.25rem;">
+          <p style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:1.1rem;">
+            Welcome to Smart Hostel Parent Portal. Please complete your details and link your ward.
+          </p>
+
+          <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem;">
+            <div class="form-group" style="grid-column:1 / -1;">
+              <label for="setupParentName">Parent / Guardian Name *</label>
+              <input type="text" id="setupParentName" placeholder="e.g. Robert Doe" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="setupMobileNumber">Mobile Number (Registered)</label>
+              <input type="text" id="setupMobileNumber" disabled style="width:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-muted); cursor:not-allowed;" />
+            </div>
+
+            <div class="form-group">
+              <label for="setupRelationship">Relationship with Student *</label>
+              <select id="setupRelationship" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);">
+                <option value="Father" selected>Father / தந்தை</option>
+                <option value="Mother">Mother / தாய்</option>
+                <option value="Guardian">Guardian / பாதுகாவலர்</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="setupStudentName">Student Name (Ward) *</label>
+              <input type="text" id="setupStudentName" placeholder="Enter student's full name" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="setupStudentRegNo">Student Roll / Reg Number *</label>
+              <input type="text" id="setupStudentRegNo" placeholder="Enter student roll number" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); text-transform:uppercase;" />
+            </div>
+
+            <div class="form-group">
+              <label for="setupHostelBlock">Hostel Block</label>
+              <input type="text" id="setupHostelBlock" placeholder="e.g. Block A" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="setupRoomNumber">Room Number</label>
+              <input type="text" id="setupRoomNumber" placeholder="e.g. A-304" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="secondary-btn" onclick="exitToParentLogin()" style="padding:0.6rem 1rem; font-size:0.84rem;">
+            Exit Setup & Back to Login
+          </button>
+          <button type="submit" class="primary-btn" id="btnSaveProfileSetup" style="background:linear-gradient(135deg, #f59e0b, #d97706); padding:0.6rem 1.25rem;">
+            <span>SAVE PROFILE & OPEN DASHBOARD</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. EDIT PROFILE MODAL (FROM DASHBOARD PROFILE TAB) -->
+  <div class="modal-overlay" id="editProfileModal">
+    <div class="modal-container" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 style="color:#f59e0b; display:flex; align-items:center; gap:0.5rem;">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <span>Edit Parent / Guardian Profile</span>
+        </h3>
+        <button class="modal-close-btn" onclick="closeModal('editProfileModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <form id="editProfileForm" onsubmit="handleProfileUpdateSubmit(event)">
+        <div class="modal-body" style="padding:1.25rem;">
+          <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem;">
+            <div class="form-group" style="grid-column:1 / -1;">
+              <label for="editParentName">Parent / Guardian Name *</label>
+              <input type="text" id="editParentName" required style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="editParentPhone">Registered Mobile (Locked)</label>
+              <input type="text" id="editParentPhone" disabled style="width:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-muted); cursor:not-allowed;" />
+            </div>
+
+            <div class="form-group">
+              <label for="editRelationship">Relationship with Student *</label>
+              <select id="editRelationship" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);">
+                <option value="Father">Father / தந்தை</option>
+                <option value="Mother">Mother / தாய்</option>
+                <option value="Guardian">Official Guardian / பாதுகாவலர்</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="editStudentName">Student Name (Ward)</label>
+              <input type="text" id="editStudentName" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="editStudentRegNo">Student Roll / Reg Number</label>
+              <input type="text" id="editStudentRegNo" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); text-transform:uppercase;" />
+            </div>
+
+            <div class="form-group">
+              <label for="editHostelBlock">Hostel Block</label>
+              <input type="text" id="editHostelBlock" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group">
+              <label for="editRoomNumber">Room Number</label>
+              <input type="text" id="editRoomNumber" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary);" />
+            </div>
+
+            <div class="form-group" style="grid-column:1 / -1;">
+              <label for="editParentAddress">Residential Address</label>
+              <textarea id="editParentAddress" rows="2" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); resize:vertical;"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="secondary-btn" onclick="closeModal('editProfileModal')">Cancel</button>
+          <button type="submit" class="primary-btn" id="btnSaveEditProfile" style="background:linear-gradient(135deg, #f59e0b, #d97706);">
+            <span>Save Profile Changes</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. DETAILS MODAL -->
+  <div class="modal-overlay" id="detailsModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>Outpass Request Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('detailsModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="detailsModalBody">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('detailsModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. FACE BIOMETRIC VERIFICATION & APPROVAL MODAL -->
+  <div class="modal-overlay" id="approveModal">
+    <div class="modal-container" style="max-width:580px;">
+      <div class="modal-header">
+        <h3 style="color:#10b981; display:flex; align-items:center; gap:0.5rem; font-family:'Outfit';">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+            <circle cx="9" cy="9" r="1"></circle>
+            <circle cx="15" cy="9" r="1"></circle>
+            <path d="M10 13c.5.5 1.5 1 2 1s1.5-.5 2-1"></path>
+          </svg>
+          <span>Face Biometric Verification & Approval</span>
+        </h3>
+        <button class="modal-close-btn" onclick="closeModal('approveModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding:1.25rem;">
+        <!-- A. Outpass Request Summary Card -->
+        <div id="approveRequestSummaryBox" class="verify-summary-box">
+          <!-- Injected via JS with student name, destination, timing, etc. -->
+        </div>
+
+        <!-- B. Face Biometric Verification Card -->
+        <div class="face-verify-card" id="faceVerifyCard">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.4rem;">
+            <span class="portal-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border-color:rgba(16,185,129,0.35); font-weight:700; margin-bottom:0;">
+              PARENT BIOMETRIC SCANNER
+            </span>
+            <span class="live-pulse-badge" id="faceVerifyPill" style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.75rem; color:#34d399; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); padding:0.25rem 0.6rem; border-radius:999px;">
+              <span class="status-dot" style="background:#10b981;"></span>
+              <span id="faceVerifyPillText">AI NEURAL MATCHING</span>
+            </span>
+          </div>
+
+          <!-- Video Camera Stream & Face Overlay -->
+          <div class="face-camera-wrapper" id="approveCameraWrapper">
+            <video id="approveFaceVideo" autoplay playsinline muted></video>
+            <canvas id="approveFaceCanvas"></canvas>
+            <div class="face-oval-guide" id="approveFaceGuide">
+              <div class="face-scan-line"></div>
+            </div>
+            <div class="face-cam-overlay-badge" id="approveCamOverlayBadge">
+              Position face inside the oval
+            </div>
+          </div>
+
+          <!-- Real-time Verification Feedback / Status Banner -->
+          <div class="face-decision-banner blocked" id="faceDecisionBanner" style="margin-top:0.75rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem; width:100%;">
+              <span id="faceDecisionIcon" style="font-size:1.1rem; font-weight:800; flex-shrink:0;">✕</span>
+              <div style="flex:1;">
+                <strong id="faceDecisionTitle" style="display:block; font-size:0.86rem;">Biometric Verification Required</strong>
+                <span id="faceDecisionMsg" style="font-size:0.8rem; color:inherit; display:block;">Click 'Verify My Face' below to perform instant neural matching.</span>
+              </div>
+              <button type="button" id="btnTriggerFaceVerify" class="btn-primary" style="padding:0.4rem 0.8rem; font-size:0.78rem; flex-shrink:0; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border:none; border-radius:var(--radius-sm); font-weight:700; cursor:pointer;" onclick="verifyParentFaceForOutpass()">
+                Verify My Face
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- C. Parent Consent Message Section (Unlocked strictly when face is verified) -->
+        <div class="parent-message-consent-box" id="parentMessageConsentSection" style="margin-top:0.85rem;">
+          <div class="consent-verified-badge" id="consentVerifiedNotice" style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#f87171; padding:0.45rem 0.75rem; border-radius:var(--radius-sm, 6px); font-size:0.82rem; font-weight:600; display:flex; align-items:center; gap:0.4rem;">
+            <span id="faceConsentUnlockedIcon">✕</span>
+            <span id="faceConsentUnlockedLabel">Biometric verification required before consent approval.</span>
+          </div>
+
+          <div class="form-group" style="margin-top:0.85rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; flex-wrap:wrap; gap:0.4rem;">
+              <label for="approveParentMessage" style="font-weight:700; font-size:0.86rem; color:var(--text-primary); margin:0;">
+                Parent Message <span style="color:#ef4444;">*</span>
+              </label>
+
+              <!-- Modal Voice Language Selector & Mic Trigger -->
+              <div style="display:inline-flex; align-items:center; gap:0.4rem;">
+                <div class="voice-lang-group" style="display:inline-flex; align-items:center; gap:0.25rem;">
+                  <button type="button" class="voice-lang-btn active" data-lang="en-IN" id="btnModalLangEn" onclick="setModalVoiceLang('en-IN')">English</button>
+                  <button type="button" class="voice-lang-btn" data-lang="ta-IN" id="btnModalLangTa" onclick="setModalVoiceLang('ta-IN')">தமிழ்</button>
+                  <span style="display:none;" id="btnChatLangEn"></span>
+                  <span style="display:none;" id="btnChatLangTa"></span>
+                </div>
+                <button type="button" class="voice-note-pill-btn" id="btnVoiceInput" onclick="toggleVoiceInput()" title="Speak to type in selected language / குரல் பதிவு">
+                  <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                  <span id="voiceBtnLabel">Voice Input</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Voice Status Indicator for Modal -->
+            <div class="voice-status-badge hidden" id="modalVoiceStatusBadge" style="margin-bottom:0.4rem;">
+              <span class="voice-pulse-dot"></span>
+              <span id="modalVoiceStatusText">Listening... Speak now</span>
+            </div>
+
+            <textarea id="approveParentMessage" rows="3" disabled placeholder="Parent message input will unlock once your face is verified..." style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.65rem 0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical; max-height:140px; opacity:0.6; cursor:not-allowed;" required></textarea>
+            <small style="color:var(--text-muted); font-size:0.75rem;">Your message will be sent directly inside this request for the Warden's review.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- D. Modal Actions: Cancel and Approve -->
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('approveModal')">Cancel</button>
+        <button class="btn-approve" id="btnConfirmApprove" disabled style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); opacity:0.5; cursor:not-allowed;">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span id="btnConfirmApproveLabel">Approval Disabled (Face Unverified)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. FACE REGISTRATION / ENROLLMENT MODAL -->
+  <div class="modal-overlay" id="faceRegisterModal">
+    <div class="modal-container" style="max-width:540px;">
+      <div class="modal-header">
+        <h3 style="color:#10b981; display:flex; align-items:center; gap:0.5rem; font-family:'Outfit';">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+            <circle cx="9" cy="9" r="1"></circle>
+            <circle cx="15" cy="9" r="1"></circle>
+            <path d="M10 13c.5.5 1.5 1 2 1s1.5-.5 2-1"></path>
+          </svg>
+          <span>Parent Face Biometric Enrollment</span>
+        </h3>
+        <button class="modal-close-btn" onclick="closeModal('faceRegisterModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="modal-body" style="padding:1.25rem;">
+        <p style="font-size:0.86rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+          Register your face biometrics securely into the hostel system. This facial embedding will be used to authenticate outpass approvals for your ward.
+        </p>
+
+        <!-- Camera Stream & Oval Overlay -->
+        <div class="face-camera-wrapper" id="registerCameraWrapper">
+          <video id="registerFaceVideo" autoplay playsinline muted></video>
+          <canvas id="registerFaceCanvas"></canvas>
+          <div class="face-oval-guide" id="registerFaceGuide">
+            <div class="face-scan-line"></div>
+          </div>
+          <div class="face-cam-overlay-badge" id="registerCamOverlayBadge">
+            Center your face with good lighting
+          </div>
+        </div>
+
+        <div class="face-decision-banner" id="registerStatusBanner" style="margin-top:0.75rem; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#60a5fa;">
+          <div style="display:flex; align-items:center; gap:0.5rem; width:100%;">
+            <span id="registerStatusIcon" style="font-size:1.1rem; font-weight:800; flex-shrink:0;">ℹ</span>
+            <div style="flex:1;">
+              <strong id="registerStatusTitle" style="display:block; font-size:0.86rem;">Camera Ready</strong>
+              <span id="registerStatusMsg" style="font-size:0.8rem; color:inherit; display:block;">Ensure only one face is visible and click "Capture & Register".</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('faceRegisterModal')">Cancel</button>
+        <button class="btn-primary" id="btnCaptureAndRegisterFace" onclick="captureAndRegisterFace()" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:none; padding:0.6rem 1.25rem; font-weight:700; color:#fff; border-radius:var(--radius-md); cursor:pointer; display:inline-flex; align-items:center; gap:0.45rem;">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="btnCaptureRegisterLabel">Capture & Register Face</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. REJECT MODAL WITH REASON -->
+  <div class="modal-overlay" id="rejectModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 style="color:#ef4444;">Reject Outpass Request</h3>
+        <button class="modal-close-btn" onclick="closeModal('rejectModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:0.85rem; font-size:0.88rem; color:var(--text-secondary);">
+          Please state the reason for denying outpass permission. Your ward will be able to see this reason in their portal.
+        </p>
+        <div class="form-group">
+          <label for="rejectReasonInput">Parent Rejection Reason *</label>
+          <textarea id="rejectReasonInput" rows="3" placeholder="e.g. Family gathering scheduled / Not permitted to leave campus this weekend" style="width:100%; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; color:var(--text-primary); font-family:inherit; resize:vertical;" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('rejectModal')">Cancel</button>
+        <button class="btn-reject" id="btnConfirmReject">Confirm Rejection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/face-api.min.js"></script>
+  <script src="js/parent-dashboard.js"></script>
+  <script src="js/dashboard-bg.js"></script>
+</body>
+</html>

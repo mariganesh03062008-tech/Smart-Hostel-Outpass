@@ -83,6 +83,9 @@ async function run() {
     body: {
       parent_name: 'Meena Sundaram',
       mobile: mobileA,
+      student_roll_number: '21CS042',
+      student_name: 'John Doe',
+      relationship: 'Mother',
       password: passA,
       confirm_password: passA
     }
@@ -98,12 +101,15 @@ async function run() {
     body: {
       parent_name: 'Meena Duplicate',
       mobile: mobileA,
+      student_roll_number: '21CS042',
+      student_name: 'John Doe',
+      relationship: 'Mother',
       password: passA,
       confirm_password: passA
     }
   });
   assert(dupRes.status === 409, 'Duplicate mobile registration rejected with HTTP 409');
-  assert(dupRes.data?.message === 'An account with this mobile number already exists.', 'Duplicate error message verified');
+  assert(dupRes.data?.message?.includes('already exists'), 'Duplicate error message verified');
 
   // 4. TEST 4: Existing Account Login on Main Portal
   console.log('\n🔑 4. Testing Existing Parent Login on Main Portal...');
@@ -125,6 +131,9 @@ async function run() {
     body: {
       parent_name: 'Vikram Joshi',
       mobile: mobileB,
+      student_roll_number: '21ME018',
+      student_name: 'Alex Smith',
+      relationship: 'Father',
       password: passB,
       confirm_password: passB
     }

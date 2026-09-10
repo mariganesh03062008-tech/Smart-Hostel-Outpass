@@ -14,19 +14,11 @@ router.get('/face/status', parentController.getFaceStatus);
 router.post('/face/register', parentController.registerFace);
 router.post('/outpass/:id/face-verify', parentController.verifyFace);
 
-// Backwards-compatible aliases
-router.post('/register-face', parentController.registerFace);
-router.get('/fingerprint/status', parentController.getFingerprintStatus);
-router.post('/fingerprint/register', parentController.registerFingerprint);
-router.post('/fingerprint/verify', parentController.verifyBiometric);
-router.post('/biometric-verify', parentController.verifyBiometric);
-router.post('/register-fingerprint', parentController.registerFingerprint);
-
 // 3. Outpass Approval Workflow for Linked Student (Face Verification Protected)
 router.get('/outpass/pending', parentController.getPendingRequests);
 router.get('/outpass/approved', parentController.getApprovedRequests);
 router.get('/outpass/rejected', parentController.getRejectedRequests);
-router.post('/outpass/:id/location-verify', parentController.verifyParentLocation); // Deprecated stub
+router.get('/outpass/:id', parentController.getSingleOutpass);
 router.patch('/outpass/:id/approve', parentController.approveOutpass);
 router.patch('/outpass/:id/reject', parentController.rejectOutpass);
 

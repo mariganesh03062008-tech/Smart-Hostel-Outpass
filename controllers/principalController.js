@@ -1,4 +1,5 @@
 const { pool } = require('../utils/db');
+const { normalizeOutpassType } = require('../utils/typeNormalizer');
 
 /* ==========================================================
    1. DASHBOARD OVERVIEW & METRICS
@@ -17,6 +18,8 @@ exports.getPrincipalOverview = async (req, res, next) => {
       [outsideStu],
       [pendingNormal],
       [pendingDuty],
+      [pendingSpecial],
+      [pendingEmergency],
       [approvedOut],
       [rejectedOut],
       [activeQr],
@@ -32,6 +35,8 @@ exports.getPrincipalOverview = async (req, res, next) => {
       pool.query('SELECT COUNT(*) AS count FROM students WHERE is_active = true AND current_hostel_status = "OUTSIDE";'),
       pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE outpass_type = "normal" AND status IN ("PENDING_PARENT", "PENDING_WARDEN");'),
       pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE outpass_type IN ("one_day_duty", "duty") AND status = "PENDING_PRINCIPAL";'),
+      pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE outpass_type = "special" AND status = "PENDING_PRINCIPAL";'),
+      pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE outpass_type = "emergency" AND status IN ("PENDING_PARENT", "PENDING_WARDEN");'),
       pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE status = "APPROVED";'),
       pool.query('SELECT COUNT(*) AS count FROM outpass_requests WHERE status = "REJECTED";'),
       pool.query('SELECT COUNT(*) AS count FROM qr_codes WHERE status = "ACTIVE";'),
@@ -49,7 +54,9 @@ exports.getPrincipalOverview = async (req, res, next) => {
       studentsOutside: outsideStu[0].count,
       pendingNormalOutpasses: pendingNormal[0].count,
       pendingOneDayPermissions: pendingDuty[0].count,
-      pendingOutpasses: pendingNormal[0].count + pendingDuty[0].count,
+      pendingSpecialPermissions: pendingSpecial[0].count,
+      pendingEmergencyOutpasses: pendingEmergency[0].count,
+      pendingOutpasses: pendingNormal[0].count + pendingDuty[0].count + pendingSpecial[0].count + pendingEmergency[0].count,
       approvedOutpasses: approvedOut[0].count,
       rejectedOutpasses: rejectedOut[0].count,
       activeQRCodes: activeQr[0].count,
@@ -316,14 +323,20 @@ exports.getNormalOutpasses = async (req, res, next) => {
    ========================================================== */
 
 /**
- * GET /api/principal/one-day-permissions
+ * GET /api/principal/one-day-permissions or /api/principal/one-day/pending
  * Retrieve One-Day Permission requests specifically for Principal decision-making
+ * Strictly filters outpass_type IN ('one_day_duty', 'duty')
+ * Zero Special Outpasses returned.
  */
 exports.getPendingOneDayPermissions = async (req, res, next) => {
   try {
-    const { status = 'PENDING_PRINCIPAL', department, search } = req.query;
+    const { status = 'PENDING_PRINCIPAL', department, search, type } = req.query;
 
-    let whereClause = 'o.outpass_type IN ("one_day_duty", "duty")';
+    if (type === 'special') {
+      return exports.getPendingSpecialPermissions(req, res, next);
+    }
+
+    let whereClause = `o.outpass_type IN ('one_day_duty', 'duty') AND o.advisor_approval_status = 'approved'`;
     const params = [];
 
     if (status && status !== 'all') {
@@ -346,7 +359,8 @@ exports.getPendingOneDayPermissions = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
-        o.outpass_type AS requestType,
+        'one_day_duty' AS requestType,
+        'one_day_duty' AS outpass_type,
         o.event_name AS eventName,
         o.event_location AS eventLocation,
         o.duty_date AS dutyDate,
@@ -379,10 +393,184 @@ exports.getPendingOneDayPermissions = async (req, res, next) => {
       ORDER BY o.created_at DESC;
     `, params);
 
+    const dutyRequests = rows.map(r => ({
+      ...r,
+      outpass_type: 'one_day_duty',
+      requestType: 'one_day_duty'
+    }));
+
+    // If caller explicitly asked for duty type, return dutyRequests only
+    if (type === 'one_day_duty' || type === 'duty') {
+      return res.status(200).json({
+        success: true,
+        count: dutyRequests.length,
+        requests: dutyRequests,
+        permissions: dutyRequests,
+        dutyRequests,
+        specialRequests: []
+      });
+    }
+
+    // Partitioned response: also fetch specialRequests using strict Tier 1 (Parent Face) and Tier 2 (Advisor) filter
+    let specialWhere = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.parent_face_verified = 1 AND o.advisor_approval_status = 'approved'`;
+    const spParams = [];
+
+    if (status && status !== 'all') {
+      specialWhere += ' AND o.status = ?';
+      spParams.push(status.toUpperCase());
+    }
+
+    if (department && department !== 'all') {
+      specialWhere += ' AND s.department = ?';
+      spParams.push(department);
+    }
+
+    const [spRows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        'special' AS requestType,
+        'special' AS outpass_type,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
+        o.reason AS purpose,
+        o.destination,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.parent_approval_status AS parentStatus,
+        o.parent_face_verified AS parentFaceVerified,
+        o.parent_face_verified_at AS parentFaceVerifiedAt,
+        o.parent_approval_message AS parentMessage,
+        o.advisor_approval_status AS advisorStatus,
+        o.advisor_approved_at AS advisorApprovedAt,
+        o.principal_approval_status AS principalStatus,
+        o.principal_approved_at AS principalApprovedAt,
+        o.principal_rejection_reason AS principalRejectionReason,
+        o.created_at AS submittedTime,
+        s.id AS studentId,
+        s.name AS studentName,
+        s.reg_no AS rollNumber,
+        s.department,
+        s.year_of_study AS yearOfStudy,
+        s.hostel_block AS hostelBlock,
+        s.room_no AS roomNumber,
+        s.phone AS studentPhone,
+        adv.name AS advisorName,
+        adv.staff_id AS advisorStaffId
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      LEFT JOIN staff adv ON o.advisor_approved_by_id = adv.id
+      WHERE ${specialWhere}
+      ORDER BY o.created_at DESC;
+    `, spParams);
+
+    const specialRequests = spRows.map(r => ({
+      ...r,
+      outpass_type: 'special',
+      requestType: 'special'
+    }));
+
     return res.status(200).json({
       success: true,
-      count: rows.length,
-      permissions: rows
+      count: dutyRequests.length,
+      requests: dutyRequests,
+      permissions: dutyRequests,
+      dutyRequests,
+      specialRequests
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/principal/special-permissions or /api/principal/special/pending
+ * Retrieve Special Outpass requests specifically for Principal decision-making (Tier 3)
+ * Strictly filters outpass_type = 'special'
+ * ONLY returns requests that have completed Parent Face Biometrics (Tier 1) AND Class Advisor Clearance (Tier 2)
+ * Zero One-Day Duty passes returned.
+ */
+exports.getPendingSpecialPermissions = async (req, res, next) => {
+  try {
+    const { status = 'PENDING_PRINCIPAL', department, search } = req.query;
+
+    let whereClause = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.parent_face_verified = 1 AND o.advisor_approval_status = 'approved'`;
+    const params = [];
+
+    if (status && status !== 'all') {
+      whereClause += ' AND o.status = ?';
+      params.push(status.toUpperCase());
+    }
+
+    if (department && department !== 'all') {
+      whereClause += ' AND s.department = ?';
+      params.push(department);
+    }
+
+    if (search && search.trim()) {
+      whereClause += ' AND (s.name LIKE ? OR s.reg_no LIKE ? OR o.request_code LIKE ? OR o.destination LIKE ?)';
+      const term = `%${search.trim()}%`;
+      params.push(term, term, term, term);
+    }
+
+    const [rows] = await pool.query(`
+      SELECT 
+        o.id,
+        o.request_code AS requestCode,
+        'special' AS requestType,
+        'special' AS outpass_type,
+        o.special_type AS specialType,
+        o.emergency_contact AS emergencyContact,
+        o.additional_remarks AS additionalRemarks,
+        o.attachment_url AS attachmentUrl,
+        o.reason AS purpose,
+        o.destination,
+        o.from_datetime AS leavingDatetime,
+        o.to_datetime AS returnDatetime,
+        o.status,
+        o.parent_approval_status AS parentStatus,
+        o.parent_face_verified AS parentFaceVerified,
+        o.parent_face_verified_at AS parentFaceVerifiedAt,
+        o.parent_approval_message AS parentMessage,
+        o.advisor_approval_status AS advisorStatus,
+        o.advisor_approved_at AS advisorApprovedAt,
+        o.principal_approval_status AS principalStatus,
+        o.principal_approved_at AS principalApprovedAt,
+        o.principal_rejection_reason AS principalRejectionReason,
+        o.created_at AS submittedTime,
+        s.id AS studentId,
+        s.name AS studentName,
+        s.reg_no AS rollNumber,
+        s.department,
+        s.year_of_study AS yearOfStudy,
+        s.hostel_block AS hostelBlock,
+        s.room_no AS roomNumber,
+        s.phone AS studentPhone,
+        adv.name AS advisorName,
+        adv.staff_id AS advisorStaffId
+      FROM outpass_requests o
+      INNER JOIN students s ON o.student_id = s.id
+      LEFT JOIN staff adv ON o.advisor_approved_by_id = adv.id
+      WHERE ${whereClause}
+      ORDER BY o.created_at DESC;
+    `, params);
+
+    const specialRequests = rows.map(r => ({
+      ...r,
+      outpass_type: 'special',
+      requestType: 'special'
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: specialRequests.length,
+      requests: specialRequests,
+      permissions: specialRequests,
+      specialRequests
     });
 
   } catch (error) {

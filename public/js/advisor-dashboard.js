@@ -7,12 +7,23 @@
 let currentAdvisor = null;
 let activeTab = 'overview';
 let pendingDutyList = [];
+let pendingSpecialList = [];
 let approvedList = [];
 let rejectedList = [];
 let selectedRequestForAction = null;
 
 // DOM Elements cache
 let DOM = {};
+
+// Strict Type Normalizer Helper
+function getCanonicalOutpassType(req) {
+  if (!req) return 'normal';
+  const raw = String(req.outpass_type || req.outpassType || req.requestType || '').toLowerCase().trim();
+  if (raw === 'emergency') return 'emergency';
+  if (raw === 'special') return 'special';
+  if (raw === 'one_day_duty' || raw === 'duty' || raw === 'one_day' || raw === 'oneday' || raw === 'od') return 'one_day_duty';
+  return 'normal';
+}
 
 function initDOM() {
   DOM = {
@@ -23,13 +34,18 @@ function initDOM() {
 
     // Metric Counters
     statPendingDuty: document.getElementById('statPendingDuty'),
+    statPendingSpecial: document.getElementById('statPendingSpecial'),
     statApprovedToday: document.getElementById('statApprovedToday'),
     statRejectedToday: document.getElementById('statRejectedToday'),
     statTotalApproved: document.getElementById('statTotalApproved'),
     navBadgeDuty: document.getElementById('navBadgeDuty'),
+    navBadgeSpecial: document.getElementById('navBadgeSpecial'),
+    badgePendingDuty: document.getElementById('badgePendingDuty'),
+    badgePendingSpecial: document.getElementById('badgePendingSpecial'),
 
     // Queues & Tables
     dutyQueueContainer: document.getElementById('dutyQueueContainer'),
+    specialQueueContainer: document.getElementById('specialQueueContainer'),
     approvedTableBody: document.getElementById('approvedTableBody'),
     rejectedTableBody: document.getElementById('rejectedTableBody'),
     recentActivityTableBody: document.getElementById('recentActivityTableBody'),
@@ -178,7 +194,8 @@ function populateAdvisorHeader(advisor) {
 async function refreshAdvisorData() {
   await Promise.all([
     loadAdvisorOverview(),
-    loadAdvisorPending(),
+    loadAdvisorDutyPending(),
+    loadAdvisorSpecialPending(),
     loadAdvisorApproved(),
     loadAdvisorRejected()
   ]);
@@ -206,14 +223,22 @@ async function loadAdvisorOverview() {
 
     if (res.ok && data.success) {
       const stats = data.stats || {};
-      if (DOM.statPendingDuty) DOM.statPendingDuty.textContent = stats.pendingCount || 0;
+      if (DOM.statPendingDuty) DOM.statPendingDuty.textContent = stats.pendingDutyCount !== undefined ? stats.pendingDutyCount : (stats.pendingCount || 0);
+      if (DOM.statPendingSpecial) DOM.statPendingSpecial.textContent = stats.pendingSpecialCount || 0;
       if (DOM.statApprovedToday) DOM.statApprovedToday.textContent = stats.approvedTodayCount || 0;
       if (DOM.statRejectedToday) DOM.statRejectedToday.textContent = stats.rejectedTodayCount || 0;
       if (DOM.statTotalApproved) DOM.statTotalApproved.textContent = stats.totalApprovedCount || 0;
 
       if (DOM.navBadgeDuty) {
-        DOM.navBadgeDuty.textContent = stats.pendingCount || 0;
-        DOM.navBadgeDuty.style.display = stats.pendingCount > 0 ? 'inline-block' : 'none';
+        const dCount = stats.pendingDutyCount !== undefined ? stats.pendingDutyCount : (stats.pendingCount || 0);
+        DOM.navBadgeDuty.textContent = dCount;
+        DOM.navBadgeDuty.style.display = dCount > 0 ? 'inline-block' : 'none';
+      }
+
+      if (DOM.navBadgeSpecial) {
+        const sCount = stats.pendingSpecialCount || 0;
+        DOM.navBadgeSpecial.textContent = sCount;
+        DOM.navBadgeSpecial.style.display = sCount > 0 ? 'inline-block' : 'none';
       }
 
       renderRecentActivity(data.recentActivity || []);
@@ -223,17 +248,21 @@ async function loadAdvisorOverview() {
   }
 }
 
-async function loadAdvisorPending() {
+/**
+ * Loads One-Day Duty requests strictly.
+ * Special requests are never placed into dutyQueueContainer.
+ */
+async function loadAdvisorDutyPending() {
   const token = getStoredToken();
   if (!token) return;
 
   try {
-    let res = await fetch('/api/advisor/one-day/pending', {
+    let res = await fetch('/api/advisor/duty/pending', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
     if (!res.ok) {
-      res = await fetch('/api/outpass/advisor/pending', {
+      res = await fetch('/api/advisor/one-day/pending?type=one_day_duty', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
     }
@@ -241,13 +270,22 @@ async function loadAdvisorPending() {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      pendingDutyList = data.pendingDutyRequests || [];
+      pendingDutyList = (data.dutyRequests || [])
+        .filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
+
       renderPendingDutyQueue(pendingDutyList);
+
+      if (DOM.badgePendingDuty) DOM.badgePendingDuty.textContent = pendingDutyList.length;
+      if (DOM.statPendingDuty) DOM.statPendingDuty.textContent = pendingDutyList.length;
+      if (DOM.navBadgeDuty) {
+        DOM.navBadgeDuty.textContent = pendingDutyList.length;
+        DOM.navBadgeDuty.style.display = pendingDutyList.length > 0 ? 'inline-block' : 'none';
+      }
     } else {
       if (DOM.dutyQueueContainer) {
         DOM.dutyQueueContainer.innerHTML = `
           <div class="empty-state-card" style="padding:2rem; text-align:center;">
-            <p style="color:#ef4444;">Unable to load pending requests from server.</p>
+            <p style="color:#ef4444;">Unable to load One-Day Duty requests from server.</p>
           </div>
         `;
       }
@@ -257,7 +295,61 @@ async function loadAdvisorPending() {
     if (DOM.dutyQueueContainer) {
       DOM.dutyQueueContainer.innerHTML = `
         <div class="empty-state-card" style="padding:2rem; text-align:center;">
-          <p style="color:#ef4444;">Connection error: Unable to load pending requests.</p>
+          <p style="color:#ef4444;">Connection error: Unable to load One-Day Duty requests.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+/**
+ * Loads Special Outpass requests strictly.
+ * One-Day Duty requests are never placed into specialQueueContainer.
+ */
+async function loadAdvisorSpecialPending() {
+  const token = getStoredToken();
+  if (!token) return;
+
+  try {
+    let res = await fetch('/api/advisor/special/pending', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+      res = await fetch('/api/advisor/pending?type=special', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    }
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      pendingSpecialList = (data.specialRequests || [])
+        .filter(r => getCanonicalOutpassType(r) === 'special');
+
+      renderPendingSpecialQueue(pendingSpecialList);
+
+      if (DOM.badgePendingSpecial) DOM.badgePendingSpecial.textContent = pendingSpecialList.length;
+      if (DOM.statPendingSpecial) DOM.statPendingSpecial.textContent = pendingSpecialList.length;
+      if (DOM.navBadgeSpecial) {
+        DOM.navBadgeSpecial.textContent = pendingSpecialList.length;
+        DOM.navBadgeSpecial.style.display = pendingSpecialList.length > 0 ? 'inline-block' : 'none';
+      }
+    } else {
+      if (DOM.specialQueueContainer) {
+        DOM.specialQueueContainer.innerHTML = `
+          <div class="empty-state-card" style="padding:2rem; text-align:center;">
+            <p style="color:#ef4444;">Unable to load Special Outpass requests from server.</p>
+          </div>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Error loading pending special queue:', err);
+    if (DOM.specialQueueContainer) {
+      DOM.specialQueueContainer.innerHTML = `
+        <div class="empty-state-card" style="padding:2rem; text-align:center;">
+          <p style="color:#ef4444;">Connection error: Unable to load Special Outpass requests.</p>
         </div>
       `;
     }
@@ -317,33 +409,39 @@ async function loadAdvisorRejected() {
 }
 
 /* ==========================================================
-   3. RENDERING METHODS
+   3. RENDERING METHODS (STRICT SEPARATION)
    ========================================================== */
+
+/**
+ * Renders ONLY canonical 'one_day_duty' requests
+ */
 function renderPendingDutyQueue(requests) {
   if (!DOM.dutyQueueContainer) return;
 
-  if (!requests || requests.length === 0) {
+  const dutyList = (requests || []).filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
+
+  if (dutyList.length === 0) {
     DOM.dutyQueueContainer.innerHTML = `
-      <div class="empty-state-card" style="background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-md); padding:3rem; text-align:center;">
-        <div style="font-size:2.5rem; margin-bottom:0.75rem;">🎉</div>
-        <h3 style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">All Clear! No Pending Requests</h3>
-        <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.35rem;">There are no One-Day Duty requests awaiting your clearance right now.</p>
+      <div class="empty-state-card" style="background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-md); padding:2.5rem; text-align:center;">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
+        <h3 style="font-size:1.05rem; font-weight:700; color:var(--text-primary);">No Pending One-Day Duty Requests</h3>
+        <p style="color:var(--text-muted); font-size:0.84rem; margin-top:0.25rem;">There are no One-Day Duty passes awaiting academic clearance.</p>
       </div>
     `;
     return;
   }
 
-  DOM.dutyQueueContainer.innerHTML = requests.map(req => {
+  DOM.dutyQueueContainer.innerHTML = dutyList.map(req => {
     const isCSE = (req.studentDept || '').toLowerCase().includes('computer');
     const deptPillClass = isCSE ? 'cse' : 'mech';
 
     return `
-      <div class="advisor-request-card" id="advisor-req-card-${req.id}">
+      <div class="advisor-request-card" id="advisor-req-card-${req.id}" style="border-left: 4px solid #a855f7;">
         
         <!-- Card Header -->
         <div class="req-card-header">
           <div class="req-student-profile">
-            <div class="req-student-avatar">
+            <div class="req-student-avatar" style="background:linear-gradient(135deg, #a855f7, #6366f1);">
               ${(req.studentName || 'S').charAt(0).toUpperCase()}
             </div>
             <div>
@@ -352,6 +450,7 @@ function renderPendingDutyQueue(requests) {
                 <span class="meta-tag reg-no">${req.studentRegNo}</span>
                 <span class="dept-badge ${deptPillClass}">${escapeHtml(req.studentDept || 'CSE')}</span>
                 <span class="meta-tag">Year ${req.studentYear || 3}</span>
+                <span class="meta-tag" style="background:rgba(168,85,247,0.15); color:#c084fc; font-weight:700;">🎓 One-Day Duty</span>
               </div>
             </div>
           </div>
@@ -366,7 +465,7 @@ function renderPendingDutyQueue(requests) {
         <div class="req-duty-box">
           <div class="duty-field-row">
             <span class="field-label">Event / Activity:</span>
-            <span class="field-val highlight">${escapeHtml(req.eventName || 'Technical Symposium / Project Work')}</span>
+            <span class="field-val highlight">${escapeHtml(req.eventName || req.purpose || 'Academic Activity')}</span>
           </div>
 
           <div class="duty-field-row">
@@ -375,13 +474,13 @@ function renderPendingDutyQueue(requests) {
           </div>
 
           <div class="duty-field-row">
-            <span class="field-label">Duty Date:</span>
-            <span class="field-val" style="color:#c084fc; font-weight:700;">${req.dutyDate ? req.dutyDate.slice(0, 10) : 'Today'}</span>
+            <span class="field-label">Departure Date:</span>
+            <span class="field-val" style="color:#c084fc; font-weight:700;">${req.dutyDate ? req.dutyDate.slice(0, 10) : (req.leavingDatetime ? req.leavingDatetime.slice(0, 10) : 'Today')}</span>
           </div>
 
           <div class="duty-field-row">
-            <span class="field-label">Duty Description:</span>
-            <span class="field-val" style="color:var(--text-secondary); font-style:italic;">${escapeHtml(req.dutyDescription || req.purpose || 'Official college representation')}</span>
+            <span class="field-label">Remarks / Description:</span>
+            <span class="field-val" style="color:var(--text-secondary); font-style:italic;">${escapeHtml(req.dutyDescription || req.additionalRemarks || req.purpose || 'Official representation')}</span>
           </div>
         </div>
 
@@ -409,18 +508,157 @@ function renderPendingDutyQueue(requests) {
         <div class="req-action-bar">
           <button class="action-btn view-btn" onclick="openDetailsModal(${req.id})">
             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            <span>View Full Details</span>
+            <span>View Details</span>
           </button>
 
           <div style="display:flex; gap:0.5rem;">
             <button class="action-btn reject-btn" onclick="openRejectModal(${req.id})">
               <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              <span>Reject Request</span>
+              <span>Reject</span>
             </button>
 
             <button class="action-btn approve-btn" onclick="openApproveModal(${req.id})">
               <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span>Approve & Forward to Principal</span>
+              <span>Clear & Forward to Principal</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Renders ONLY canonical 'special' outpass requests (Tier 2 Advisor clearance)
+ */
+function renderPendingSpecialQueue(requests) {
+  if (!DOM.specialQueueContainer) return;
+
+  const specialList = (requests || []).filter(r => getCanonicalOutpassType(r) === 'special');
+
+  if (specialList.length === 0) {
+    DOM.specialQueueContainer.innerHTML = `
+      <div class="empty-state-card" style="background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-md); padding:2.5rem; text-align:center;">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">⭐</div>
+        <h3 style="font-size:1.05rem; font-weight:700; color:var(--text-primary);">No Pending Special Outpasses</h3>
+        <p style="color:var(--text-muted); font-size:0.84rem; margin-top:0.25rem;">Special outpass applications with Parent Biometrics confirmed will appear here for Tier 2 clearance.</p>
+      </div>
+    `;
+    return;
+  }
+
+  DOM.specialQueueContainer.innerHTML = specialList.map(req => {
+    const isCSE = (req.studentDept || '').toLowerCase().includes('computer');
+    const deptPillClass = isCSE ? 'cse' : 'mech';
+
+    return `
+      <div class="advisor-request-card" id="advisor-req-card-${req.id}" style="border-left: 4px solid #8b5cf6; background:rgba(139,92,246,0.02);">
+        
+        <!-- Card Header -->
+        <div class="req-card-header">
+          <div class="req-student-profile">
+            <div class="req-student-avatar" style="background:linear-gradient(135deg, #8b5cf6, #6366f1);">
+              ${(req.studentName || 'S').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div class="req-student-name">${escapeHtml(req.studentName)}</div>
+              <div class="req-student-meta">
+                <span class="meta-tag reg-no">${req.studentRegNo}</span>
+                <span class="dept-badge ${deptPillClass}">${escapeHtml(req.studentDept || 'CSE')}</span>
+                <span class="meta-tag">Year ${req.studentYear || 3}</span>
+                <span class="meta-tag" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid #8b5cf6; font-weight:700;">⭐ Special Outpass (${escapeHtml(req.specialType || 'Authorized')})</span>
+                <span class="meta-tag" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.4); font-weight:600;">✓ Tier 1 Parent Face Verified</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="req-status-pill" style="background:rgba(139,92,246,0.15); color:#a78bfa; border-color:rgba(139,92,246,0.3);">
+            <span class="pulse-dot" style="background:#a78bfa;"></span>
+            Tier 2 Faculty Review
+          </div>
+        </div>
+
+        <!-- Special Outpass Parent Face Clearance Details -->
+        <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.25); border-radius:6px; padding:0.7rem 0.9rem; margin-bottom:0.75rem;">
+          <div style="color:#a78bfa; font-weight:700; font-size:0.8rem; display:flex; align-items:center; gap:0.4rem;">
+            <span>👤 PARENT FACE BIOMETRIC VERIFICATION (D ≤ 0.45)</span>
+            <span style="color:#10b981;">✓ MATCHED</span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.25rem;">
+            Parent: <strong>${escapeHtml(req.parentName || 'Parent')}</strong> | Message: <em>"${escapeHtml(req.parentMessage || 'Approved')}"</em>
+          </div>
+          ${req.additionalRemarks ? `
+            <div style="font-size:0.85rem; color:var(--text-primary); margin-top:0.3rem;">
+              <strong>Special Purpose Justification:</strong> ${escapeHtml(req.additionalRemarks)}
+            </div>
+          ` : ''}
+          ${req.attachmentUrl ? `
+            <div style="font-size:0.85rem; margin-top:0.3rem;">
+              <a href="${escapeHtml(req.attachmentUrl)}" target="_blank" style="color:#60a5fa; text-decoration:underline;">View Supporting Attachment / Proof Link ↗</a>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Event / Duty Details Box -->
+        <div class="req-duty-box">
+          <div class="duty-field-row">
+            <span class="field-label">Special Event / Purpose:</span>
+            <span class="field-val highlight">${escapeHtml(req.eventName || req.purpose || 'Special Authorized Outpass')}</span>
+          </div>
+
+          <div class="duty-field-row">
+            <span class="field-label">Organization / Venue:</span>
+            <span class="field-val">${escapeHtml(req.eventLocation || req.destination || 'External Campus')}</span>
+          </div>
+
+          <div class="duty-field-row">
+            <span class="field-label">Departure Date:</span>
+            <span class="field-val" style="color:#a78bfa; font-weight:700;">${req.dutyDate ? req.dutyDate.slice(0, 10) : (req.leavingDatetime ? req.leavingDatetime.slice(0, 10) : 'Today')}</span>
+          </div>
+
+          <div class="duty-field-row">
+            <span class="field-label">Remarks / Description:</span>
+            <span class="field-val" style="color:var(--text-secondary); font-style:italic;">${escapeHtml(req.dutyDescription || req.additionalRemarks || req.purpose || 'Official representation')}</span>
+          </div>
+        </div>
+
+        <!-- Time & Room Details -->
+        <div class="req-grid-info">
+          <div class="info-block">
+            <span class="lbl">Departure Time</span>
+            <span class="val">${formatDateTime(req.leavingDatetime)}</span>
+          </div>
+          <div class="info-block">
+            <span class="lbl">Expected Return</span>
+            <span class="val">${formatDateTime(req.returnDatetime)}</span>
+          </div>
+          <div class="info-block">
+            <span class="lbl">Hostel Room</span>
+            <span class="val">${escapeHtml(req.studentBlock || 'Block A')} - ${escapeHtml(req.studentRoom || '304')}</span>
+          </div>
+          <div class="info-block">
+            <span class="lbl">Student Contact</span>
+            <span class="val">${escapeHtml(req.contactPhone || req.studentRegisteredPhone || 'N/A')}</span>
+          </div>
+        </div>
+
+        <!-- Actions Toolbar -->
+        <div class="req-action-bar">
+          <button class="action-btn view-btn" onclick="openDetailsModal(${req.id})">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <span>View Details</span>
+          </button>
+
+          <div style="display:flex; gap:0.5rem;">
+            <button class="action-btn reject-btn" onclick="openRejectModal(${req.id})">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              <span>Reject</span>
+            </button>
+
+            <button class="action-btn approve-btn" onclick="openApproveModal(${req.id})" style="background:linear-gradient(135deg, #8b5cf6, #6d28d9);">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              <span>Clear Tier 2 & Forward to Principal</span>
             </button>
           </div>
         </div>
@@ -550,10 +788,16 @@ function initModals() {
 }
 
 function openDetailsModal(requestId) {
-  const req = pendingDutyList.find(r => r.id === requestId);
+  const req = pendingDutyList.find(r => r.id === requestId) || pendingSpecialList.find(r => r.id === requestId);
   if (!req || !DOM.detailsModalBody) return;
 
+  const isSpecial = getCanonicalOutpassType(req) === 'special';
+  const typeBadge = isSpecial
+    ? `<span style="background:rgba(168,85,247,0.15); color:#a855f7; border:1px solid rgba(168,85,247,0.3); padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">★ SPECIAL OUTPASS</span>`
+    : `<span style="background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.3); padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700;">ONE-DAY DUTY</span>`;
+
   DOM.detailsModalBody.innerHTML = `
+    <div style="margin-bottom:0.75rem;">${typeBadge}</div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; font-size:0.875rem;">
       <div><span style="color:var(--text-muted);">Request Code:</span> <strong style="font-family:monospace; color:#c084fc;">${req.requestCode}</strong></div>
       <div><span style="color:var(--text-muted);">Student Name:</span> <strong>${escapeHtml(req.studentName)}</strong></div>
@@ -563,22 +807,29 @@ function openDetailsModal(requestId) {
       <div><span style="color:var(--text-muted);">Contact Phone:</span> <strong>${escapeHtml(req.contactPhone || req.studentRegisteredPhone || '-')}</strong></div>
       
       <div style="grid-column: span 2; border-top:1px solid var(--border-color); padding-top:0.75rem; margin-top:0.25rem;">
-        <span style="color:var(--text-muted);">Event / Activity:</span><br>
-        <strong style="color:var(--text-primary); font-size:0.95rem;">${escapeHtml(req.eventName)}</strong>
+        <span style="color:var(--text-muted);">${isSpecial ? 'Purpose of Special Outpass:' : 'Event / Activity:'}</span><br>
+        <strong style="color:var(--text-primary); font-size:0.95rem;">${escapeHtml(req.eventName || req.purpose || 'Official representation')}</strong>
       </div>
 
       <div style="grid-column: span 2;">
-        <span style="color:var(--text-muted);">Venue / Organization:</span><br>
-        <strong>${escapeHtml(req.eventLocation || req.destination)}</strong>
+        <span style="color:var(--text-muted);">${isSpecial ? 'Destination:' : 'Venue / Organization:'}</span><br>
+        <strong>${escapeHtml(req.eventLocation || req.destination || '-')}</strong>
       </div>
 
-      <div><span style="color:var(--text-muted);">Duty Date:</span> <strong>${req.dutyDate ? req.dutyDate.slice(0, 10) : 'Today'}</strong></div>
+      <div><span style="color:var(--text-muted);">Date:</span> <strong>${req.dutyDate ? req.dutyDate.slice(0, 10) : (req.leavingDatetime ? req.leavingDatetime.slice(0, 10) : 'Today')}</strong></div>
       <div><span style="color:var(--text-muted);">Submitted On:</span> <strong>${formatDateTime(req.submittedDate)}</strong></div>
 
       <div style="grid-column: span 2; background:rgba(255,255,255,0.03); padding:0.75rem; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-        <span style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; font-weight:700;">Academic Representation Purpose:</span><br>
-        <p style="color:var(--text-secondary); margin-top:0.25rem; font-style:italic;">${escapeHtml(req.dutyDescription || req.purpose || 'Official college participation')}</p>
+        <span style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; font-weight:700;">${isSpecial ? 'Special Permission Description:' : 'Academic Representation Purpose:'}</span><br>
+        <p style="color:var(--text-secondary); margin-top:0.25rem; font-style:italic;">${escapeHtml(req.dutyDescription || req.additionalRemarks || req.purpose || 'Official college participation')}</p>
       </div>
+
+      ${isSpecial ? `
+      <div style="grid-column: span 2; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:var(--radius-sm); padding:0.6rem 0.75rem;">
+        <span style="color:#10b981; font-size:0.8rem; font-weight:700;">🛡 Parent Biometric Clearance:</span><br>
+        <span style="color:var(--text-secondary); font-size:0.8rem;">Parent Face Verified and Approved (${formatDateTime(req.parentApprovedAt)})</span>
+      </div>
+      ` : ''}
 
       <div><span style="color:var(--text-muted);">Scheduled Departure:</span><br><strong>${formatDateTime(req.leavingDatetime)}</strong></div>
       <div><span style="color:var(--text-muted);">Expected Return:</span><br><strong>${formatDateTime(req.returnDatetime)}</strong></div>
@@ -590,16 +841,30 @@ function openDetailsModal(requestId) {
 
 function openApproveModal(requestId) {
   selectedRequestForAction = requestId;
-  const req = pendingDutyList.find(r => r.id === requestId);
+  const req = pendingDutyList.find(r => r.id === requestId) || pendingSpecialList.find(r => r.id === requestId);
   if (!req || !DOM.approveModalBody) return;
 
-  DOM.approveModalBody.innerHTML = `
-    <p>Are you sure you want to grant academic clearance for One-Day Duty request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
-    <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
-      Event: <strong>${escapeHtml(req.eventName)}</strong><br>
-      Once cleared, this request will be automatically forwarded to the <strong>Principal</strong> for final executive authorization.
-    </p>
-  `;
+  const isSpecial = getCanonicalOutpassType(req) === 'special';
+
+  if (isSpecial) {
+    DOM.approveModalBody.innerHTML = `
+      <p>Are you sure you want to grant Class Advisor clearance for Special Outpass <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
+      <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--text-secondary); background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.2); padding:0.6rem 0.75rem; border-radius:var(--radius-sm);">
+        Purpose: <strong>${escapeHtml(req.eventName || req.purpose || 'Special Outpass')}</strong><br>
+        Destination: <strong>${escapeHtml(req.eventLocation || req.destination || '-')}</strong><br>
+        Status: <strong style="color:#10b981;">Parent Face Verification Completed</strong><br>
+        <em>Once cleared, this request will be forwarded to the <strong>Principal</strong> for executive review.</em>
+      </div>
+    `;
+  } else {
+    DOM.approveModalBody.innerHTML = `
+      <p>Are you sure you want to grant academic clearance for One-Day Duty request <strong>${req.requestCode}</strong> for <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})?</p>
+      <p style="font-size:0.84rem; color:var(--text-secondary); margin-top:0.5rem;">
+        Event: <strong>${escapeHtml(req.eventName)}</strong><br>
+        Once cleared, this request will be automatically forwarded to the <strong>Principal</strong> for final executive authorization.
+      </p>
+    `;
+  }
 
   openModal('approveModal');
 }
@@ -628,10 +893,17 @@ async function executeAdvisorApprove(requestId) {
   const token = getStoredToken();
   if (!token) return;
 
+  const reqObj = pendingDutyList.find(r => r.id === requestId) || pendingSpecialList.find(r => r.id === requestId);
+  const isSpecial = reqObj ? (getCanonicalOutpassType(reqObj) === 'special') : false;
+
   if (DOM.btnConfirmApprove) DOM.btnConfirmApprove.disabled = true;
 
   try {
-    let res = await fetch(`/api/advisor/one-day/${requestId}/approve`, {
+    const primaryUrl = isSpecial
+      ? `/api/advisor/special/${requestId}/approve`
+      : `/api/advisor/one-day/${requestId}/approve`;
+
+    let res = await fetch(primaryUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -653,14 +925,15 @@ async function executeAdvisorApprove(requestId) {
 
     if (res.ok && data.success) {
       closeModal('approveModal');
-      showToast(`🎉 OD request ${data.data?.requestCode || ''} approved and forwarded to Principal for final authorization.`, 'success');
+      const passName = isSpecial ? 'Special Outpass' : 'One-Day Duty';
+      showToast(`🎉 ${passName} ${data.data?.requestCode || ''} approved and forwarded to Principal for review.`, 'success');
 
       const card = document.getElementById(`advisor-req-card-${requestId}`);
       if (card) card.remove();
 
       await refreshAdvisorData();
     } else {
-      showToast(data.message || 'Failed to approve OD request.', 'error');
+      showToast(data.message || 'Failed to approve request.', 'error');
     }
   } catch (err) {
     showToast('Network error: ' + err.message, 'error');
@@ -673,10 +946,17 @@ async function executeAdvisorReject(requestId, rejectionReason) {
   const token = getStoredToken();
   if (!token) return;
 
+  const reqObj = pendingDutyList.find(r => r.id === requestId) || pendingSpecialList.find(r => r.id === requestId);
+  const isSpecial = reqObj ? (getCanonicalOutpassType(reqObj) === 'special') : false;
+
   if (DOM.btnConfirmReject) DOM.btnConfirmReject.disabled = true;
 
   try {
-    let res = await fetch(`/api/advisor/one-day/${requestId}/reject`, {
+    const primaryUrl = isSpecial
+      ? `/api/advisor/special/${requestId}/reject`
+      : `/api/advisor/one-day/${requestId}/reject`;
+
+    let res = await fetch(primaryUrl, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -700,14 +980,15 @@ async function executeAdvisorReject(requestId, rejectionReason) {
 
     if (res.ok && data.success) {
       closeModal('rejectModal');
-      showToast(`OD request ${data.data?.requestCode || ''} rejected.`, 'info');
+      const passName = isSpecial ? 'Special Outpass' : 'One-Day Duty';
+      showToast(`${passName} ${data.data?.requestCode || ''} rejected.`, 'info');
 
       const card = document.getElementById(`advisor-req-card-${requestId}`);
       if (card) card.remove();
 
       await refreshAdvisorData();
     } else {
-      showToast(data.message || 'Failed to reject OD request.', 'error');
+      showToast(data.message || 'Failed to reject request.', 'error');
     }
   } catch (err) {
     showToast('Network error: ' + err.message, 'error');
@@ -805,6 +1086,7 @@ function switchTab(tabId, pushHash = true) {
   }
 
   if (tabId === 'duty-queue') loadAdvisorPending();
+  if (tabId === 'special-queue') loadAdvisorSpecialPending();
   if (tabId === 'approved-list') loadAdvisorApproved();
   if (tabId === 'rejected-list') loadAdvisorRejected();
 }
@@ -887,18 +1169,8 @@ function clearAuthAndRedirect() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('sh_theme', next);
-    });
-  }
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
 }
 
 // Attach functions to global window object

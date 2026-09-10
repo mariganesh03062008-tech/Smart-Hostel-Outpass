@@ -16,13 +16,6 @@ router.get('/my-requests', authenticateToken, authorizeRoles('student'), outpass
 // GET /api/outpass/status-summary - Get dashboard stats & inside/outside hostel status
 router.get('/status-summary', authenticateToken, authorizeRoles('student'), outpassController.getStatusSummary);
 
-// POST /api/outpass/student/location & /location - Student live GPS location update
-router.post('/student/location', authenticateToken, authorizeRoles('student'), outpassController.updateStudentLocation);
-router.post('/location', authenticateToken, authorizeRoles('student'), outpassController.updateStudentLocation);
-
-// GET /api/outpass/student/location & /location - Get student location & freshness status
-router.get('/student/location', authenticateToken, authorizeRoles('student'), outpassController.getStudentLocation);
-router.get('/location', authenticateToken, authorizeRoles('student'), outpassController.getStudentLocation);
 
 // ==========================================
 // 2. Warden Authorization & Oversight Routes
@@ -49,6 +42,18 @@ router.get('/warden/parent-messages', authenticateToken, authorizeRoles('warden'
 // GET /api/outpass/warden/reports - Hostel outpass analytics & reports for Warden
 router.get('/warden/reports', authenticateToken, authorizeRoles('warden'), outpassController.getWardenReports);
 
+// GET /api/outpass/warden/registered-students/stats - Registered students census & year breakdown
+router.get('/warden/registered-students/stats', authenticateToken, authorizeRoles('warden'), outpassController.getWardenRegisteredStudentsStats);
+
+// GET /api/outpass/warden/registered-students - Filterable list of registered hostel students with year & dept
+router.get('/warden/registered-students', authenticateToken, authorizeRoles('warden'), outpassController.getWardenRegisteredStudents);
+
+// GET /api/outpass/warden/parents/search - Warden search parent by mobile number
+router.get('/warden/parents/search', authenticateToken, authorizeRoles('warden'), outpassController.searchWardenParentByMobile);
+
+// POST /api/outpass/warden/parents/revoke-face - Warden revoke parent face
+router.post('/warden/parents/revoke-face', authenticateToken, authorizeRoles('warden'), outpassController.revokeParentFace);
+
 // PATCH /api/outpass/:id/approve - Warden final approval
 router.patch('/:id/approve', authenticateToken, authorizeRoles('warden'), outpassController.approveOutpass);
 
@@ -62,8 +67,11 @@ router.patch('/:id/reject', authenticateToken, authorizeRoles('warden'), outpass
 // GET /api/outpass/advisor/overview - Advisor Dashboard metrics & department activity
 router.get('/advisor/overview', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorOverview);
 
-// GET /api/outpass/advisor/pending - Get pending OD requests awaiting Advisor clearance
+// GET /api/outpass/advisor/pending - Get pending partitioned requests awaiting Advisor clearance
 router.get('/advisor/pending', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorPending);
+router.get('/advisor/duty/pending', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorDutyPending);
+router.get('/advisor/one-day/pending', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorDutyPending);
+router.get('/advisor/special/pending', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorSpecialPending);
 
 // GET /api/outpass/advisor/approved - Get OD requests approved by this Advisor
 router.get('/advisor/approved', authenticateToken, authorizeRoles('class_advisor'), outpassController.getAdvisorApproved);
@@ -87,4 +95,11 @@ router.patch('/:id/principal-approve', authenticateToken, authorizeRoles('princi
 // PATCH /api/outpass/:id/principal-reject - Principal rejection for One-Day Permission
 router.patch('/:id/principal-reject', authenticateToken, authorizeRoles('principal'), outpassController.principalReject);
 
+// ==========================================
+// 5. Individual Outpass Detail (Protected)
+// ==========================================
+// GET /api/outpass/:id - Fetch single outpass details (enforces student/parent/staff ownership)
+router.get('/:id', authenticateToken, outpassController.getOutpassById);
+
 module.exports = router;
+

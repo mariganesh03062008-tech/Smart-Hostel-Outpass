@@ -12,6 +12,7 @@ let isFaceRegistered = false;
 let activeVerificationToken = null;
 let liveFaceDescriptor = null;
 let faceApiModelsLoaded = false;
+let faceApiLoadError = null;
 let registerVideoStream = null;
 let verifyVideoStream = null;
 let registerDetectionInterval = null;
@@ -28,6 +29,16 @@ let activeChatRecognizer = null;
 let activeModalRecognizer = null;
 let isRecordingChatVoice = false;
 let isRecordingModalVoice = false;
+
+// Strict Type Normalizer Helper
+function getCanonicalOutpassType(req) {
+  if (!req) return 'normal';
+  const raw = String(req.outpass_type || req.outpassType || req.requestType || '').toLowerCase().trim();
+  if (raw === 'emergency') return 'emergency';
+  if (raw === 'special') return 'special';
+  if (raw === 'one_day_duty' || raw === 'duty' || raw === 'one_day' || raw === 'oneday') return 'one_day_duty';
+  return 'normal';
+}
 
 // DOM Elements Cache
 const DOM = {
@@ -55,24 +66,37 @@ const DOM = {
   // Counters
   statPendingCount: document.getElementById('statPendingCount'),
   navBadgePending: document.getElementById('navBadgePending'),
+  badgePendingNormal: document.getElementById('badgePendingNormal'),
+  badgePendingDuty: document.getElementById('badgePendingDuty'),
+  badgePendingSpecial: document.getElementById('badgePendingSpecial'),
 
   // Queues & Containers
   pendingQueueContainer: document.getElementById('pendingQueueContainer'),
+  pendingNormalContainer: document.getElementById('pendingNormalContainer'),
+  pendingDutyContainer: document.getElementById('pendingDutyContainer'),
+  pendingSpecialContainer: document.getElementById('pendingSpecialContainer'),
   approvedTableBody: document.getElementById('approvedTableBody'),
   rejectedTableBody: document.getElementById('rejectedTableBody'),
 
   // Profile tab fields
   profParentName: document.getElementById('profParentName'),
   profRelationship: document.getElementById('profRelationship'),
-  profPrimaryPhone: document.getElementById('profPrimaryPhone'),
+  profParentPhone: document.getElementById('profParentPhone') || document.getElementById('profPrimaryPhone'),
+  profPrimaryPhone: document.getElementById('profPrimaryPhone') || document.getElementById('profParentPhone'),
   profSecondaryPhone: document.getElementById('profSecondaryPhone'),
-  profEmail: document.getElementById('profEmail'),
-  profAddress: document.getElementById('profAddress'),
+  profParentEmail: document.getElementById('profParentEmail') || document.getElementById('profEmail'),
+  profEmail: document.getElementById('profEmail') || document.getElementById('profParentEmail'),
+  profParentAddr: document.getElementById('profParentAddr') || document.getElementById('profAddress'),
+  profAddress: document.getElementById('profAddress') || document.getElementById('profParentAddr'),
   profSecurityModel: document.getElementById('profSecurityModel'),
-  profWardName: document.getElementById('profWardName'),
-  profWardReg: document.getElementById('profWardReg'),
-  profWardDept: document.getElementById('profWardDept'),
-  profWardRoom: document.getElementById('profWardRoom'),
+  profStudentName: document.getElementById('profStudentName') || document.getElementById('profWardName'),
+  profWardName: document.getElementById('profWardName') || document.getElementById('profStudentName'),
+  profStudentReg: document.getElementById('profStudentReg') || document.getElementById('profWardReg'),
+  profWardReg: document.getElementById('profWardReg') || document.getElementById('profStudentReg'),
+  profStudentDept: document.getElementById('profStudentDept') || document.getElementById('profWardDept'),
+  profWardDept: document.getElementById('profWardDept') || document.getElementById('profStudentDept'),
+  profStudentRoom: document.getElementById('profStudentRoom') || document.getElementById('profWardRoom'),
+  profWardRoom: document.getElementById('profWardRoom') || document.getElementById('profStudentRoom'),
   profWardAdvisor: document.getElementById('profWardAdvisor'),
   profWardWarden: document.getElementById('profWardWarden'),
 
@@ -282,6 +306,11 @@ async function verifyParentSession() {
     }
 
     currentParent = data.user;
+    if (data.user.faceStatus === 'NOT_REGISTERED' || data.user.face_status === 'NOT_REGISTERED') {
+      alert('Face registration is required before you can access the Parent Dashboard. Please complete your registration.');
+      window.location.replace('/index.html?face_registration_required=1');
+      return;
+    }
     await refreshParentData();
 
   } catch (err) {
@@ -301,6 +330,12 @@ async function refreshParentData() {
     const data = await res.json();
 
     if (res.ok && data.success) {
+      if (data.accessBlocked || data.faceStatus === 'NOT_REGISTERED') {
+        alert('Face registration is required before accessing Parent Dashboard.');
+        window.location.replace('/index.html?face_registration_required=1');
+        return;
+      }
+
       linkedStudent = data.linkedStudent;
       const parentObj = data.parent || {};
       const verifiedMobile = parentObj.verifiedMobile || parentObj.phone || currentParent?.phone || '-';
@@ -338,31 +373,49 @@ async function refreshParentData() {
 function updateHeroSecurityCard(parentObj) {
   const pPhone = parentObj?.verifiedMobile || parentObj?.phone || currentParent?.phone || currentParent?.identifier || '-';
   if (DOM.heroParentMobile) DOM.heroParentMobile.textContent = pPhone;
-  isFaceRegistered = Boolean(parentObj?.faceRegistered || parentObj?.face_registered);
+  const faceStatus = parentObj?.faceStatus || (parentObj?.faceRegistered || parentObj?.face_registered ? 'ACTIVE' : 'NOT_REGISTERED');
+  isFaceRegistered = faceStatus === 'ACTIVE';
 
   if (DOM.heroFaceStatus) {
-    if (isFaceRegistered) {
-      DOM.heroFaceStatus.textContent = 'Enrolled & Verified';
+    if (faceStatus === 'ACTIVE') {
+      DOM.heroFaceStatus.textContent = 'ACTIVE';
       DOM.heroFaceStatus.style.background = 'rgba(16, 185, 129, 0.15)';
       DOM.heroFaceStatus.style.color = '#34d399';
       DOM.heroFaceStatus.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-    } else {
-      DOM.heroFaceStatus.textContent = 'Biometrics Required';
+    } else if (faceStatus === 'REVOKED') {
+      DOM.heroFaceStatus.textContent = 'REVOKED';
       DOM.heroFaceStatus.style.background = 'rgba(239, 68, 68, 0.15)';
       DOM.heroFaceStatus.style.color = '#f87171';
       DOM.heroFaceStatus.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    } else {
+      DOM.heroFaceStatus.textContent = 'NOT REGISTERED';
+      DOM.heroFaceStatus.style.background = 'rgba(245, 158, 11, 0.15)';
+      DOM.heroFaceStatus.style.color = '#fbbf24';
+      DOM.heroFaceStatus.style.borderColor = 'rgba(245, 158, 11, 0.35)';
     }
   }
 
   if (DOM.heroFaceBtnText) {
-    DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'Update Face Scan' : 'Enroll Face Biometrics';
+    DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'ACTIVE' : (faceStatus === 'REVOKED' ? 'REVOKED' : 'PENDING');
   }
 
   if (DOM.authVerifiedBadge) {
-    DOM.authVerifiedBadge.style.background = isFaceRegistered ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-    DOM.authVerifiedBadge.style.color = isFaceRegistered ? '#34d399' : '#f87171';
-    DOM.authVerifiedBadge.style.borderColor = isFaceRegistered ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
-    if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = isFaceRegistered ? 'AI Face Biometric Protected' : 'Face Biometrics Pending';
+    if (faceStatus === 'ACTIVE') {
+      DOM.authVerifiedBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      DOM.authVerifiedBadge.style.color = '#34d399';
+      DOM.authVerifiedBadge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = 'AI Face Biometric Protected';
+    } else if (faceStatus === 'REVOKED') {
+      DOM.authVerifiedBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+      DOM.authVerifiedBadge.style.color = '#f87171';
+      DOM.authVerifiedBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = 'Face Biometrics Revoked by Warden';
+    } else {
+      DOM.authVerifiedBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+      DOM.authVerifiedBadge.style.color = '#fbbf24';
+      DOM.authVerifiedBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      if (DOM.authBadgeLabel) DOM.authBadgeLabel.textContent = 'Face Biometrics Pending';
+    }
   }
 }
 
@@ -581,7 +634,7 @@ async function handleProfileUpdateSubmit(event) {
    ========================================================== */
 async function loadPendingRequests() {
   const token = getAuthToken();
-  if (!token || !DOM.pendingQueueContainer) return;
+  if (!token) return;
 
   try {
     const res = await fetch('/api/parent/outpass/pending', {
@@ -591,7 +644,28 @@ async function loadPendingRequests() {
 
     if (res.ok && data.success) {
       pendingList = data.pendingRequests || [];
-      renderPendingQueue(pendingList);
+      const normalList = (data.normalRequests || pendingList.filter(r => getCanonicalOutpassType(r) === 'normal'))
+        .filter(r => getCanonicalOutpassType(r) === 'normal');
+      const dutyList = (data.dutyRequests || pendingList.filter(r => getCanonicalOutpassType(r) === 'one_day_duty'))
+        .filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
+      const specialList = (data.specialRequests || pendingList.filter(r => getCanonicalOutpassType(r) === 'special'))
+        .filter(r => getCanonicalOutpassType(r) === 'special');
+
+      renderPendingNormalQueue(normalList);
+      renderPendingDutyQueue(dutyList);
+      renderPendingSpecialQueue(specialList);
+
+      if (DOM.badgePendingNormal) DOM.badgePendingNormal.textContent = normalList.length;
+      if (DOM.badgePendingDuty) DOM.badgePendingDuty.textContent = dutyList.length;
+      if (DOM.badgePendingSpecial) DOM.badgePendingSpecial.textContent = specialList.length;
+      if (DOM.navBadgePending) {
+        const total = normalList.length + dutyList.length + specialList.length;
+        DOM.navBadgePending.textContent = total;
+        DOM.navBadgePending.style.display = total > 0 ? 'inline-block' : 'none';
+      }
+      if (DOM.statPendingCount) {
+        DOM.statPendingCount.textContent = normalList.length + dutyList.length + specialList.length;
+      }
     }
   } catch (err) {
     console.error('Error loading pending requests:', err);
@@ -636,26 +710,43 @@ async function loadRejectedRequests() {
   }
 }
 
+/**
+ * Legacy router delegating to type-specific renderers
+ */
 function renderPendingQueue(list) {
-  if (!DOM.pendingQueueContainer) return;
-  DOM.pendingQueueContainer.innerHTML = '';
+  const normalList = (list || []).filter(r => getCanonicalOutpassType(r) === 'normal');
+  const dutyList = (list || []).filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
+  const specialList = (list || []).filter(r => getCanonicalOutpassType(r) === 'special');
+  renderPendingNormalQueue(normalList);
+  renderPendingDutyQueue(dutyList);
+  renderPendingSpecialQueue(specialList);
+}
 
-  if (!list || list.length === 0) {
-    DOM.pendingQueueContainer.innerHTML = `
-      <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:3.5rem 1.5rem; background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-lg);">
-        <div style="width:54px; height:54px; border-radius:50%; background:rgba(245,158,11,0.15); color:#f59e0b; display:inline-flex; align-items:center; justify-content:center; margin-bottom:1rem;">
-          <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+/**
+ * Renders ONLY canonical 'normal' outpasses awaiting parent biometric consent
+ */
+function renderPendingNormalQueue(list) {
+  if (!DOM.pendingNormalContainer) return;
+  DOM.pendingNormalContainer.innerHTML = '';
+
+  const normalList = (list || []).filter(r => getCanonicalOutpassType(r) === 'normal');
+
+  if (normalList.length === 0) {
+    DOM.pendingNormalContainer.innerHTML = `
+      <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:2.5rem 1.5rem; background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-lg);">
+        <div style="width:48px; height:48px; border-radius:50%; background:rgba(245,158,11,0.12); color:#f59e0b; display:inline-flex; align-items:center; justify-content:center; margin-bottom:0.75rem;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
         </div>
-        <h3 style="font-family:'Outfit'; font-size:1.2rem; margin-bottom:0.35rem;">No Pending Outpass Requests</h3>
-        <p style="color:var(--text-secondary); font-size:0.88rem; max-width:420px; margin:0 auto;">
-          When your ward applies for a hostel outpass, it will appear here for your identity-verified biometric consent.
+        <h4 style="font-family:'Outfit'; font-size:1.1rem; margin-bottom:0.25rem; color:var(--text-primary);">No Pending Normal Outpasses</h4>
+        <p style="color:var(--text-secondary); font-size:0.84rem; max-width:400px; margin:0 auto;">
+          Normal outpass requests submitted by your ward will appear here for 128D facial biometric consent.
         </p>
       </div>
     `;
     return;
   }
 
-  list.forEach(req => {
+  normalList.forEach(req => {
     const card = document.createElement('div');
     card.className = 'duty-card';
     card.id = `parent-req-card-${req.id}`;
@@ -666,8 +757,8 @@ function renderPendingQueue(list) {
         <div>
           <div class="student-tag-group">
             <span class="request-code-badge">${req.requestCode}</span>
-            <span class="event-banner-tag" style="background:rgba(245,158,11,0.15); color:#fbbf24; border-color:rgba(245,158,11,0.35);">
-              ${req.requestType === 'one_day_duty' ? '🎓 One-Day Duty' : '🏠 Normal Outpass'}
+            <span class="event-banner-tag" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.35);">
+              🏠 Normal Outpass
             </span>
             <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
             <span class="student-tag">${req.studentDept} • Room: ${req.studentBlock}-${req.studentRoom}</span>
@@ -676,7 +767,9 @@ function renderPendingQueue(list) {
             ${escapeHtml(req.destination)}
           </h3>
         </div>
-        <span class="status-badge status-pending-parent">Pending Parent Consent</span>
+        <span class="status-badge status-pending-parent">
+          Pending Parent Consent
+        </span>
       </div>
 
       <div class="request-details-grid">
@@ -709,12 +802,207 @@ function renderPendingQueue(list) {
         </button>
         <button class="btn-approve" onclick="openApproveModal(${req.id})" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 11c0 2-1 3-2 3s-2-1-2-3a4 4 0 0 1 8 0c0 3-1.5 5-2.5 7"></path></svg>
-          <span>Approve Request</span>
+          <span>Verify Face & Approve</span>
         </button>
       </div>
     `;
 
-    DOM.pendingQueueContainer.appendChild(card);
+    DOM.pendingNormalContainer.appendChild(card);
+  });
+}
+
+/**
+ * Renders ONLY canonical 'special' outpasses awaiting initial parent biometric consent
+ */
+function renderPendingSpecialQueue(list) {
+  if (!DOM.pendingSpecialContainer) return;
+  DOM.pendingSpecialContainer.innerHTML = '';
+
+  const specialList = (list || []).filter(r => getCanonicalOutpassType(r) === 'special');
+
+  if (specialList.length === 0) {
+    DOM.pendingSpecialContainer.innerHTML = `
+      <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:2.5rem 1.5rem; background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-lg);">
+        <div style="width:48px; height:48px; border-radius:50%; background:rgba(139,92,246,0.12); color:#a78bfa; display:inline-flex; align-items:center; justify-content:center; margin-bottom:0.75rem;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <h4 style="font-family:'Outfit'; font-size:1.1rem; margin-bottom:0.25rem; color:var(--text-primary);">No Pending Special Outpasses</h4>
+        <p style="color:var(--text-secondary); font-size:0.84rem; max-width:400px; margin:0 auto;">
+          Special multi-day / academic outpass requests will appear here for your Tier 1 biometric authorization.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  specialList.forEach(req => {
+    const card = document.createElement('div');
+    card.className = 'duty-card';
+    card.id = `parent-req-card-${req.id}`;
+    card.style.borderLeftColor = '#8b5cf6';
+    card.style.background = 'rgba(139,92,246,0.02)';
+
+    card.innerHTML = `
+      <div class="duty-card-header">
+        <div>
+          <div class="student-tag-group">
+            <span class="request-code-badge" style="background:rgba(139,92,246,0.2); color:#a78bfa; border-color:rgba(139,92,246,0.4);">${req.requestCode}</span>
+            <span class="event-banner-tag" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid rgba(139,92,246,0.5); font-weight:700;">
+              ⭐ Special Outpass (Tier 1 Consent)
+            </span>
+            <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
+            <span class="student-tag">${req.studentDept} • Room: ${req.studentBlock}-${req.studentRoom}</span>
+          </div>
+          <h3 style="font-family:'Outfit'; font-size:1.2rem; margin-top:0.4rem; color:var(--text-primary);">
+            ${escapeHtml(req.destination)}
+          </h3>
+        </div>
+        <span class="status-badge" style="background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid #8b5cf6; font-weight:700;">
+          Tier 1: Parent Consent Needed
+        </span>
+      </div>
+
+      <div class="request-details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Purpose / Reason</span>
+          <span class="detail-value">${escapeHtml(req.purpose)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Leaving Schedule</span>
+          <span class="detail-value">${formatDateTime(req.leavingDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Expected Return</span>
+          <span class="detail-value">${formatDateTime(req.returnDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Student Phone</span>
+          <span class="detail-value">${req.contactPhone || req.studentRegisteredPhone || 'N/A'}</span>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1; background:rgba(139,92,246,0.08); padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(139,92,246,0.25);">
+          <div style="color:#a78bfa; font-weight:700; font-size:0.82rem; margin-bottom:0.25rem;">⭐ 4-TIER MULTI-DAY EVENT DETAILS</div>
+          ${req.additionalRemarks ? `<div style="font-size:0.85rem; color:var(--text-primary);"><strong>Justification:</strong> ${escapeHtml(req.additionalRemarks)}</div>` : ''}
+          ${req.attachmentUrl ? `<div style="font-size:0.85rem; margin-top:0.2rem;"><a href="${escapeHtml(req.attachmentUrl)}" target="_blank" style="color:#60a5fa; text-decoration:underline;">View Attachment / Proof Link ↗</a></div>` : ''}
+          <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.35rem;">
+            Workflow after your consent: Class Advisor → Principal → Warden (Final QR).
+          </div>
+        </div>
+      </div>
+
+      <div class="request-card-actions">
+        <button class="btn-view-details" onclick="openDetailsModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span>View Details</span>
+        </button>
+        <button class="btn-reject" onclick="openRejectModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Reject</span>
+        </button>
+        <button class="btn-approve" onclick="openApproveModal(${req.id})" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 11c0 2-1 3-2 3s-2-1-2-3a4 4 0 0 1 8 0c0 3-1.5 5-2.5 7"></path></svg>
+          <span>Verify Face & Approve Special</span>
+        </button>
+      </div>
+    `;
+
+    DOM.pendingSpecialContainer.appendChild(card);
+  });
+}
+
+/**
+ * Renders ONLY canonical 'one_day_duty' outpasses awaiting parent biometric consent
+ */
+function renderPendingDutyQueue(list) {
+  if (!DOM.pendingDutyContainer) return;
+  DOM.pendingDutyContainer.innerHTML = '';
+
+  const dutyList = (list || []).filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
+
+  if (dutyList.length === 0) {
+    DOM.pendingDutyContainer.innerHTML = `
+      <div class="empty-state-card" style="grid-column: 1 / -1; text-align:center; padding:2.5rem 1.5rem; background:var(--bg-card); border:1px dashed var(--border-color); border-radius:var(--radius-lg);">
+        <div style="width:48px; height:48px; border-radius:50%; background:rgba(56,189,248,0.12); color:#38bdf8; display:inline-flex; align-items:center; justify-content:center; margin-bottom:0.75rem;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 12 8"></polygon></svg>
+        </div>
+        <h4 style="font-family:'Outfit'; font-size:1.1rem; margin-bottom:0.25rem; color:var(--text-primary);">No Pending One-Day Duty Passes</h4>
+        <p style="color:var(--text-secondary); font-size:0.84rem; max-width:400px; margin:0 auto;">
+          Academic and duty pass requests submitted by your ward will appear here for your biometric consent before Class Advisor review.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  dutyList.forEach(req => {
+    const card = document.createElement('div');
+    card.className = 'duty-card';
+    card.id = `parent-req-card-${req.id}`;
+    card.style.borderLeftColor = '#38bdf8';
+    card.style.background = 'rgba(56,189,248,0.02)';
+
+    card.innerHTML = `
+      <div class="duty-card-header">
+        <div>
+          <div class="student-tag-group">
+            <span class="request-code-badge" style="background:rgba(56,189,248,0.2); color:#38bdf8; border-color:rgba(56,189,248,0.4);">${req.requestCode}</span>
+            <span class="event-banner-tag" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid rgba(56,189,248,0.5); font-weight:700;">
+              🎯 One-Day Duty Pass
+            </span>
+            <span class="student-tag">Student: <strong>${escapeHtml(req.studentName)}</strong> (${req.studentRegNo})</span>
+            <span class="student-tag">${req.studentDept} • Room: ${req.studentBlock}-${req.studentRoom}</span>
+          </div>
+          <h3 style="font-family:'Outfit'; font-size:1.2rem; margin-top:0.4rem; color:var(--text-primary);">
+            ${escapeHtml(req.destination)}
+          </h3>
+        </div>
+        <span class="status-badge" style="background:rgba(56,189,248,0.2); color:#38bdf8; border:1px solid #38bdf8; font-weight:700;">
+          Parent Consent Needed
+        </span>
+      </div>
+
+      <div class="request-details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Purpose / Event</span>
+          <span class="detail-value">${escapeHtml(req.eventName || req.purpose)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Event Location</span>
+          <span class="detail-value">${escapeHtml(req.eventLocation || req.destination)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Leaving Schedule</span>
+          <span class="detail-value">${formatDateTime(req.leavingDatetime)}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Expected Return</span>
+          <span class="detail-value">${formatDateTime(req.returnDatetime)}</span>
+        </div>
+        <div class="detail-item" style="grid-column: 1 / -1; background:rgba(56,189,248,0.08); padding:0.6rem 0.8rem; border-radius:6px; border:1px solid rgba(56,189,248,0.25);">
+          <div style="color:#38bdf8; font-weight:700; font-size:0.82rem; margin-bottom:0.25rem;">🎯 ONE-DAY DUTY WORKFLOW</div>
+          ${req.dutyDescription ? `<div style="font-size:0.85rem; color:var(--text-primary);"><strong>Description:</strong> ${escapeHtml(req.dutyDescription)}</div>` : ''}
+          <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.35rem;">
+            Workflow after your consent: Class Advisor → Principal (Final QR). Warden is not involved.
+          </div>
+        </div>
+      </div>
+
+      <div class="request-card-actions">
+        <button class="btn-view-details" onclick="openDetailsModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span>View Details</span>
+        </button>
+        <button class="btn-reject" onclick="openRejectModal(${req.id})">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <span>Reject</span>
+        </button>
+        <button class="btn-approve" onclick="openApproveModal(${req.id})" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 11c0 2-1 3-2 3s-2-1-2-3a4 4 0 0 1 8 0c0 3-1.5 5-2.5 7"></path></svg>
+          <span>Verify Face & Approve Duty</span>
+        </button>
+      </div>
+    `;
+
+    DOM.pendingDutyContainer.appendChild(card);
   });
 }
 
@@ -790,23 +1078,47 @@ function renderRejectedTable(list) {
 async function loadFaceApiModels() {
   if (faceApiModelsLoaded) return true;
   if (typeof faceapi === 'undefined') {
-    console.error('face-api.js library not loaded in document');
+    faceApiLoadError = 'face-api.js library not loaded in document';
+    console.error('[Face-API]', faceApiLoadError);
     return false;
   }
+
+  const MODEL_URL = '/models';
+
   try {
-    const MODEL_URL = '/models';
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-    ]);
-    faceApiModelsLoaded = true;
-    console.log('[Face-API] All 3 neural models loaded successfully.');
-    return true;
+    console.log('[Face-API] Loading SSD MobileNet v1 face detection model from', MODEL_URL);
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    console.log('[Face-API] SSD MobileNet v1 model loaded successfully.');
   } catch (err) {
-    console.error('[Face-API] Model loading failed:', err);
+    faceApiLoadError = 'Failed to load SSD MobileNet v1 model: ' + (err.message || err);
+    console.error('[Face-API]', faceApiLoadError, err);
     return false;
   }
+
+  try {
+    console.log('[Face-API] Loading 68-Point Face Landmark model from', MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    console.log('[Face-API] Face Landmark 68 model loaded successfully.');
+  } catch (err) {
+    faceApiLoadError = 'Failed to load Face Landmark 68 model: ' + (err.message || err);
+    console.error('[Face-API]', faceApiLoadError, err);
+    return false;
+  }
+
+  try {
+    console.log('[Face-API] Loading Face Recognition (128D embedding) model from', MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    console.log('[Face-API] Face Recognition Net model loaded successfully.');
+  } catch (err) {
+    faceApiLoadError = 'Failed to load Face Recognition Net model: ' + (err.message || err);
+    console.error('[Face-API]', faceApiLoadError, err);
+    return false;
+  }
+
+  faceApiModelsLoaded = true;
+  faceApiLoadError = null;
+  console.log('[Face-API] All 3 neural models (SSD MobileNet v1, Landmark 68, Face Recognition Net) loaded successfully.');
+  return true;
 }
 
 /**
@@ -855,37 +1167,43 @@ function stopCamera(stream, videoElement) {
  */
 async function checkParentFaceRegistrationStatus() {
   const token = getAuthToken();
-  if (!token) return { isRegistered: false };
+  if (!token) return { isRegistered: false, faceStatus: 'NOT_REGISTERED' };
 
   try {
     const res = await fetch('/api/parent/face/status', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await res.json();
-    isFaceRegistered = !!(res.ok && data.success && data.faceRegistered);
+    const faceStatus = data.faceStatus || (data.faceRegistered ? 'ACTIVE' : 'NOT_REGISTERED');
+    isFaceRegistered = faceStatus === 'ACTIVE';
 
     if (DOM.heroFaceStatus) {
-      if (isFaceRegistered) {
-        DOM.heroFaceStatus.textContent = 'Enrolled & Verified';
+      if (faceStatus === 'ACTIVE') {
+        DOM.heroFaceStatus.textContent = 'ACTIVE';
         DOM.heroFaceStatus.style.background = 'rgba(16, 185, 129, 0.15)';
         DOM.heroFaceStatus.style.color = '#34d399';
         DOM.heroFaceStatus.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-      } else {
-        DOM.heroFaceStatus.textContent = 'Biometrics Required';
+      } else if (faceStatus === 'REVOKED') {
+        DOM.heroFaceStatus.textContent = 'REVOKED';
         DOM.heroFaceStatus.style.background = 'rgba(239, 68, 68, 0.15)';
         DOM.heroFaceStatus.style.color = '#f87171';
         DOM.heroFaceStatus.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+      } else {
+        DOM.heroFaceStatus.textContent = 'NOT REGISTERED';
+        DOM.heroFaceStatus.style.background = 'rgba(245, 158, 11, 0.15)';
+        DOM.heroFaceStatus.style.color = '#fbbf24';
+        DOM.heroFaceStatus.style.borderColor = 'rgba(245, 158, 11, 0.35)';
       }
     }
 
     if (DOM.heroFaceBtnText) {
-      DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'Update Face Scan' : 'Enroll Face Biometrics';
+      DOM.heroFaceBtnText.textContent = isFaceRegistered ? 'ACTIVE' : (faceStatus === 'REVOKED' ? 'REVOKED' : 'PENDING');
     }
 
-    return { isRegistered: isFaceRegistered, registeredAt: data.registeredAt };
+    return { isRegistered: isFaceRegistered, faceStatus, registeredAt: data.registeredAt };
   } catch (err) {
     console.error('Error checking face status:', err);
-    return { isRegistered: false };
+    return { isRegistered: false, faceStatus: 'NOT_REGISTERED' };
   }
 }
 
@@ -903,7 +1221,7 @@ async function openFaceRegisterModal() {
 
   const loaded = await loadFaceApiModels();
   if (!loaded) {
-    setRegisterBannerState('ERROR', 'Unable to load Face AI models. Check your network or models directory.');
+    setRegisterBannerState('ERROR', faceApiLoadError || 'Unable to load Face AI models. Check your network or models directory.');
     return;
   }
 
@@ -1045,9 +1363,13 @@ async function captureAndRegisterFace() {
       setRegisterBannerState('SUCCESS', 'Face biometrics enrolled successfully! You can now authenticate outpass approvals.');
       showToast('🎉 Face biometrics enrolled successfully!', 'success');
       isFaceRegistered = true;
+      if (currentParent) currentParent.faceStatus = 'ACTIVE';
       await checkParentFaceRegistrationStatus();
-      setTimeout(() => {
+      setTimeout(async () => {
         closeFaceRegisterModal();
+        if (selectedRequestForAction) {
+          await openApproveModal(selectedRequestForAction);
+        }
       }, 1500);
     } else {
       setRegisterBannerState('ERROR', data.message || 'Face enrollment failed. Please try again.');
@@ -1073,7 +1395,25 @@ function setFaceVerificationUiState(state, meta = {}) {
   if (!DOM.faceDecisionBanner) return;
   DOM.faceDecisionBanner.className = 'face-decision-banner';
 
-  if (state === 'NOT_ENROLLED') {
+  if (state === 'REVOKED') {
+    DOM.faceDecisionBanner.classList.add('blocked');
+    DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
+    DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+    DOM.faceDecisionBanner.style.color = '#f87171';
+    if (DOM.faceDecisionTitle) DOM.faceDecisionTitle.textContent = 'Face Registration Revoked';
+    if (DOM.faceDecisionMsg) {
+      DOM.faceDecisionMsg.innerHTML = `
+        <div style="margin-bottom:0.75rem; color:#fca5a5; font-size:0.88rem; line-height:1.4;">
+          Face registration is required before you can approve this outpass. Your previous registration was revoked by the Warden.
+        </div>
+        <button type="button" class="primary-btn" onclick="openFaceRegisterModal()" style="padding:0.5rem 1.1rem; font-size:0.85rem; font-weight:700; background:linear-gradient(135deg, #0d9488 0%, #06b6d4 100%); color:#fff; border:none; border-radius:6px; cursor:pointer;">
+          Start Face Registration
+        </button>
+      `;
+    }
+    if (DOM.faceDecisionIcon) DOM.faceDecisionIcon.textContent = '⚠️';
+    if (DOM.btnTriggerFaceVerify) DOM.btnTriggerFaceVerify.disabled = true;
+  } else if (state === 'NOT_ENROLLED') {
     DOM.faceDecisionBanner.classList.add('blocked');
     DOM.faceDecisionBanner.style.background = 'rgba(239, 68, 68, 0.15)';
     DOM.faceDecisionBanner.style.borderColor = 'rgba(239, 68, 68, 0.35)';
@@ -1240,9 +1580,13 @@ async function openApproveModal(requestId) {
 
   openModal('approveModal');
 
-  // Check enrollment
+  // Check enrollment & revocation status
   const status = await checkParentFaceRegistrationStatus();
-  if (!status.isRegistered) {
+  if (status.faceStatus === 'REVOKED') {
+    setFaceVerificationUiState('REVOKED');
+    return;
+  }
+  if (!status.isRegistered || status.faceStatus === 'NOT_REGISTERED') {
     setFaceVerificationUiState('NOT_ENROLLED');
     return;
   }
@@ -1252,7 +1596,7 @@ async function openApproveModal(requestId) {
   // Load models & start camera
   const loaded = await loadFaceApiModels();
   if (!loaded) {
-    setFaceVerificationUiState('ERROR', { message: 'Failed to load face detection neural models.' });
+    setFaceVerificationUiState('ERROR', { message: faceApiLoadError || 'Failed to load face detection neural models.' });
     return;
   }
 
@@ -1933,7 +2277,33 @@ function openModal(modalId) {
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.remove('active');
-  if (modalId === 'approveModal' || modalId === 'rejectModal') {
+  if (modalId === 'approveModal') {
+    if (verifyDetectionInterval) {
+      clearInterval(verifyDetectionInterval);
+      verifyDetectionInterval = null;
+    }
+    stopCamera(verifyVideoStream, DOM.approveFaceVideo);
+    verifyVideoStream = null;
+    if (DOM.approveFaceCanvas) {
+      const ctx = DOM.approveFaceCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, DOM.approveFaceCanvas.width, DOM.approveFaceCanvas.height);
+    }
+    selectedRequestForAction = null;
+    isFaceVerified = false;
+    activeVerificationToken = null;
+    liveFaceDescriptor = null;
+  } else if (modalId === 'faceRegisterModal') {
+    if (registerDetectionInterval) {
+      clearInterval(registerDetectionInterval);
+      registerDetectionInterval = null;
+    }
+    stopCamera(registerVideoStream, DOM.registerFaceVideo);
+    registerVideoStream = null;
+    if (DOM.registerFaceCanvas) {
+      const ctx = DOM.registerFaceCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, DOM.registerFaceCanvas.width, DOM.registerFaceCanvas.height);
+    }
+  } else if (modalId === 'rejectModal') {
     selectedRequestForAction = null;
   }
 }
@@ -1993,20 +2363,9 @@ function initLogout() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeIcons(savedTheme);
-
-  const themeBtn = document.getElementById('themeToggleBtn');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme') || 'dark';
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('sh_theme', next);
-      updateThemeIcons(next);
-    });
-  }
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
+  updateThemeIcons('dark');
 }
 
 function updateThemeIcons(theme) {
@@ -2022,3 +2381,8 @@ function updateThemeIcons(theme) {
     }
   }
 }
+
+// Global modal triggers for inline onclick handlers
+window.openFaceRegisterModal = openFaceRegisterModal;
+window.closeFaceRegisterModal = closeFaceRegisterModal;
+

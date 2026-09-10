@@ -116,13 +116,23 @@ async function runCaretakerExitTests() {
       source = 'browser_gps';
   `, [studentLogin.data.user.id]);
 
+  const rawVec = new Array(128).fill(0).map((_, i) => Math.sin(i + 1));
+  const norm = Math.sqrt(rawVec.reduce((s, v) => s + v * v, 0));
+  const testFaceVector = rawVec.map(v => Number((v / norm).toFixed(6)));
+
+  await request('/api/parent/face/register', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${parentToken}` },
+    body: { faceDescriptor: testFaceVector }
+  });
+
   async function parentApproveWithGps(outpassId) {
-    const locRes = await request(`/api/parent/outpass/${outpassId}/location-verify`, {
+    const faceRes = await request(`/api/parent/outpass/${outpassId}/face-verify`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${parentToken}` },
-      body: { latitude: 13.0010000, longitude: 80.0010000, accuracy: 15.0 }
+      body: { faceDescriptor: testFaceVector }
     });
-    const token = locRes.data.verificationToken || locRes.data.verification_token;
+    const token = faceRes.data.verificationToken;
     await request(`/api/parent/outpass/${outpassId}/approve`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${parentToken}` },

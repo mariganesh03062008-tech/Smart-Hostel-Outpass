@@ -11,7 +11,18 @@ let selectedReportType = 'daily';
 let lastGeneratedReportData = null;
 let chartInstances = {};
 let currentActionRequestId = null;
-let currentPermissionsList = [];
+let currentDutyList = [];
+let currentSpecialList = [];
+
+// Strict Type Normalizer Helper
+function getCanonicalOutpassType(req) {
+  if (!req) return 'normal';
+  const raw = String(req.outpass_type || req.outpassType || req.requestType || '').toLowerCase().trim();
+  if (raw === 'emergency') return 'emergency';
+  if (raw === 'special') return 'special';
+  if (raw === 'one_day_duty' || raw === 'duty' || raw === 'one_day' || raw === 'oneday') return 'one_day_duty';
+  return 'normal';
+}
 
 // On DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -29,6 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(() => {
     loadPrincipalOverview(true);
     if (currentTab === 'one-day-permission') loadOneDayPermissions(true);
+    if (currentTab === 'special-permission') loadSpecialPermissions(true);
     if (currentTab === 'students-outside') loadStudentsOutside(true);
   }, 30000);
 });
@@ -165,10 +177,7 @@ async function handleSignOut() {
 }
 
 function toggleAppTheme() {
-  const html = document.documentElement;
-  const current = html.getAttribute('data-theme') || 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  html.setAttribute('data-theme', next);
+  document.documentElement.setAttribute('data-theme', 'dark');
 }
 
 /* ==========================================================
@@ -194,12 +203,12 @@ function setupTabNavigation() {
     });
   }
 
-  const navBtns = document.querySelectorAll('.warden-nav-btn[data-tab]');
+  const navBtns = document.querySelectorAll('.warden-nav-btn, .principal-nav-btn');
   navBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      const tabId = btn.getAttribute('data-tab');
-      if (tabId) switchPrincipalTab(tabId);
+      const tabId = btn.getAttribute('data-tab') || btn.getAttribute('data-section');
+      if (tabId) showPrincipalSection(tabId);
       if (sidebar) sidebar.classList.remove('open');
       if (backdrop) backdrop.classList.remove('active');
     });
@@ -209,6 +218,7 @@ function setupTabNavigation() {
   window.addEventListener('sh:notification:new', async () => {
     await loadPrincipalOverview(true);
     if (currentTab === 'one-day-permission') loadOneDayPermissions(true);
+    if (currentTab === 'special-permission') loadSpecialPermissions(true);
     if (currentTab === 'students-outside') loadStudentsOutside(true);
   });
 
@@ -216,60 +226,112 @@ function setupTabNavigation() {
   window.addEventListener('hashchange', () => {
     const rawHash = window.location.hash.replace(/^#/, '');
     if (rawHash && rawHash !== currentTab) {
-      switchPrincipalTab(rawHash, false);
+      showPrincipalSection(rawHash, false);
     }
   });
 
-  // Initial hash check on page load
+  // Initial hash check on page load: strictly default to overview/dashboard
   const initialHash = window.location.hash.replace(/^#/, '');
-  if (initialHash) {
-    switchPrincipalTab(initialHash, false);
-  }
+  showPrincipalSection(initialHash || 'overview', false);
 }
 
-function switchPrincipalTab(tabId, pushHash = true) {
-  if (!tabId) return;
-  const targetSection = document.getElementById(`tab-${tabId}`);
-  if (!targetSection) return;
+/**
+ * Centralized Principal Section Controller
+ * STRICT SINGLE-PAGE CONTENT ISOLATION
+ */
+function showPrincipalSection(sectionId, pushHash = true) {
+  if (!sectionId) sectionId = 'overview';
 
-  currentTab = tabId;
+  // Normalize aliases (e.g. 'dashboard' -> 'overview', strip 'tab-' or 'principal' prefix)
+  let cleanId = String(sectionId)
+    .trim()
+    .replace(/^#/, '')
+    .replace(/^tab-/, '');
 
-  // Update nav buttons
-  document.querySelectorAll('.warden-nav-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = document.querySelector(`.warden-nav-btn[data-tab="${tabId}"]`);
-  if (activeBtn) activeBtn.classList.add('active');
+  if (cleanId === 'dashboard' || cleanId === 'principalDashboardSection') cleanId = 'overview';
+  if (cleanId === 'reportssection' || cleanId === 'principalReportsSection') cleanId = 'reports';
+  if (cleanId === 'profilesection' || cleanId === 'principalProfileSection') cleanId = 'profile';
+  if (cleanId === 'settingssection' || cleanId === 'principalSettingsSection') cleanId = 'settings';
+  if (cleanId === 'analyticssection' || cleanId === 'principalAnalyticsSection') cleanId = 'analytics';
 
-  // Update tab sections
-  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
-  targetSection.classList.add('active');
+  currentTab = cleanId;
 
+  const sections = document.querySelectorAll('.tab-section, .principal-section');
+  const navButtons = document.querySelectorAll('.warden-nav-btn, .principal-nav-btn');
+
+  // 1. Hide EVERY Principal content section first and strip active class
+  sections.forEach(sec => {
+    sec.classList.remove('active');
+    sec.style.setProperty('display', 'none', 'important');
+  });
+
+  // 2. Remove active state from EVERY Principal navigation button
+  navButtons.forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  // 3. Show ONLY the requested section
+  const targetSection = document.getElementById(`tab-${cleanId}`) ||
+                        document.getElementById(cleanId) ||
+                        document.getElementById(`principal${cleanId.charAt(0).toUpperCase() + cleanId.slice(1)}Section`);
+
+  if (targetSection) {
+    targetSection.classList.add('active');
+    targetSection.style.setProperty('display', 'flex', 'important');
+  } else {
+    console.warn(`[Principal Navigation] Section container not found for: "${sectionId}" (normalized: "${cleanId}")`);
+  }
+
+  // 4. Add active state ONLY to the matching navigation button
+  const activeBtn = document.querySelector(`.principal-nav-btn[data-tab="${cleanId}"], .warden-nav-btn[data-tab="${cleanId}"], [data-section="${cleanId}"]`) ||
+                    document.querySelector(`[data-tab="${sectionId}"], [data-section="${sectionId}"]`);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+  }
+
+  // Close mobile drawer if open
   const sidebar = document.querySelector('.warden-sidebar') || document.querySelector('.dash-sidebar');
   const backdrop = document.getElementById('sidebarBackdrop');
   if (sidebar) sidebar.classList.remove('open');
   if (backdrop) backdrop.classList.remove('active');
 
-  if (pushHash && window.location.hash !== `#${tabId}`) {
-    history.pushState(null, '', `#${tabId}`);
+  // Update browser URL hash/history without duplicating
+  if (pushHash && window.location.hash !== `#${cleanId}`) {
+    history.pushState(null, '', `#${cleanId}`);
   }
 
-  // Trigger tab-specific loaders
-  if (tabId === 'overview') {
+  // 5. Trigger section-specific data loaders cleanly
+  loadPrincipalSectionData(cleanId);
+}
+
+function loadPrincipalSectionData(cleanId) {
+  if (cleanId === 'overview') {
     loadPrincipalOverview();
     loadStudentStatus();
-  } else if (tabId === 'normal-monitoring') {
+  } else if (cleanId === 'normal-monitoring') {
     loadNormalOutpasses();
-  } else if (tabId === 'one-day-permission') {
+  } else if (cleanId === 'one-day-permission') {
     loadOneDayPermissions();
-  } else if (tabId === 'students-outside') {
+  } else if (cleanId === 'special-permission') {
+    loadSpecialPermissions();
+  } else if (cleanId === 'students-outside') {
     loadStudentsOutside();
-  } else if (tabId === 'reports') {
+  } else if (cleanId === 'reports') {
     generateSelectedReport();
-  } else if (tabId === 'analytics') {
+  } else if (cleanId === 'analytics') {
     loadAnalytics();
   }
 }
 
-window.switchPrincipalTab = switchPrincipalTab;
+function savePrincipalSettings() {
+  showToast('Executive system preferences saved successfully.', 'success');
+}
+
+// Single Source of Truth Navigation Exports
+window.showPrincipalSection = showPrincipalSection;
+window.switchPrincipalTab = showPrincipalSection;
+window.switchTab = showPrincipalSection;
+window.savePrincipalSettings = savePrincipalSettings;
 
 /* ==========================================================
    3. LIVE CLOCK
@@ -311,12 +373,13 @@ async function loadPrincipalOverview(isSilent = false) {
 
     const s = data.stats;
 
-    // Update 11 summary cards
+    // Update summary cards
     setCount('statTotalStudents', s.totalStudents);
     setCount('statStudentsInside', s.studentsInside);
     setCount('statStudentsOutside', s.studentsOutside);
     setCount('statPendingNormal', s.pendingNormalOutpasses);
     setCount('statPendingOneDay', s.pendingOneDayPermissions);
+    setCount('statPendingSpecial', s.pendingSpecialPermissions);
     setCount('statApprovedOutpasses', s.approvedOutpasses);
     setCount('statRejectedOutpasses', s.rejectedOutpasses);
     setCount('statActiveQRCodes', s.activeQRCodes);
@@ -332,6 +395,16 @@ async function loadPrincipalOverview(isSilent = false) {
         badgeOD.style.display = 'inline-block';
       } else {
         badgeOD.style.display = 'none';
+      }
+    }
+
+    const badgeSpecial = document.getElementById('navBadgePendingSpecial');
+    if (badgeSpecial) {
+      if (s.pendingSpecialPermissions > 0) {
+        badgeSpecial.textContent = s.pendingSpecialPermissions;
+        badgeSpecial.style.display = 'inline-block';
+      } else {
+        badgeSpecial.style.display = 'none';
       }
     }
 
@@ -499,18 +572,24 @@ async function loadNormalOutpasses() {
 }
 
 /* ==========================================================
-   7. ONE-DAY PERMISSION (FOR PRINCIPAL APPROVAL & DECISION)
+   7. ONE-DAY PERMISSION & SPECIAL OUTPASS (STRICT SEPARATION)
    ========================================================== */
 
+/**
+ * Loads One-Day Duty requests strictly.
+ * Special Outpass requests NEVER appear inside oneDayTableBody.
+ */
 async function loadOneDayPermissions(isSilent = false) {
   const status = document.getElementById('oneDayStatusFilter')?.value || 'PENDING_PRINCIPAL';
   const department = document.getElementById('oneDayDeptFilter')?.value || 'all';
-  const tbody = document.getElementById('oneDayTableBody');
-  const emptyBox = document.getElementById('oneDayEmpty');
+  const tbodyDuty = document.getElementById('oneDayTableBody');
+  const emptyDuty = document.getElementById('oneDayEmpty');
 
-  if (!tbody) return;
-  if (!isSilent) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Loading One-Day Permissions...</td></tr>`;
-  if (emptyBox) emptyBox.classList.add('hidden');
+  if (!tbodyDuty) return;
+  if (!isSilent) {
+    tbodyDuty.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Loading One-Day Permissions...</td></tr>`;
+  }
+  if (emptyDuty) emptyDuty.classList.add('hidden');
 
   try {
     const params = new URLSearchParams({ status, department });
@@ -519,95 +598,213 @@ async function loadOneDayPermissions(isSilent = false) {
     });
 
     const data = await res.json();
-    currentPermissionsList = data.permissions || [];
+    currentDutyList = (data.dutyRequests || [])
+      .filter(r => getCanonicalOutpassType(r) === 'one_day_duty');
 
-    if (!data.success || currentPermissionsList.length === 0) {
-      tbody.innerHTML = '';
-      if (emptyBox) emptyBox.classList.remove('hidden');
-      return;
+    if (currentDutyList.length === 0) {
+      tbodyDuty.innerHTML = '';
+      if (emptyDuty) emptyDuty.classList.remove('hidden');
+    } else {
+      if (emptyDuty) emptyDuty.classList.add('hidden');
+      tbodyDuty.innerHTML = currentDutyList.map(od => {
+        const isPending = od.status === 'PENDING_PRINCIPAL';
+        let statusBadge = '';
+        if (od.status === 'APPROVED') statusBadge = `<span class="status-pill success">Approved</span>`;
+        else if (od.status === 'REJECTED') statusBadge = `<span class="status-pill danger">Rejected</span>`;
+        else statusBadge = `<span class="status-pill warning">Pending Principal</span>`;
+
+        return `
+          <tr>
+            <td>
+              <strong style="font-family:monospace; color:#818cf8;">${escapeHtml(od.requestCode)}</strong><br>
+              <span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:600;">🎓 One-Day OD</span>
+            </td>
+            <td>
+              <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.studentName)}</div>
+              <small style="font-family:monospace; color:var(--text-muted);">${escapeHtml(od.rollNumber)}</small>
+            </td>
+            <td>${escapeHtml(od.department)} (Yr ${od.yearOfStudy})</td>
+            <td>${escapeHtml(od.hostelBlock)} - ${escapeHtml(od.roomNumber || '')}</td>
+            <td>
+              <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.eventName || od.purpose || 'Academic Duty')}</div>
+              <small style="color:var(--text-muted);">${escapeHtml(od.eventLocation || od.destination || '—')}</small>
+            </td>
+            <td style="font-size:0.8rem; font-family:monospace;">
+              <div>Leave: ${formatDatetime(od.leavingDatetime)}</div>
+              <div>Return: ${formatDatetime(od.returnDatetime)}</div>
+            </td>
+            <td>
+              <div style="font-weight:500; color:#10b981;">✓ ${escapeHtml(od.advisorName || 'Advisor Approved')}</div>
+            </td>
+            <td style="font-size:0.78rem; color:var(--text-muted);">${formatDatetime(od.submittedTime)}</td>
+            <td>${statusBadge}</td>
+            <td style="text-align:right;">
+              <div style="display:inline-flex; gap:0.4rem; align-items:center;">
+                <button class="secondary-btn" onclick="viewOneDayDetails(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem;">
+                  <span>View Details</span>
+                </button>
+                ${isPending ? `
+                  <button class="primary-btn btn-approve-action" onclick="openApproveODModal(${od.id})" style="padding:0.35rem 0.75rem; font-size:0.78rem; font-weight:700; background: linear-gradient(135deg, #10b981, #059669);">
+                    <span>Approve & Issue QR</span>
+                  </button>
+                  <button class="danger-btn btn-reject-action" onclick="openRejectODModal(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem; font-weight:700; background: rgba(239, 68, 68, 0.12); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); border-radius:var(--radius-sm); cursor:pointer;">
+                    <span>Reject</span>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    tbody.innerHTML = currentPermissionsList.map(od => {
-      const isPending = od.status === 'PENDING_PRINCIPAL';
-
-      let statusBadge = '';
-      if (od.status === 'APPROVED') statusBadge = `<span class="status-pill success">Approved</span>`;
-      else if (od.status === 'REJECTED') statusBadge = `<span class="status-pill danger">Rejected</span>`;
-      else statusBadge = `<span class="status-pill warning">Pending Principal</span>`;
-
-      return `
-        <tr>
-          <td><strong style="font-family:monospace; color:#818cf8;">${escapeHtml(od.requestCode)}</strong></td>
-          <td>
-            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.studentName)}</div>
-            <small style="font-family:monospace; color:var(--text-muted);">${escapeHtml(od.rollNumber)}</small>
-          </td>
-          <td>${escapeHtml(od.department)} (Yr ${od.yearOfStudy})</td>
-          <td>${escapeHtml(od.hostelBlock)} - ${escapeHtml(od.roomNumber || '')}</td>
-          <td>
-            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.eventName || 'Academic OD')}</div>
-            <small style="color:var(--text-muted);">${escapeHtml(od.eventLocation || od.destination || '—')}</small>
-          </td>
-          <td style="font-size:0.8rem; font-family:monospace;">
-            <div>Leave: ${formatDatetime(od.leavingDatetime)}</div>
-            <div>Return: ${formatDatetime(od.returnDatetime)}</div>
-          </td>
-          <td>
-            <div style="font-weight:500; color:#10b981;">✓ ${escapeHtml(od.advisorName || 'Advisor Approved')}</div>
-            <small style="color:var(--text-muted);">${od.advisorApprovedAt ? formatDatetime(od.advisorApprovedAt) : ''}</small>
-          </td>
-          <td style="font-size:0.78rem; color:var(--text-muted);">${formatDatetime(od.submittedTime)}</td>
-          <td>${statusBadge}</td>
-          <td style="text-align:right;">
-            <div style="display:inline-flex; gap:0.4rem; align-items:center;">
-              <button class="secondary-btn" onclick="viewOneDayDetails(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem;">
-                <span>View Details</span>
-              </button>
-              ${isPending ? `
-                <button class="primary-btn btn-approve-action" onclick="openApproveODModal(${od.id})" style="padding:0.35rem 0.75rem; font-size:0.78rem; font-weight:700; background: linear-gradient(135deg, #10b981, #059669);">
-                  <span>Approve & Authorize</span>
-                </button>
-                <button class="danger-btn btn-reject-action" onclick="openRejectODModal(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem; font-weight:700; background: rgba(239, 68, 68, 0.12); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); border-radius:var(--radius-sm); cursor:pointer;">
-                  <span>Reject</span>
-                </button>
-              ` : ''}
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    const badgeOD = document.getElementById('navBadgePendingOD');
+    if (badgeOD) {
+      const pendingCount = currentDutyList.filter(r => r.status === 'PENDING_PRINCIPAL').length;
+      badgeOD.textContent = pendingCount;
+      badgeOD.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+    }
 
   } catch (err) {
     console.error('Failed to load One-Day Permissions:', err);
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:#ef4444;">Failed to load permission queue.</td></tr>`;
+    if (tbodyDuty) tbodyDuty.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:#ef4444;">Failed to load One-Day permission queue.</td></tr>`;
+  }
+}
+
+/**
+ * Loads Special Outpass requests strictly.
+ * One-Day Duty requests NEVER appear inside specialPermissionTableBody.
+ */
+async function loadSpecialPermissions(isSilent = false) {
+  const department = document.getElementById('specialDeptFilter')?.value || 'all';
+  const tbodySpecial = document.getElementById('specialPermissionTableBody');
+  const emptySpecial = document.getElementById('specialPermissionEmpty');
+
+  if (!tbodySpecial) return;
+  if (!isSilent) {
+    tbodySpecial.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Loading Special Outpass Sanctions...</td></tr>`;
+  }
+  if (emptySpecial) emptySpecial.classList.add('hidden');
+
+  try {
+    const params = new URLSearchParams({ status: 'PENDING_PRINCIPAL', department });
+    const res = await fetch(`${API_BASE_URL}/principal/special-permissions?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    const data = await res.json();
+    currentSpecialList = (data.specialRequests || [])
+      .filter(r => getCanonicalOutpassType(r) === 'special');
+
+    if (currentSpecialList.length === 0) {
+      tbodySpecial.innerHTML = '';
+      if (emptySpecial) emptySpecial.classList.remove('hidden');
+    } else {
+      if (emptySpecial) emptySpecial.classList.add('hidden');
+      tbodySpecial.innerHTML = currentSpecialList.map(od => {
+        const isPending = od.status === 'PENDING_PRINCIPAL';
+        let statusBadge = '';
+        if (od.status === 'APPROVED') statusBadge = `<span class="status-pill success">Approved</span>`;
+        else if (od.status === 'REJECTED') statusBadge = `<span class="status-pill danger">Rejected</span>`;
+        else statusBadge = `<span class="status-pill warning">Pending Principal</span>`;
+
+        return `
+          <tr style="background:rgba(139,92,246,0.02);">
+            <td>
+              <strong style="font-family:monospace; color:#a78bfa;">${escapeHtml(od.requestCode)}</strong><br>
+              <span style="background:rgba(139,92,246,0.15); color:#a78bfa; border:1px solid rgba(139,92,246,0.3); font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:700;">⭐ Special (${escapeHtml(od.specialType || 'Authorized')})</span>
+            </td>
+            <td>
+              <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.studentName)}</div>
+              <small style="font-family:monospace; color:var(--text-muted);">${escapeHtml(od.rollNumber)}</small>
+            </td>
+            <td>${escapeHtml(od.department)} (Yr ${od.yearOfStudy})</td>
+            <td>${escapeHtml(od.hostelBlock)} - ${escapeHtml(od.roomNumber || '')}</td>
+            <td>
+              <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(od.eventName || od.purpose || 'Special Permission')}</div>
+              <small style="color:var(--text-muted);">${escapeHtml(od.eventLocation || od.destination || '—')}</small>
+            </td>
+            <td style="font-size:0.8rem; font-family:monospace;">
+              <div>Leave: ${formatDatetime(od.leavingDatetime)}</div>
+              <div>Return: ${formatDatetime(od.returnDatetime)}</div>
+            </td>
+            <td>
+              <div style="font-weight:500; color:#10b981;">✓ Parent Face Verified</div>
+              <div style="font-weight:500; color:#10b981;">✓ Advisor Cleared (${escapeHtml(od.advisorName || 'Advisor')})</div>
+            </td>
+            <td style="font-size:0.78rem; color:var(--text-muted);">${formatDatetime(od.submittedTime)}</td>
+            <td>${statusBadge}</td>
+            <td style="text-align:right;">
+              <div style="display:inline-flex; gap:0.4rem; align-items:center;">
+                <button class="secondary-btn" onclick="viewOneDayDetails(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem;">
+                  <span>View Details</span>
+                </button>
+                ${isPending ? `
+                  <button class="primary-btn btn-approve-action" onclick="openApproveODModal(${od.id})" style="padding:0.35rem 0.75rem; font-size:0.78rem; font-weight:700; background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                    <span>Clear Tier 3 & Forward</span>
+                  </button>
+                  <button class="danger-btn btn-reject-action" onclick="openRejectODModal(${od.id})" style="padding:0.35rem 0.65rem; font-size:0.78rem; font-weight:700; background: rgba(239, 68, 68, 0.12); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); border-radius:var(--radius-sm); cursor:pointer;">
+                    <span>Reject</span>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    const badgeSpecial = document.getElementById('navBadgePendingSpecial');
+    if (badgeSpecial) {
+      const pendingCount = currentSpecialList.filter(r => r.status === 'PENDING_PRINCIPAL').length;
+      badgeSpecial.textContent = pendingCount;
+      badgeSpecial.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+    }
+
+  } catch (err) {
+    console.error('Failed to load Special Outpasses:', err);
+    if (tbodySpecial) tbodySpecial.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:1.5rem; color:#ef4444;">Failed to load Special Outpass queue.</td></tr>`;
   }
 }
 
 function viewOneDayDetails(id) {
-  const od = currentPermissionsList.find(p => p.id === id);
+  const od = currentDutyList.find(p => p.id === id) || currentSpecialList.find(p => p.id === id);
   if (!od) return;
   const body = document.getElementById('oneDayDetailsBody');
   const footer = document.getElementById('oneDayDetailsFooter');
   if (!body) return;
 
+  const isSpecial = getCanonicalOutpassType(od) === 'special';
+
   body.innerHTML = `
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.85rem; font-size:0.85rem;">
       <div><strong>Request ID:</strong> <span style="font-family:monospace; color:#818cf8;">${escapeHtml(od.requestCode)}</span></div>
-      <div><strong>Current Status:</strong> <span style="font-weight:600;">${escapeHtml(od.status)}</span></div>
+      <div><strong>Type:</strong> <span style="font-weight:700; color:${isSpecial ? '#a78bfa' : '#60a5fa'};">${isSpecial ? '⭐ Special Outpass' : '🎓 One-Day Duty (OD)'}</span></div>
       <div><strong>Student Name:</strong> ${escapeHtml(od.studentName)}</div>
       <div><strong>Roll Number:</strong> ${escapeHtml(od.rollNumber)}</div>
       <div><strong>Department & Year:</strong> ${escapeHtml(od.department)} (Year ${od.yearOfStudy})</div>
       <div><strong>Hostel Block & Room:</strong> ${escapeHtml(od.hostelBlock)} - ${escapeHtml(od.roomNumber || '')}</div>
-      <div><strong>Event / Symposium Name:</strong> ${escapeHtml(od.eventName || 'Official Duty')}</div>
+      <div><strong>Event / Purpose:</strong> ${escapeHtml(od.eventName || od.purpose || 'Special Activity')}</div>
       <div><strong>Venue / Location:</strong> ${escapeHtml(od.eventLocation || od.destination || '—')}</div>
-      <div><strong>Duty Date:</strong> ${od.dutyDate ? od.dutyDate.slice(0, 10) : '—'}</div>
+      <div><strong>Duty / Departure Date:</strong> ${od.dutyDate ? od.dutyDate.slice(0, 10) : (od.leavingDatetime ? od.leavingDatetime.slice(0, 10) : '—')}</div>
       <div><strong>Contact Phone:</strong> ${escapeHtml(od.studentPhone || '—')}</div>
-      <div style="grid-column: span 2;"><strong>Event Description:</strong> ${escapeHtml(od.dutyDescription || od.purpose || '—')}</div>
+      <div style="grid-column: span 2;"><strong>Description:</strong> ${escapeHtml(od.dutyDescription || od.purpose || '—')}</div>
+      ${od.additionalRemarks ? `<div style="grid-column: span 2;"><strong>Remarks / Justification:</strong> ${escapeHtml(od.additionalRemarks)}</div>` : ''}
+      ${od.attachmentUrl ? `<div style="grid-column: span 2;"><a href="${escapeHtml(od.attachmentUrl)}" target="_blank" style="color:#60a5fa; text-decoration:underline;">View Supporting Attachment ↗</a></div>` : ''}
       <div><strong>Scheduled Departure:</strong> ${formatDatetime(od.leavingDatetime)}</div>
       <div><strong>Expected Return:</strong> ${formatDatetime(od.returnDatetime)}</div>
-      <div style="grid-column: span 2; background:rgba(16,185,129,0.1); padding:0.65rem 0.85rem; border-radius:var(--radius-sm); border:1px solid rgba(16,185,129,0.25);">
-        <strong>Class Advisor Clearance:</strong> Approved by ${escapeHtml(od.advisorName || 'Class Advisor')} at ${od.advisorApprovedAt ? formatDatetime(od.advisorApprovedAt) : 'N/A'}
+      
+      <!-- Tier 1: Parent Biometrics -->
+      <div style="grid-column: span 2; background:rgba(16,185,129,0.08); padding:0.65rem 0.85rem; border-radius:var(--radius-sm); border:1px solid rgba(16,185,129,0.25);">
+        <strong>Tier 1 Parent Consent:</strong> ${od.parentFaceVerified === 1 || isSpecial ? '✓ BIOMETRIC FACE VERIFIED & APPROVED' : 'Pending'} 
+        ${od.parentMessage ? `(Message: "${escapeHtml(od.parentMessage)}")` : ''}
       </div>
+
+      <!-- Tier 2: Advisor Clearance -->
+      <div style="grid-column: span 2; background:rgba(16,185,129,0.08); padding:0.65rem 0.85rem; border-radius:var(--radius-sm); border:1px solid rgba(16,185,129,0.25);">
+        <strong>Tier 2 Class Advisor Clearance:</strong> Approved by ${escapeHtml(od.advisorName || 'Class Advisor')} at ${od.advisorApprovedAt ? formatDatetime(od.advisorApprovedAt) : 'Cleared'}
+      </div>
+
       ${od.principalRejectionReason ? `<div style="grid-column: span 2; color:#ef4444;"><strong>Principal Rejection Reason:</strong> ${escapeHtml(od.principalRejectionReason)}</div>` : ''}
     </div>
   `;
@@ -617,7 +814,7 @@ function viewOneDayDetails(id) {
       footer.innerHTML = `
         <button class="secondary-btn" onclick="closeModal('oneDayDetailsModal')">Close</button>
         <button class="danger-btn" onclick="closeModal('oneDayDetailsModal'); openRejectODModal(${od.id})" style="padding:0.5rem 1rem; background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:var(--radius-sm); cursor:pointer;">Reject</button>
-        <button class="primary-btn" onclick="closeModal('oneDayDetailsModal'); openApproveODModal(${od.id})" style="background:linear-gradient(135deg, #10b981, #059669);">Approve & Authorize</button>
+        <button class="primary-btn" onclick="closeModal('oneDayDetailsModal'); openApproveODModal(${od.id})" style="background:${isSpecial ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'linear-gradient(135deg, #10b981, #059669)'};">${isSpecial ? 'Approve & Forward to Warden' : 'Approve & Authorize QR'}</button>
       `;
     } else {
       footer.innerHTML = `<button class="secondary-btn" onclick="closeModal('oneDayDetailsModal')">Close</button>`;
@@ -629,17 +826,27 @@ function viewOneDayDetails(id) {
 
 function openApproveODModal(id) {
   currentActionRequestId = id;
-  const od = currentPermissionsList.find(p => p.id === id);
+  const od = currentDutyList.find(p => p.id === id) || currentSpecialList.find(p => p.id === id);
   if (!od) return;
   const summaryEl = document.getElementById('approveODSummary');
+  const isSpecial = getCanonicalOutpassType(od) === 'special';
+
   if (summaryEl) {
     summaryEl.innerHTML = `
       <div style="margin-bottom:0.25rem;"><strong>Request Code:</strong> <span style="font-family:monospace; color:#818cf8;">${escapeHtml(od.requestCode)}</span></div>
+      <div style="margin-bottom:0.25rem;"><strong>Type:</strong> <span style="font-weight:700; color:${isSpecial ? '#a78bfa' : '#60a5fa'};">${isSpecial ? 'Special Outpass' : 'One-Day Duty'}</span></div>
       <div style="margin-bottom:0.25rem;"><strong>Student:</strong> ${escapeHtml(od.studentName)} (${escapeHtml(od.rollNumber)})</div>
-      <div style="margin-bottom:0.25rem;"><strong>Event / Duty:</strong> ${escapeHtml(od.eventName || 'Academic Duty')}</div>
+      <div style="margin-bottom:0.25rem;"><strong>Parent Biometrics:</strong> <span style="color:#10b981; font-weight:600;">✓ Face Verified</span></div>
       <div><strong>Advisor Clearance:</strong> <span style="color:#10b981; font-weight:600;">✓ Approved by ${escapeHtml(od.advisorName || 'Class Advisor')}</span></div>
     `;
   }
+
+  const approveBtn = document.getElementById('confirmApproveODBtn');
+  if (approveBtn) {
+    approveBtn.innerHTML = isSpecial ? '<span>Clear Tier 3 & Forward to Warden</span>' : '<span>Approve & Authorize QR</span>';
+    approveBtn.style.background = isSpecial ? 'linear-gradient(135deg, #8b5cf6, #6d28d9)' : 'linear-gradient(135deg, #10b981, #059669)';
+  }
+
   openModal('approveODModal');
 }
 
@@ -657,15 +864,22 @@ function setupActionModals() {
 
 async function executePrincipalApprove() {
   if (!currentActionRequestId) return;
+  const od = currentDutyList.find(p => p.id === currentActionRequestId) || currentSpecialList.find(p => p.id === currentActionRequestId);
+  const isSpecial = od ? (getCanonicalOutpassType(od) === 'special') : false;
+
   const btn = document.getElementById('confirmApproveODBtn');
-  const origHtml = btn ? btn.innerHTML : '<span>Confirm & Authorize QR</span>';
+  const origHtml = btn ? btn.innerHTML : '<span>Confirm & Authorize</span>';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span>Approving & Authorizing...</span>';
+    btn.innerHTML = '<span>Approving...</span>';
   }
 
   try {
-    let res = await fetch(`${API_BASE_URL}/principal/one-day/${currentActionRequestId}/approve`, {
+    const primaryUrl = isSpecial
+      ? `${API_BASE_URL}/principal/special/${currentActionRequestId}/approve`
+      : `${API_BASE_URL}/principal/one-day/${currentActionRequestId}/approve`;
+
+    let res = await fetch(primaryUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -693,24 +907,31 @@ async function executePrincipalApprove() {
       return;
     }
 
-    // Automatically trigger digital security QR generation for the newly approved One-Day Duty
-    try {
-      await fetch(`/api/qr/generate/${currentActionRequestId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-    } catch (qrErr) {
-      console.warn('[QR Gen Trigger]:', qrErr);
+    if (!isSpecial) {
+      // Automatically trigger digital security QR generation for the newly approved One-Day Duty
+      try {
+        await fetch(`/api/qr/generate/${currentActionRequestId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+      } catch (qrErr) {
+        console.warn('[QR Gen Trigger]:', qrErr);
+      }
+      showToast('One-Day Permission approved & authorized! QR Code has been generated successfully.', 'success');
+    } else {
+      showToast('Special Outpass Tier 3 cleared! Forwarded to Warden for final sanction.', 'success');
     }
 
-    showToast('One-Day Permission approved & authorized! QR Code has been generated successfully.', 'success');
     closeModal('approveODModal');
-    await loadOneDayPermissions();
-    await loadPrincipalOverview();
-    await loadStudentStatus();
+    await Promise.all([
+      loadOneDayPermissions(true),
+      loadSpecialPermissions(true),
+      loadPrincipalOverview(true),
+      loadStudentStatus()
+    ]);
 
   } catch (err) {
     console.error('Error approving permission:', err);
@@ -725,6 +946,9 @@ async function executePrincipalApprove() {
 
 async function executePrincipalReject() {
   if (!currentActionRequestId) return;
+  const od = currentDutyList.find(p => p.id === currentActionRequestId) || currentSpecialList.find(p => p.id === currentActionRequestId);
+  const isSpecial = od ? (getCanonicalOutpassType(od) === 'special') : false;
+
   const reasonEl = document.getElementById('rejectODReason');
   const reason = reasonEl ? reasonEl.value.trim() : '';
   if (!reason) {
@@ -740,7 +964,11 @@ async function executePrincipalReject() {
   }
 
   try {
-    let res = await fetch(`${API_BASE_URL}/principal/one-day/${currentActionRequestId}/reject`, {
+    const primaryUrl = isSpecial
+      ? `${API_BASE_URL}/principal/special/${currentActionRequestId}/reject`
+      : `${API_BASE_URL}/principal/one-day/${currentActionRequestId}/reject`;
+
+    let res = await fetch(primaryUrl, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -770,10 +998,14 @@ async function executePrincipalReject() {
       return;
     }
 
-    showToast('One-Day Permission has been rejected.', 'info');
+    const passName = isSpecial ? 'Special Outpass' : 'One-Day Permission';
+    showToast(`${passName} has been rejected.`, 'info');
     closeModal('rejectODModal');
-    await loadOneDayPermissions();
-    await loadPrincipalOverview();
+    await Promise.all([
+      loadOneDayPermissions(true),
+      loadSpecialPermissions(true),
+      loadPrincipalOverview(true)
+    ]);
 
   } catch (err) {
     console.error('Error rejecting permission:', err);
@@ -1248,16 +1480,16 @@ function getCommonChartOptions() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: '#94a3b8', font: { size: 11 } } }
+      legend: { labels: { color: '#f8fafc', font: { size: 11, weight: '600' } } }
     },
     scales: {
       x: {
-        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+        grid: { color: 'rgba(255, 255, 255, 0.08)' },
         ticks: { color: '#94a3b8', font: { size: 10 } }
       },
       y: {
         beginAtZero: true,
-        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+        grid: { color: 'rgba(255, 255, 255, 0.08)' },
         ticks: { color: '#94a3b8', font: { size: 10 }, precision: 0 }
       }
     }

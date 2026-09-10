@@ -96,7 +96,7 @@ exports.login = async (req, res, next) => {
       }
     } else if (role === 'parent') {
       const [rows] = await pool.query(`
-        SELECT id, father_name, mother_name, primary_phone, secondary_phone, email, address, password_hash
+        SELECT id, father_name, mother_name, primary_phone, secondary_phone, email, address, password_hash, profile_completed, face_registered, face_status, face_registered_at, face_revoked_at
         FROM parents
         WHERE (primary_phone = ? OR email = ?)
         LIMIT 1
@@ -110,7 +110,10 @@ exports.login = async (req, res, next) => {
         extraDetails = {
           phone: user.primary_phone,
           secondaryPhone: user.secondary_phone,
-          address: user.address
+          address: user.address,
+          profileCompleted: Boolean(user.profile_completed),
+          faceRegistered: Boolean(user.face_registered),
+          faceStatus: user.face_status || (user.face_registered ? 'ACTIVE' : 'NOT_REGISTERED')
         };
       }
     } else {
@@ -244,7 +247,7 @@ exports.getMe = async (req, res, next) => {
       user = rows[0];
     } else if (role === 'parent') {
       const [rows] = await pool.query(`
-        SELECT id, father_name, mother_name, primary_phone, secondary_phone, email, address, created_at
+        SELECT id, father_name, mother_name, primary_phone, secondary_phone, email, address, relationship, profile_completed, face_registered, face_status, face_registered_at, face_revoked_at, created_at
         FROM parents
         WHERE id = ?
       `, [id]);
@@ -265,14 +268,24 @@ exports.getMe = async (req, res, next) => {
       });
     }
 
-    const isProfileCompleted = role === 'student' ? Boolean(user.profile_completed) : true;
+    const isProfileCompleted = role === 'student' || role === 'parent' 
+      ? Boolean(user.profile_completed) 
+      : true;
+
+    const resolvedFaceStatus = role === 'parent'
+      ? (user.face_status || (user.face_registered ? 'ACTIVE' : 'NOT_REGISTERED'))
+      : undefined;
 
     return res.status(200).json({
       success: true,
       user: {
         ...user,
+        name: user.name || user.father_name || user.mother_name || 'Parent',
+        phone: user.phone || user.primary_phone,
         profile_completed: isProfileCompleted,
         profileCompleted: isProfileCompleted,
+        faceRegistered: Boolean(user.face_registered),
+        faceStatus: resolvedFaceStatus,
         role
       }
     });
@@ -283,16 +296,30 @@ exports.getMe = async (req, res, next) => {
 
 /**
  * POST /api/auth/register-parent
- * Registers a new parent account using mobile number & password
+ * Registers a new parent account using mobile number & password,
+ * strictly validating student roll number and linking the exact student.
  */
 exports.registerParent = async (req, res, next) => {
+  let conn = null;
   try {
-    const { mobile, phone, password, confirm_password, parent_name } = req.body;
+    const { 
+      mobile, phone, password, confirm_password, parent_name,
+      relationship, student_roll_number, student_reg_no, roll_no, student_roll_no, student_name
+    } = req.body || {};
+
     const rawMobile = (mobile || phone || '').trim();
     const rawPassword = (password || '').trim();
     const rawConfirm = (confirm_password || '').trim();
+    const rawStudentRoll = (student_roll_number || student_reg_no || roll_no || student_roll_no || '').trim().toUpperCase();
+    const rawStudentName = (student_name || '').trim();
+    const resolvedRelationship = (relationship || 'Father').trim();
+    const displayName = (parent_name || 'Parent Guardian').trim();
 
-    // 1. Validation
+    // 1. Basic Parent Fields Validation
+    if (!displayName) {
+      return res.status(400).json({ success: false, message: 'Parent/Guardian name is required.' });
+    }
+
     if (!rawMobile) {
       return res.status(400).json({ success: false, message: 'Mobile number is required.' });
     }
@@ -301,6 +328,15 @@ exports.registerParent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please enter a valid 10-digit mobile number.' });
     }
 
+    // 2. Strict Student Roll Number Lookup
+    if (!rawStudentRoll) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student Roll Number is required.'
+      });
+    }
+
+    // 3. Password validation
     if (!rawPassword) {
       return res.status(400).json({ success: false, message: 'Password is required.' });
     }
@@ -311,27 +347,119 @@ exports.registerParent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Passwords do not match.' });
     }
 
-    // 2. Check duplicate mobile
-    const [existing] = await pool.query('SELECT id FROM parents WHERE primary_phone = ? LIMIT 1', [cleanMobile]);
-    if (existing.length > 0) {
-      return res.status(409).json({ success: false, message: 'An account with this mobile number already exists.' });
+    // Start atomic transaction
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    // 4. Check existing parent account by mobile number
+    const [existingParents] = await conn.query(
+      'SELECT id, father_name, relationship, profile_completed, face_registered, face_status FROM parents WHERE primary_phone = ? LIMIT 1',
+      [cleanMobile]
+    );
+
+    let isClaimingStub = false;
+    let existingStubParentId = null;
+
+    if (existingParents.length > 0) {
+      const existingParent = existingParents[0];
+      // If parent has already completed their registration, reject as duplicate
+      if (existingParent.profile_completed == 1) {
+        await conn.rollback();
+        conn.release();
+        conn = null;
+        return res.status(409).json({
+          success: false,
+          message: 'An account with this mobile number already exists.'
+        });
+      }
+      // If profile_completed == 0, this is an uncompleted stub created during student registration
+      isClaimingStub = true;
+      existingStubParentId = existingParent.id;
     }
 
-    // 3. Hash password & insert
+    // 5. Lookup exact student by roll number
+    const [studentRows] = await conn.query(
+      'SELECT id, reg_no, name, parent_id, department, year_of_study, room_no, hostel_block, is_active FROM students WHERE UPPER(TRIM(reg_no)) = ? AND is_active = true LIMIT 1',
+      [rawStudentRoll]
+    );
+
+    if (studentRows.length === 0) {
+      await conn.rollback();
+      conn.release();
+      conn = null;
+      return res.status(400).json({
+        success: false,
+        message: 'Student Roll Number not found. Please enter a valid registered student Roll Number.'
+      });
+    }
+
+    const student = studentRows[0];
+
+    // Validate student name match if student_name was provided
+    if (rawStudentName) {
+      const dbNorm = (student.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const inputNorm = rawStudentName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (dbNorm && inputNorm && !dbNorm.includes(inputNorm) && !inputNorm.includes(dbNorm)) {
+        await conn.rollback();
+        conn.release();
+        conn = null;
+        return res.status(400).json({
+          success: false,
+          message: 'Student Roll Number and Student Name do not match.'
+        });
+      }
+    }
+
+    // 6. Hash password with bcrypt
     const passwordHash = await bcrypt.hash(rawPassword, 10);
-    const displayName = (parent_name || 'Parent Guardian').trim();
+    let resolvedParentId = null;
 
-    const [insertResult] = await pool.query(`
-      INSERT INTO parents (father_name, primary_phone, password_hash)
-      VALUES (?, ?, ?)
-    `, [displayName, cleanMobile, passwordHash]);
+    if (isClaimingStub && existingStubParentId) {
+      // Activate and update existing stub record with chosen credentials
+      await conn.query(`
+        UPDATE parents 
+        SET father_name = ?,
+            primary_phone = ?,
+            password_hash = ?,
+            relationship = ?,
+            profile_completed = 1,
+            face_registered = 0,
+            face_status = 'NOT_REGISTERED'
+        WHERE id = ?
+      `, [displayName, cleanMobile, passwordHash, resolvedRelationship, existingStubParentId]);
+      resolvedParentId = existingStubParentId;
+    } else {
+      // Insert new parent record
+      const [insertResult] = await conn.query(`
+        INSERT INTO parents (father_name, primary_phone, password_hash, relationship, profile_completed, face_registered, face_status)
+        VALUES (?, ?, ?, ?, 1, 0, 'NOT_REGISTERED')
+      `, [displayName, cleanMobile, passwordHash, resolvedRelationship]);
+      resolvedParentId = insertResult.insertId;
 
-    const newParentId = insertResult.insertId;
+      // If student previously had an uncompleted placeholder stub, clean it up
+      if (student.parent_id && student.parent_id !== resolvedParentId) {
+        await conn.query(
+          'DELETE FROM parents WHERE id = ? AND profile_completed = 0',
+          [student.parent_id]
+        );
+      }
+    }
 
-    // 4. Auto-generate JWT token for immediate auto-login
+    // 7. Strictly link the Student to this Parent
+    await conn.query(
+      'UPDATE students SET parent_id = ? WHERE id = ?',
+      [resolvedParentId, student.id]
+    );
+
+    // Commit atomic transaction
+    await conn.commit();
+    conn.release();
+    conn = null;
+
+    // 8. Auto-generate JWT token for immediate auto-login & biometric gating
     const token = jwt.sign(
       {
-        id: newParentId,
+        id: resolvedParentId,
         role: 'parent',
         identifier: cleanMobile,
         name: displayName
@@ -342,20 +470,42 @@ exports.registerParent = async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Parent account created successfully.',
+      message: 'Parent account created. Face biometric registration is required before accessing the dashboard.',
       token,
+      requiresFaceRegistration: true,
+      faceStatus: 'NOT_REGISTERED',
       user: {
-        id: newParentId,
+        id: resolvedParentId,
         name: displayName,
         role: 'parent',
         identifier: cleanMobile,
         phone: cleanMobile,
-        isNewProfile: true
+        relationship: resolvedRelationship,
+        linkedStudent: {
+          id: student.id,
+          name: student.name,
+          regNo: student.reg_no,
+          department: student.department,
+          yearOfStudy: student.year_of_study,
+          roomNo: student.room_no,
+          hostelBlock: student.hostel_block
+        },
+        profileCompleted: true,
+        faceRegistered: false,
+        faceStatus: 'NOT_REGISTERED'
       },
       redirectTo: '/parent-dashboard.html'
     });
 
   } catch (error) {
+    if (conn) {
+      try {
+        await conn.rollback();
+        conn.release();
+      } catch (rbErr) {
+        console.error('[Parent Registration Rollback Error]:', rbErr);
+      }
+    }
     next(error);
   }
 };
@@ -486,18 +636,16 @@ exports.registerStudent = async (req, res, next) => {
     }
 
     if (!resolvedParentId) {
-      // Fall back to first parent in DB or default demo parent
-      const [fallbackParents] = await pool.query('SELECT id FROM parents ORDER BY id ASC LIMIT 1');
-      if (fallbackParents.length > 0) {
-        resolvedParentId = fallbackParents[0].id;
-      } else {
-        const defaultParentPass = await bcrypt.hash('Password@123', 10);
-        const [createdParent] = await pool.query(`
-          INSERT INTO parents (father_name, primary_phone, password_hash)
-          VALUES ('Default Guardian', '9876543210', ?)
-        `, [defaultParentPass]);
-        resolvedParentId = createdParent.insertId;
-      }
+      // Create a dedicated parent record for this student to maintain absolute 1-to-1 data isolation
+      // (Never link to another student's parent or the first parent in the database)
+      const uniqueSuffix = Date.now().toString().slice(-6) + Math.floor(100 + Math.random() * 900);
+      const uniqueParentPhone = `98${uniqueSuffix}`;
+      const defaultParentPass = await bcrypt.hash('Password@123', 10);
+      const [createdParent] = await pool.query(`
+        INSERT INTO parents (father_name, primary_phone, password_hash)
+        VALUES (?, ?, ?)
+      `, [cleanParentName, uniqueParentPhone, defaultParentPass]);
+      resolvedParentId = createdParent.insertId;
     }
 
     // 5. Resolve Class Advisor (optional lookup by department)
@@ -614,3 +762,49 @@ exports.logout = (req, res) => {
     message: 'Logged out successfully.'
   });
 };
+
+/**
+ * GET /api/auth/check-student-roll
+ * Real-time pre-submit validation for parent registration
+ * Checks if student roll number exists in the system and returns safe public metadata
+ */
+exports.checkStudentRoll = async (req, res, next) => {
+  try {
+    const rawRoll = (req.query.roll_no || req.query.reg_no || req.query.student_roll || '').trim().toUpperCase();
+    if (!rawRoll) {
+      return res.status(400).json({
+        success: false,
+        message: 'Roll number is required.'
+      });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id, reg_no, name, department, year_of_study FROM students WHERE UPPER(TRIM(reg_no)) = ? AND is_active = true LIMIT 1',
+      [rawRoll]
+    );
+
+    if (rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        exists: false,
+        message: `Student Roll Number "${rawRoll}" not found in system. The student must create a Student account first.`
+      });
+    }
+
+    const s = rows[0];
+    return res.status(200).json({
+      success: true,
+      exists: true,
+      student: {
+        id: s.id,
+        regNo: s.reg_no,
+        name: s.name,
+        department: s.department,
+        yearOfStudy: s.year_of_study
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

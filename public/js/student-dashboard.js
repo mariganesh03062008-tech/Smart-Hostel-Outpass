@@ -6,6 +6,21 @@
 // State
 let currentStudent = null;
 let activeTab = 'new-outpass';
+let allStudentRequests = [];
+let activeStudentTypeFilter = 'all';
+
+/**
+ * Normalizes any variation of outpass_type to strict canonical values:
+ * 'normal' | 'one_day_duty' | 'emergency' | 'special'
+ */
+function getCanonicalOutpassType(req) {
+  if (!req) return 'normal';
+  const raw = String(req.outpass_type || req.outpassType || req.requestType || '').toLowerCase().trim();
+  if (raw === 'emergency') return 'emergency';
+  if (raw === 'special') return 'special';
+  if (raw === 'one_day_duty' || raw === 'duty' || raw === 'one_day' || raw === 'oneday') return 'one_day_duty';
+  return 'normal';
+}
 
 // DOM Elements cache
 const DOM = {
@@ -30,9 +45,21 @@ const DOM = {
   outpassForm: document.getElementById('outpassForm'),
   radioNormal: document.getElementById('typeNormal'),
   radioDuty: document.getElementById('typeDuty'),
+  radioEmergency: document.getElementById('typeEmergency'),
+  radioSpecial: document.getElementById('typeSpecial'),
   typeOptionNormal: document.getElementById('typeOptionNormal'),
   typeOptionDuty: document.getElementById('typeOptionDuty'),
+  typeOptionEmergency: document.getElementById('typeOptionEmergency'),
+  typeOptionSpecial: document.getElementById('typeOptionSpecial'),
   dutyFieldsBox: document.getElementById('dutyFieldsBox'),
+  emergencyFieldsBox: document.getElementById('emergencyFieldsBox'),
+  specialFieldsBox: document.getElementById('specialFieldsBox'),
+  selectEmergencyType: document.getElementById('emergencyTypeSelect'),
+  inputEmergencyContact: document.getElementById('emergencyContactInput'),
+  selectSpecialType: document.getElementById('specialTypeSelect'),
+  inputSpecialAttachment: document.getElementById('specialAttachmentInput'),
+  inputSpecialEmergencyContact: document.getElementById('specialEmergencyContactInput'),
+  reasonInputLabel: document.getElementById('reasonInputLabel'),
   
   inputDestination: document.getElementById('destinationInput'),
   inputReason: document.getElementById('reasonInput'),
@@ -46,7 +73,6 @@ const DOM = {
   inputEventName: document.getElementById('eventNameInput'),
   inputEventLocation: document.getElementById('eventLocationInput'),
   inputDutyDate: document.getElementById('dutyDateInput'),
-  inputDutyDesc: document.getElementById('dutyDescInput'),
 
   btnSubmitOutpass: document.getElementById('btnSubmitOutpass'),
   submitBtnText: document.getElementById('submitBtnText'),
@@ -96,6 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   initNavigation();
   initTypeSelector();
+  initStudentTypeFilters();
   initFormHandler();
   initLogout();
   setDefaultDates();
@@ -227,9 +254,9 @@ function populateStudentHeader(student) {
   if (pRoomNo) pRoomNo.textContent = room;
   if (pEmail) pEmail.textContent = student.email || 'N/A';
   if (pPhone) pPhone.textContent = phone || 'N/A';
-  if (pParent) pParent.textContent = student.parent_name || 'Robert Doe';
-  if (pParentPhone) pParentPhone.textContent = student.parent_phone || '9876543210';
-  if (pRelationship) pRelationship.textContent = student.parent_relationship || 'Father';
+  if (pParent) pParent.textContent = student.parent_name || 'Not Provided';
+  if (pParentPhone) pParentPhone.textContent = student.parent_phone || 'N/A';
+  if (pRelationship) pRelationship.textContent = student.parent_relationship || 'Guardian';
   if (pStatusBadge) {
     pStatusBadge.textContent = isProfileCompleted ? '✓ Completed' : '⚠ Incomplete';
     pStatusBadge.style.color = isProfileCompleted ? '#10b981' : '#f59e0b';
@@ -284,6 +311,38 @@ async function loadStatusSummary() {
 /* ==========================================================
    3. LOAD MY REQUESTS
    ========================================================== */
+function initStudentTypeFilters() {
+  const filterButtons = document.querySelectorAll('.student-type-filter-btn');
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-type') || 'all';
+      activeStudentTypeFilter = type;
+
+      filterButtons.forEach(b => {
+        if (b === btn) {
+          b.classList.add('active');
+          b.style.background = 'var(--primary, #6366f1)';
+          b.style.color = '#fff';
+        } else {
+          b.classList.remove('active');
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text-secondary)';
+        }
+      });
+
+      applyStudentTypeFilter();
+    });
+  });
+}
+
+function applyStudentTypeFilter() {
+  let filtered = allStudentRequests;
+  if (activeStudentTypeFilter !== 'all') {
+    filtered = allStudentRequests.filter(req => getCanonicalOutpassType(req) === activeStudentTypeFilter);
+  }
+  renderRequestsTable(filtered);
+}
+
 async function loadMyRequests() {
   const token = getAuthToken();
   if (!token) return;
@@ -295,7 +354,37 @@ async function loadMyRequests() {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      renderRequestsTable(data.requests || []);
+      allStudentRequests = data.requests || [];
+
+      // Update badge counts for each request type
+      const counts = {
+        all: allStudentRequests.length,
+        normal: 0,
+        one_day_duty: 0,
+        emergency: 0,
+        special: 0
+      };
+
+      allStudentRequests.forEach(req => {
+        const type = getCanonicalOutpassType(req);
+        if (counts[type] !== undefined) {
+          counts[type]++;
+        }
+      });
+
+      const bAll = document.getElementById('badgeCountAll');
+      const bNormal = document.getElementById('badgeCountNormal');
+      const bDuty = document.getElementById('badgeCountDuty');
+      const bEmerg = document.getElementById('badgeCountEmergency');
+      const bSpecial = document.getElementById('badgeCountSpecial');
+
+      if (bAll) bAll.textContent = `(${counts.all})`;
+      if (bNormal) bNormal.textContent = `(${counts.normal})`;
+      if (bDuty) bDuty.textContent = `(${counts.one_day_duty})`;
+      if (bEmerg) bEmerg.textContent = `(${counts.emergency})`;
+      if (bSpecial) bSpecial.textContent = `(${counts.special})`;
+
+      applyStudentTypeFilter();
     }
   } catch (err) {
     console.error('Error fetching requests:', err);
@@ -818,7 +907,7 @@ function switchTab(tabId, pushHash = true) {
 window.switchTab = switchTab;
 
 /* ==========================================================
-   5. REQUEST TYPE SELECTOR (Normal vs One-Day Duty)
+   5. REQUEST TYPE SELECTOR (Normal, Duty, Emergency, Special)
    ========================================================== */
 function initTypeSelector() {
   if (DOM.typeOptionNormal) {
@@ -827,6 +916,12 @@ function initTypeSelector() {
   if (DOM.typeOptionDuty) {
     DOM.typeOptionDuty.addEventListener('click', () => selectRequestType('one_day_duty'));
   }
+  if (DOM.typeOptionEmergency) {
+    DOM.typeOptionEmergency.addEventListener('click', () => selectRequestType('emergency'));
+  }
+  if (DOM.typeOptionSpecial) {
+    DOM.typeOptionSpecial.addEventListener('click', () => selectRequestType('special'));
+  }
 }
 
 function selectRequestType(type) {
@@ -834,41 +929,103 @@ function selectRequestType(type) {
   const stepMiddleLabel = document.getElementById('stepMiddleLabel');
   const stepFinalLabel = document.getElementById('stepFinalLabel');
 
+  if (DOM.typeOptionNormal) DOM.typeOptionNormal.classList.remove('selected');
+  if (DOM.typeOptionDuty) DOM.typeOptionDuty.classList.remove('selected');
+  if (DOM.typeOptionEmergency) DOM.typeOptionEmergency.classList.remove('selected');
+  if (DOM.typeOptionSpecial) DOM.typeOptionSpecial.classList.remove('selected');
+
+  if (DOM.dutyFieldsBox) DOM.dutyFieldsBox.classList.add('hidden');
+  if (DOM.emergencyFieldsBox) DOM.emergencyFieldsBox.classList.add('hidden');
+  if (DOM.specialFieldsBox) DOM.specialFieldsBox.classList.add('hidden');
+
+  const reasonLabel = document.getElementById('reasonInputLabel');
+
   if (type === 'one_day_duty') {
     if (DOM.radioDuty) DOM.radioDuty.checked = true;
     if (DOM.typeOptionDuty) DOM.typeOptionDuty.classList.add('selected');
-    if (DOM.typeOptionNormal) DOM.typeOptionNormal.classList.remove('selected');
     if (DOM.dutyFieldsBox) DOM.dutyFieldsBox.classList.remove('hidden');
 
-    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (One-Day Duty: Student → Class Advisor → Principal → QR)';
-    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Class Advisor Verification';
-    if (stepFinalLabel) stepFinalLabel.textContent = 'Principal Final Approval';
+    if (reasonLabel) reasonLabel.textContent = 'Purpose / Reason *';
+    if (DOM.inputReason) DOM.inputReason.placeholder = 'Provide detailed purpose of duty, participation specifics, paper/project title, event details...';
+
+    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (One-Day Duty: Student → Parent Face Verification → Class Advisor → Principal → QR)';
+    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Parent Face Verified & Advisor';
+    if (stepFinalLabel) stepFinalLabel.textContent = 'Principal Final Approval (QR)';
+  } else if (type === 'emergency') {
+    if (DOM.radioEmergency) DOM.radioEmergency.checked = true;
+    if (DOM.typeOptionEmergency) DOM.typeOptionEmergency.classList.add('selected');
+    if (DOM.emergencyFieldsBox) DOM.emergencyFieldsBox.classList.remove('hidden');
+
+    if (reasonLabel) reasonLabel.textContent = 'Emergency Details / Reason *';
+    if (DOM.inputReason) DOM.inputReason.placeholder = 'Describe the urgent situation in detail (e.g. sudden severe illness, urgent hospital visit, critical family emergency)...';
+
+    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (Emergency Outpass: Student → Warden → QR)';
+    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Direct Warden Review';
+    if (stepFinalLabel) stepFinalLabel.textContent = 'Warden Approval & QR';
+  } else if (type === 'special') {
+    if (DOM.radioSpecial) DOM.radioSpecial.checked = true;
+    if (DOM.typeOptionSpecial) DOM.typeOptionSpecial.classList.add('selected');
+    if (DOM.specialFieldsBox) DOM.specialFieldsBox.classList.remove('hidden');
+
+    if (reasonLabel) reasonLabel.textContent = 'Purpose / Reason *';
+    if (DOM.inputReason) DOM.inputReason.placeholder = 'Clearly explain why you need the outpass, where you are going, what activity you are attending, duration, and important details...';
+
+    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (Special Outpass: Student → Parent Face Verification → Class Advisor → Principal → Warden → QR)';
+    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Parent Face Verified & Advisor';
+    if (stepFinalLabel) stepFinalLabel.textContent = 'Principal Review & Warden Approval';
   } else {
     if (DOM.radioNormal) DOM.radioNormal.checked = true;
     if (DOM.typeOptionNormal) DOM.typeOptionNormal.classList.add('selected');
-    if (DOM.typeOptionDuty) DOM.typeOptionDuty.classList.remove('selected');
-    if (DOM.dutyFieldsBox) DOM.dutyFieldsBox.classList.add('hidden');
 
-    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (Normal Outpass: Student → Parent → Warden → QR)';
-    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Parent Consent';
+    if (reasonLabel) reasonLabel.textContent = 'Purpose of Visit / Reason *';
+    if (DOM.inputReason) DOM.inputReason.placeholder = 'e.g. Family function / Medical appointment / Weekend hometown visit';
+
+    if (workflowTitle) workflowTitle.textContent = 'Approval Workflow Routing (Normal Outpass: Student → Parent Face Verification → Warden → QR)';
+    if (stepMiddleLabel) stepMiddleLabel.textContent = 'Parent Face Verification';
     if (stepFinalLabel) stepFinalLabel.textContent = 'Warden Final Approval';
   }
 
   checkAdvanceTimeValidity();
 }
 
+const NORMAL_ADVANCE_HOURS = 10;
+const ONE_DAY_DUTY_ADVANCE_HOURS = 6;
+
 /**
- * Validates whether the selected departure time satisfies advance-time rules:
- * - Normal Outpass: >= 18 hours in advance
- * - One-Day Outpass / Duty: >= 12 hours in advance
+ * Validates whether the selected departure time satisfies advance application time rules:
+ * - Normal Outpass: Submitted at least 10 hours before departure (submissionTime <= departureTime - 10h)
+ * - One-Day Duty Outpass: Submitted at least 6 hours before departure (submissionTime <= departureTime - 6h)
+ * - Emergency & Special: Exempt from advance notice rules
+ *
+ * NOTE: Outpass duration (departure -> return) is INDEPENDENT of advance notice.
+ *
  * Updates the UX banner and enables/disables the Submit button accordingly.
  */
 function checkAdvanceTimeValidity() {
   const shouldUpdateSubmitButton = arguments.length > 0 ? arguments[0] : true;
   const isDuty = DOM.radioDuty && DOM.radioDuty.checked;
-  const requiredHours = isDuty ? 12 : 18;
-  const typeLabel = isDuty ? 'One-Day' : 'Normal';
+  const isEmergency = DOM.radioEmergency && DOM.radioEmergency.checked;
+  const isSpecial = DOM.radioSpecial && DOM.radioSpecial.checked;
 
+  if (isEmergency || isSpecial) {
+    if (DOM.advanceTimeNoticeBox && DOM.advanceNoticeText) {
+      DOM.advanceTimeNoticeBox.style.background = isEmergency ? 'rgba(239, 68, 68, 0.08)' : 'rgba(139, 92, 246, 0.08)';
+      DOM.advanceTimeNoticeBox.style.borderColor = isEmergency ? 'rgba(239, 68, 68, 0.35)' : 'rgba(139, 92, 246, 0.35)';
+      if (DOM.advanceNoticeIcon) DOM.advanceNoticeIcon.innerHTML = isEmergency ? '<span style="font-size:1.1rem;">🚨</span>' : '<span style="font-size:1.1rem;">⭐</span>';
+      if (DOM.advanceNoticeTitle) {
+        DOM.advanceNoticeTitle.textContent = isEmergency ? 'Emergency Outpass (Immediate Processing)' : 'Special Outpass (Advance Lock Exempt)';
+        DOM.advanceNoticeTitle.style.color = isEmergency ? '#ef4444' : '#8b5cf6';
+      }
+      DOM.advanceNoticeText.textContent = isEmergency
+        ? 'Emergency outpass requests bypass standard advance submission locks for direct Warden review and immediate QR clearance.'
+        : 'Special outpass requests bypass standard advance locks and undergo complete 4-tier verification (Parent → Advisor → Principal → Warden).';
+      DOM.advanceNoticeText.style.color = 'var(--text-secondary, #94a3b8)';
+    }
+    if (shouldUpdateSubmitButton) updateSubmitButtonState();
+    return true;
+  }
+
+  const requiredHours = isDuty ? ONE_DAY_DUTY_ADVANCE_HOURS : NORMAL_ADVANCE_HOURS;
   const leavingDate = DOM.inputLeavingDate ? DOM.inputLeavingDate.value : '';
   const leavingTime = DOM.inputLeavingTime ? DOM.inputLeavingTime.value : '';
 
@@ -881,31 +1038,39 @@ function checkAdvanceTimeValidity() {
         DOM.advanceNoticeTitle.textContent = 'Advance Notice Required';
         DOM.advanceNoticeTitle.style.color = 'var(--text-primary, #f8fafc)';
       }
-      DOM.advanceNoticeText.textContent = `${typeLabel} outpass requests must be submitted at least ${requiredHours} hours before departure.`;
+      DOM.advanceNoticeText.textContent = isDuty
+        ? 'Apply at least 6 hours before departure.'
+        : 'Apply at least 10 hours before departure.';
       DOM.advanceNoticeText.style.color = 'var(--text-secondary, #94a3b8)';
     }
     if (shouldUpdateSubmitButton) updateSubmitButtonState();
     return true;
   }
 
-  const cleanTime = leavingTime.length === 5 ? `${leavingTime}:00` : leavingTime;
-  const departureDate = new Date(`${leavingDate} ${cleanTime}`);
+  const cleanLeavingTime = leavingTime.length === 5 ? `${leavingTime}:00` : leavingTime;
+  const departureDate = new Date(`${leavingDate} ${cleanLeavingTime}`);
+
   if (isNaN(departureDate.getTime())) {
+    if (DOM.advanceTimeNoticeBox && DOM.advanceNoticeText) {
+      DOM.advanceTimeNoticeBox.style.background = 'rgba(239, 68, 68, 0.12)';
+      DOM.advanceTimeNoticeBox.style.borderColor = '#ef4444';
+      if (DOM.advanceNoticeTitle) {
+        DOM.advanceNoticeTitle.textContent = 'Invalid Departure Date';
+        DOM.advanceNoticeTitle.style.color = '#ef4444';
+      }
+      DOM.advanceNoticeText.textContent = 'Please enter a valid departure date and time.';
+      DOM.advanceNoticeText.style.color = '#fca5a5';
+    }
     if (shouldUpdateSubmitButton) updateSubmitButtonState();
-    return true;
+    return false;
   }
 
   const now = new Date();
-  const departureMs = departureDate.getTime();
-  const currentMs = now.getTime();
+  const diffMs = departureDate.getTime() - now.getTime();
   const requiredMs = requiredHours * 3600 * 1000;
-  const latestSubmitMs = departureMs - requiredMs;
-  const latestSubmitDate = new Date(latestSubmitMs);
 
-  // Allowed ONLY when current_time <= required_submit_time
-  const isExpired = currentMs > latestSubmitMs;
-
-  if (isExpired) {
+  if (diffMs < requiredMs) {
+    // BLOCKED
     if (DOM.advanceTimeNoticeBox) {
       DOM.advanceTimeNoticeBox.style.background = 'rgba(239, 68, 68, 0.12)';
       DOM.advanceTimeNoticeBox.style.borderColor = '#ef4444';
@@ -918,12 +1083,15 @@ function checkAdvanceTimeValidity() {
       DOM.advanceNoticeTitle.style.color = '#ef4444';
     }
     if (DOM.advanceNoticeText) {
-      DOM.advanceNoticeText.textContent = `Submission time expired. ${typeLabel} outpass requests must be submitted at least ${requiredHours} hours before departure.`;
+      DOM.advanceNoticeText.textContent = isDuty
+        ? 'One-Day Duty outpass must be applied at least 6 hours before the departure time.'
+        : 'Normal outpass must be applied at least 10 hours before the departure time.';
       DOM.advanceNoticeText.style.color = '#fca5a5';
     }
     if (shouldUpdateSubmitButton) updateSubmitButtonState();
     return false;
   } else {
+    // ALLOWED
     if (DOM.advanceTimeNoticeBox) {
       DOM.advanceTimeNoticeBox.style.background = 'rgba(16, 185, 129, 0.08)';
       DOM.advanceTimeNoticeBox.style.borderColor = 'rgba(16, 185, 129, 0.35)';
@@ -932,12 +1100,13 @@ function checkAdvanceTimeValidity() {
       DOM.advanceNoticeIcon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" stroke="#10b981" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
     }
     if (DOM.advanceNoticeTitle) {
-      DOM.advanceNoticeTitle.textContent = 'Advance Notice Requirement Met';
+      DOM.advanceNoticeTitle.textContent = 'Advance Notice Met';
       DOM.advanceNoticeTitle.style.color = 'var(--text-primary, #f8fafc)';
     }
     if (DOM.advanceNoticeText) {
-      const formattedLatest = latestSubmitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + latestSubmitDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-      DOM.advanceNoticeText.textContent = `Request must be submitted at least ${requiredHours} hours before departure. (Latest allowed submission: ${formattedLatest})`;
+      DOM.advanceNoticeText.textContent = isDuty
+        ? 'Apply at least 6 hours before departure.'
+        : 'Apply at least 10 hours before departure.';
       DOM.advanceNoticeText.style.color = 'var(--text-secondary, #94a3b8)';
     }
     if (shouldUpdateSubmitButton) updateSubmitButtonState();
@@ -983,8 +1152,14 @@ function initFormHandler() {
   DOM.outpassForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const isDuty = DOM.radioDuty && DOM.radioDuty.checked;
-    const request_type = isDuty ? 'one_day_duty' : 'normal';
+    let request_type = 'normal';
+    if (DOM.radioDuty && DOM.radioDuty.checked) request_type = 'one_day_duty';
+    else if (DOM.radioEmergency && DOM.radioEmergency.checked) request_type = 'emergency';
+    else if (DOM.radioSpecial && DOM.radioSpecial.checked) request_type = 'special';
+
+    const isDuty = request_type === 'one_day_duty';
+    const isEmergency = request_type === 'emergency';
+    const isSpecial = request_type === 'special';
 
     const destination = DOM.inputDestination.value.trim();
     const reason = DOM.inputReason.value.trim();
@@ -997,7 +1172,14 @@ function initFormHandler() {
     const event_name = DOM.inputEventName ? DOM.inputEventName.value.trim() : '';
     const event_location = DOM.inputEventLocation ? DOM.inputEventLocation.value.trim() : '';
     const duty_date = DOM.inputDutyDate ? DOM.inputDutyDate.value : '';
-    const duty_description = DOM.inputDutyDesc ? DOM.inputDutyDesc.value.trim() : '';
+
+    const emergency_type = (isEmergency && DOM.selectEmergencyType) ? DOM.selectEmergencyType.value : undefined;
+    const emergency_contact = isEmergency 
+      ? (DOM.inputEmergencyContact ? DOM.inputEmergencyContact.value.trim() : '')
+      : (isSpecial && DOM.inputSpecialEmergencyContact ? DOM.inputSpecialEmergencyContact.value.trim() : undefined);
+
+    const special_type = (isSpecial && DOM.selectSpecialType) ? DOM.selectSpecialType.value : undefined;
+    const special_attachment = (isSpecial && DOM.inputSpecialAttachment) ? DOM.inputSpecialAttachment.value.trim() : undefined;
 
     // Validation
     if (!destination) {
@@ -1007,7 +1189,10 @@ function initFormHandler() {
     }
 
     if (!reason) {
-      showFormMessage('Please provide the purpose of your visit.', 'error');
+      const msg = isEmergency 
+        ? 'Please provide the Emergency Details / Reason.' 
+        : (isDuty || isSpecial ? 'Please provide the Purpose / Reason.' : 'Please provide the purpose of your visit.');
+      showFormMessage(msg, 'error');
       DOM.inputReason.focus();
       return;
     }
@@ -1032,12 +1217,21 @@ function initFormHandler() {
       return;
     }
 
-    // Advance-time validation (18h for normal, 12h for duty)
-    if (!checkAdvanceTimeValidity(false)) {
-      const requiredHours = isDuty ? 12 : 18;
-      const typeLabel = isDuty ? 'One-Day' : 'Normal';
-      showFormMessage(`Submission time expired. ${typeLabel} outpass requests must be submitted at least ${requiredHours} hours before departure.`, 'error');
-      return;
+    // Advance Request Time Validation (Normal: 10h, One-Day Duty: 6h; Emergency & Special exempt)
+    if (!isEmergency && !isSpecial) {
+      const requiredHours = isDuty ? ONE_DAY_DUTY_ADVANCE_HOURS : NORMAL_ADVANCE_HOURS;
+      const now = new Date();
+      const diffMs = fromDate.getTime() - now.getTime();
+      const requiredMs = requiredHours * 3600 * 1000;
+
+      if (diffMs < requiredMs) {
+        const msg = isDuty
+          ? 'One-Day Duty outpass must be applied at least 6 hours before the departure time.'
+          : 'Normal outpass must be applied at least 10 hours before the departure time.';
+        showFormMessage(msg, 'error');
+        if (DOM.inputLeavingTime) DOM.inputLeavingTime.focus();
+        return;
+      }
     }
 
     // One-Day Duty specific validation
@@ -1058,6 +1252,15 @@ function initFormHandler() {
       }
     }
 
+    // Emergency specific validation
+    if (isEmergency) {
+      if (!emergency_contact) {
+        showFormMessage('Emergency contact phone number is required.', 'error');
+        if (DOM.inputEmergencyContact) DOM.inputEmergencyContact.focus();
+        return;
+      }
+    }
+
     setFormLoading(true);
     hideFormMessage();
 
@@ -1073,7 +1276,12 @@ function initFormHandler() {
       event_name: isDuty ? event_name : undefined,
       event_location: isDuty ? event_location : undefined,
       duty_date: isDuty ? duty_date : undefined,
-      duty_description: isDuty ? duty_description : undefined
+      duty_description: isDuty ? reason : undefined,
+      emergency_type: isEmergency ? emergency_type : undefined,
+      special_type: isSpecial ? special_type : undefined,
+      emergency_contact: emergency_contact || student_phone,
+      additional_remarks: reason,
+      attachment_url: isSpecial ? special_attachment : undefined
     };
 
     const token = getAuthToken();
@@ -1118,7 +1326,7 @@ function initFormHandler() {
     }
   });
 
-  // Attach live validation on departure date & time changes
+  // Attach live validation on departure and return date & time changes
   if (DOM.inputLeavingDate) {
     DOM.inputLeavingDate.addEventListener('change', checkAdvanceTimeValidity);
     DOM.inputLeavingDate.addEventListener('input', checkAdvanceTimeValidity);
@@ -1127,6 +1335,19 @@ function initFormHandler() {
     DOM.inputLeavingTime.addEventListener('change', checkAdvanceTimeValidity);
     DOM.inputLeavingTime.addEventListener('input', checkAdvanceTimeValidity);
   }
+  if (DOM.inputReturnDate) {
+    DOM.inputReturnDate.addEventListener('change', checkAdvanceTimeValidity);
+    DOM.inputReturnDate.addEventListener('input', checkAdvanceTimeValidity);
+  }
+  if (DOM.inputReturnTime) {
+    DOM.inputReturnTime.addEventListener('change', checkAdvanceTimeValidity);
+    DOM.inputReturnTime.addEventListener('input', checkAdvanceTimeValidity);
+  }
+
+  // Dynamic periodic validation ticker: re-evaluates advance time status every 30s so crossing deadline updates UI live
+  setInterval(() => {
+    checkAdvanceTimeValidity();
+  }, 30000);
 }
 
 function setFormLoading(isLoading) {
@@ -1161,14 +1382,14 @@ function setDefaultDates() {
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
 
-  // Normal outpass requires 18 hours in advance, One-Day requires 12 hours.
-  // Default leaving time: tomorrow (current time + 24 hours), rounded to hour
+  // Default leaving time: tomorrow (current time + 24 hours), rounded to hour.
+  // This satisfies both Normal (>= 10 hours) and One-Day Duty (>= 6 hours) advance application rules.
   const defaultLeave = new Date(now.getTime() + 24 * 3600 * 1000);
   const leaveDateStr = `${defaultLeave.getFullYear()}-${pad(defaultLeave.getMonth() + 1)}-${pad(defaultLeave.getDate())}`;
   const leaveTimeStr = `${pad(defaultLeave.getHours())}:00`;
 
-  // Default return time: 8 hours after departure
-  const defaultReturn = new Date(defaultLeave.getTime() + 8 * 3600 * 1000);
+  // Default return time: 18 hours after departure (or next day) - duration is independent of advance notice
+  const defaultReturn = new Date(defaultLeave.getTime() + 18 * 3600 * 1000);
   const returnDateStr = `${defaultReturn.getFullYear()}-${pad(defaultReturn.getMonth() + 1)}-${pad(defaultReturn.getDate())}`;
   const returnTimeStr = `${pad(defaultReturn.getHours())}:00`;
 
@@ -1243,18 +1464,8 @@ function clearAuthAndRedirect() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('sh_theme', next);
-    });
-  }
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
 }
 
 /* ==========================================================

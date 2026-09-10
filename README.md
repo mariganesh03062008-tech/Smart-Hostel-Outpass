@@ -220,14 +220,43 @@ The application will be accessible at:
     "student_phone": "9876543210"
   }
   ```
-* **Workflow Status Routing:**
-  * **Normal Outpass:** Initial status is `PENDING_WARDEN` (Student → Warden).
-  * **One-Day Duty:** Initial status is `PENDING_ADVISOR` (Student → Class Advisor → Warden).
+* **Exact Canonical Workflow Routing (4 Types):**
+  1. **Normal Outpass:**
+     `Student → Parent Face Verification → Parent Approval + Message → Warden → QR`
+     * Initial status: `PENDING_PARENT`
+     * Parent completes 128D face biometric verification ($D \le 0.45$) and submits a mandatory consent message.
+     * Transitions to `PENDING_WARDEN`.
+     * Warden reviews and approves (`APPROVED`).
+     * Warden generates cryptographic dynamic QR gate pass.
+  2. **One-Day Duty / OD:**
+     `Student → Parent Face Verification → Parent Approval + Message → Class Advisor → Principal → QR`
+     * Initial status: `PENDING_PARENT`
+     * Parent completes 128D face biometric verification and submits a mandatory consent message.
+     * Transitions to `PENDING_ADVISOR` (Class Advisor of student's department; strictly bypasses Warden).
+     * Class Advisor conducts academic verification and approves.
+     * Transitions to `PENDING_PRINCIPAL`.
+     * Principal grants final institutional approval (`APPROVED`).
+     * Principal generates cryptographic dynamic QR gate pass. *(Warden is strictly excluded from One-Day Duty)*.
+  3. **Emergency Outpass:**
+     `Student → Warden → QR`
+     * Initial status: `PENDING_WARDEN` (Parent, Advisor, and Principal bypassed).
+     * Immediate priority processing; exempt from advance submission locks.
+     * Warden conducts direct review and approves (`APPROVED`).
+     * Warden generates cryptographic dynamic QR gate pass.
+  4. **Special Outpass:**
+     `Student → Parent Face Verification → Parent Approval + Message → Class Advisor → Principal → Warden → QR`
+     * Initial status: `PENDING_PARENT`
+     * Parent completes 128D face biometric verification and submits a mandatory consent message.
+     * Transitions to `PENDING_ADVISOR` for academic clearance.
+     * Transitions to `PENDING_PRINCIPAL` for administrative review.
+     * Transitions to `PENDING_WARDEN` for hostel exit authorization.
+     * Warden grants final approval (`APPROVED`).
+     * Warden generates cryptographic dynamic QR gate pass.
 
 ### 2. My Outpass Requests
 * **URL:** `GET /api/outpass/my-requests`
 * **Access:** Authenticated Students only
-* **Response:** Returns all submitted outpass applications with real-time status badges (`PENDING_WARDEN`, `PENDING_ADVISOR`, `APPROVED`, `REJECTED`, `COMPLETED`).
+* **Response:** Returns all submitted outpass applications with real-time status badges (`PENDING_PARENT`, `PENDING_ADVISOR`, `PENDING_PRINCIPAL`, `PENDING_WARDEN`, `APPROVED`, `REJECTED`, `COMPLETED`).
 
 ### 3. Student Dashboard Metrics & Hostel Status
 * **URL:** `GET /api/outpass/status-summary`
@@ -251,19 +280,16 @@ The application will be accessible at:
 ### 4. Warden Dashboard Overview & Pending Queues
 * **URL:** `GET /api/outpass/warden/overview`
 * **Access:** Authenticated Warden staff only (`Authorization: Bearer <token>`)
-* **Response:** Returns metrics for pending normal outpasses, pending duty passes, approved total, rejected total, active outpasses, and students currently outside.
+* **Response:** Returns metrics for pending normal outpasses, pending emergency requests, pending special requests, approved total, rejected total, active outpasses, and students currently outside.
 
 * **URL:** `GET /api/outpass/warden/pending`
 * **Access:** Authenticated Warden staff only
-* **Response:** Returns list of pending Normal Outpass requests awaiting Warden review (`status = 'PENDING_WARDEN'`).
-
-* **URL:** `GET /api/outpass/warden/pending-duty`
-* **Access:** Authenticated Warden staff only
-* **Response:** Returns list of One-Day Duty requests that have ALREADY received Class Advisor approval.
+* **Response:** Returns list of pending Normal, Emergency, and Special Outpass requests awaiting Warden review (`status = 'PENDING_WARDEN'`). *(One-Day Duty is handled exclusively by Class Advisor and Principal; never routed to Warden)*.
 
 ### 5. Warden Outpass Approval & Rejection
 * **Approve Outpass:** `PATCH /api/outpass/:id/approve`
   * **Access:** Authenticated Warden staff only
+  * **Role Restriction:** Warden can approve Normal, Emergency, and Special passes, but is strictly blocked from One-Day Duty passes (HTTP 403 Forbidden).
   * **Behavior:** Verifies pending status, sets status to `APPROVED`, records `approved_by_warden_id` and timestamp `approved_at`.
 * **Reject Outpass:** `PATCH /api/outpass/:id/reject`
   * **Access:** Authenticated Warden staff only
@@ -273,55 +299,68 @@ The application will be accessible at:
 ### 6. Class Advisor Dashboard & Academic Clearance Workflow
 * **URL:** `GET /api/outpass/advisor/overview`
   * **Access:** Authenticated Class Advisors only (`Authorization: Bearer <token>`)
-  * **Response:** Returns metrics for department-specific pending OD requests, approved today, rejected today, and lifetime total.
+  * **Response:** Returns metrics for department-specific pending OD requests, pending special passes, approved today, rejected today, and lifetime total.
 * **URL:** `GET /api/outpass/advisor/pending`
   * **Access:** Authenticated Class Advisors only
-  * **Behavior:** Returns ONLY requests where `outpass_type = ONE_DAY_DUTY` AND `status = PENDING_ADVISOR` for students in the advisor's assigned department.
-* **URL:** `GET /api/outpass/advisor/approved`
-  * **Response:** History of One-Day Duty requests granted academic clearance by this advisor.
-* **URL:** `GET /api/outpass/advisor/rejected`
-  * **Response:** History of One-Day Duty requests rejected by this advisor with stated reasons.
-* **Approve OD Pass:** `PATCH /api/outpass/:id/advisor-approve`
+  * **Behavior:** Returns requests where `status = 'PENDING_ADVISOR'` (`outpass_type` in `one_day_duty`, `special`) for students in the advisor's assigned department whose parents have completed face verification.
+* **Approve OD / Special Pass:** `PATCH /api/outpass/:id/advisor-approve`
   * **Access:** Authenticated Class Advisors only
-  * **Security (Rule 5):** Enforces department-level authorization. Advisor cannot approve requests from unrelated departments.
-  * **Workflow:** Sets `advisor_approval_status = 'approved'`, records `advisor_approved_by_id` and timestamp, and transitions status from `PENDING_ADVISOR` to `PENDING_WARDEN` (making it immediately visible in Warden's One-Day Duty queue).
-* **Reject OD Pass:** `PATCH /api/outpass/:id/advisor-reject`
+  * **Security:** Enforces department-level authorization and verified parent face verification check. Advisor cannot approve requests from unrelated departments.
+  * **Workflow:** Sets `advisor_approval_status = 'approved'`, records `advisor_approved_by_id` and timestamp, and transitions status from `PENDING_ADVISOR` to `PENDING_PRINCIPAL` (forwarding directly to Principal).
+* **Reject OD / Special Pass:** `PATCH /api/outpass/:id/advisor-reject`
   * **Access:** Authenticated Class Advisors only
   * **Body:** `{ "rejection_reason": "Academic reason required" }`
-  * **Workflow:** Sets `status = 'REJECTED'`, records `advisor_rejection_reason`. The rejected request is **NEVER** sent to the Warden.
+  * **Workflow:** Sets `status = 'REJECTED'`, records `advisor_rejection_reason`.
 
-### 7. Parent Dashboard & Biometric Consent Workflow
+### 7. Principal Clearance Workflow
+* **URL:** `GET /api/principal/overview`
+  * **Access:** Authenticated Principal only
+  * **Response:** Returns institutional metrics for pending OD clearances, pending special clearances, approved today, rejected today, and gate census.
+* **URL:** `GET /api/principal/pending`
+  * **Access:** Authenticated Principal only
+  * **Behavior:** Returns requests awaiting executive clearance (`status = 'PENDING_PRINCIPAL'`).
+* **Principal Approve Outpass:** `PATCH /api/principal/outpass/:id/approve`
+  * **Access:** Authenticated Principal only
+  * **Workflow:**
+    * **One-Day Duty:** Transitions directly to final `APPROVED`, recording `principal_approval_status = 'approved'`. Enables QR generation by Principal.
+    * **Special Outpass:** Transitions to `PENDING_WARDEN` for final campus exit authorization by Warden.
+* **Principal Reject Outpass:** `PATCH /api/principal/outpass/:id/reject`
+  * **Access:** Authenticated Principal only
+  * **Body:** `{ "rejection_reason": "Administrative reason required" }`
+  * **Workflow:** Sets `status = 'REJECTED'`, recording `principal_rejection_reason`.
+
+### 8. Parent Dashboard & 128D Face Biometric Consent Workflow
 * **URL:** `GET /api/parent/overview`
   * **Access:** Authenticated Parents only (`Authorization: Bearer <token>`)
-  * **Response:** Returns linked student details (`name`, `regNo`, `department`, `room`, `block`), pending outpasses, approved/rejected counts, unread messages, and biometric session status.
-* **URL:** `POST /api/parent/biometric-verify`
+  * **Response:** Returns linked student details (`name`, `regNo`, `department`, `room`, `block`), pending outpasses (Normal, One-Day Duty, Special), face registration status, approved/rejected counts, and message history.
+* **URL:** `POST /api/parent/face-verify`
   * **Access:** Authenticated Parents only
-  * **Body:** `{ simulation_mode: true }`
-  * **Note:** Software biometric validation module (clearly marked `DEVELOPMENT ONLY`). Structured for direct drop-in integration with physical Arduino/Serial fingerprint hardware.
-* **URL:** `GET /api/parent/outpass/pending`
-  * **Access:** Authenticated Parents only
-  * **Behavior:** Returns ONLY pending outpasses for the parent's linked student (`o.status = 'PENDING_PARENT'`).
-* **URL:** `GET /api/parent/outpass/approved`
-  * **Response:** History of outpasses approved by the parent.
-* **URL:** `GET /api/parent/outpass/rejected`
-  * **Response:** History of outpasses rejected by the parent with reasons.
+  * **Body:** `{ "descriptor": [128-float array] }`
+  * **Behavior:** Authoritative server-side vector comparison against enrolled 128D facial template (`parent_face_templates`) enforcing strict Euclidean distance threshold ($D \le 0.45$). On match, issues a cryptographically secure single-use verification token valid for 10 minutes.
 * **Parent Approve Outpass:** `PATCH /api/parent/outpass/:id/approve`
   * **Access:** Authenticated Parents only
-  * **Requirements:** Requires verified biometric fingerprint session + ownership validation.
-  * **Workflow:** Sets `parent_approval_status = 'approved'`, `parent_biometric_verified = 1`, records parent ID and timestamp, and transitions status from `PENDING_PARENT` to `PENDING_WARDEN` (forwarding to Warden).
+  * **Body:** `{ "verification_token": "face_ver_...", "message": "Mandatory parent message" }`
+  * **Requirements:** Requires verified face session token + non-empty message + parent-student ownership validation.
+  * **Workflow:**
+    * Sets `parent_approval_status = 'approved'`, `parent_face_verified = 1`, and logs consent message in `parent_messages`.
+    * **Normal Outpass:** Transitions to `PENDING_WARDEN` (notifies Warden).
+    * **One-Day Duty / OD:** Transitions to `PENDING_ADVISOR` (notifies linked Class Advisor; strictly bypasses Warden).
+    * **Special Outpass:** Transitions to `PENDING_ADVISOR`.
 * **Parent Reject Outpass:** `PATCH /api/parent/outpass/:id/reject`
   * **Access:** Authenticated Parents only
   * **Body:** `{ "rejection_reason": "Explanation required" }`
-  * **Workflow:** Sets `status = 'REJECTED'`, `parent_approval_status = 'rejected'`. The rejected request is **NEVER** sent to the Warden.
+  * **Workflow:** Sets `status = 'REJECTED'`, `parent_approval_status = 'rejected'`. The rejected request terminates immediately.
 * **Parent Multilingual Messaging:**
   * **URL:** `GET /api/parent/messages` - Retrieve message history
   * **URL:** `POST /api/parent/messages` - Send English and தமிழ் (Tamil) messages (`utf8mb4` encoding) to hostel authorities.
 
-### 8. QR Code Generation, Active Outpass & Validity Engine
-* **Generate QR Code (Warden Only):** `POST /api/qr/generate/:outpassId`
-  * **Access:** Authenticated Warden staff only (`Authorization: Bearer <token>`)
-  * **Behavior:** Validates outpass is final `APPROVED` by Warden. Generates a cryptographically secure random token (`crypto.randomBytes(24)` -> `qr_sec_...`) and high-density PNG Data URL via `qrcode`.
-  * **Security:** Does **NOT** store plaintext passwords or biometric data in QR payload. QR contains only the secure token, request code, and system signature.
+### 9. QR Code Generation, Active Outpass & Validity Engine
+* **Role-Segregated QR Code Generation:** `POST /api/qr/generate/:outpassId`
+  * **Access:** Authenticated Staff (Role-based gatekeeping)
+  * **One-Day Duty Pass:** Generated strictly by **Principal** (`role = 'principal'`). Warden access is blocked with HTTP 403 Forbidden.
+  * **Normal, Emergency & Special Pass:** Generated strictly by **Warden** (`role = 'warden'`). Principal access is blocked with HTTP 403 Forbidden.
+  * **Security Check:** Validates outpass is in `APPROVED` status, and verifies that Parent Face Verification was completed for Normal and OD passes.
+  * **Payload:** Generates a cryptographically secure random token (`crypto.randomBytes(24)` -> `qr_sec_...`) and high-density PNG Data URL via `qrcode`. Biometric vectors and passwords are never exposed.
 * **Student Active Outpass & Countdown:** `GET /api/student/active-outpass`
   * **Access:** Authenticated Students only
   * **Behavior:** Retrieves the student's latest approved outpass with active QR code. Computes real-time validity status based on server timestamps (`ACTIVE`, `NOT_YET_VALID`, `EXPIRED`, `REVOKED`, `COMPLETED`).
@@ -331,17 +370,17 @@ The application will be accessible at:
   * **Body:** `{ "qr_token": "qr_sec_..." }`
   * **Validation Rules:**
     1. Returns `INVALID` (HTTP 404) if token is unknown.
-    2. Returns `REVOKED` (HTTP 403) if pass has been revoked by Warden.
+    2. Returns `REVOKED` (HTTP 403) if pass has been revoked by authorized staff.
     3. Returns `ALREADY_USED` (HTTP 409) if pass has completed all allowable checkpoint scans (`max_uses`).
     4. Returns `NOT_YET_VALID` (HTTP 400) if current server time < scheduled leaving time.
     5. Returns `EXPIRED` (HTTP 410) if current server time > scheduled return time.
     6. Returns `VALID` (HTTP 200) with sanitized student metadata, departure/return window, and pass type.
-* **Revoke QR Code (Warden Only):** `PATCH /api/qr/revoke/:qrId`
-  * **Access:** Authenticated Warden staff only
+* **Revoke QR Code:** `PATCH /api/qr/revoke/:qrId`
+  * **Access:** Authorized staff (Principal for OD; Warden for Normal/Emergency/Special)
   * **Body:** `{ "revocation_reason": "Reason for revocation" }`
-  * **Behavior:** Sets QR status to `REVOKED`, records `revoked_by_warden_id`, timestamp `revoked_at`, and reason. Immediately prevents validation at gate checkpoints.
-* **Regenerate QR Code (Warden Only):** `POST /api/qr/regenerate/:outpassId`
-  * **Access:** Authenticated Warden staff only
+  * **Behavior:** Sets QR status to `REVOKED`, records revoker ID, timestamp, and reason. Immediately prevents validation at gate checkpoints.
+* **Regenerate QR Code:** `POST /api/qr/regenerate/:outpassId`
+  * **Access:** Authorized staff (Principal for OD; Warden for Normal/Emergency/Special)
   * **Behavior:** Invalidates previous QR code with audit log and generates a brand-new cryptographic token for the student.
 
 ---
@@ -365,32 +404,29 @@ The application will be accessible at:
 Run any of the comprehensive test suites:
 
 ```bash
-# 1. QR Code Generation, Validity Engine & Student Active Pass (18 Tests)
+# 1. Exact Workflow-Based Request Routing & Role Isolation Suite (53 Tests)
+node database/test_exact_workflow_routing.js
+
+# 2. QR Code Generation, Role Gatekeeping & Validity Engine Suite (23 Tests)
 node database/test_qr.js
 
-# 2. Parent Biometric Consent & Multilingual Messaging (22 Tests)
-node database/test_parent.js
+# 3. Emergency & Special Outpass Workflow Suite (43 Tests)
+node database/test_emergency_special_workflow.js
 
-# 3. Class Advisor OD Clearance & Department Isolation (20 Tests)
-node database/test_advisor.js
+# 4. Parent Face Biometric Verification Lifecycle Suite (71 Tests)
+node database/test_parent_face_lifecycle.js
 
-# 4. Warden Dashboard & Approval Queue (20 Tests)
-node database/test_warden.js
-
-# 5. Student Outpass Submission & Status Summary (16 Tests)
-node database/test_outpass.js
-
-# 6. Authentication & 7-Role Redirection (28 Tests)
-node database/test_auth.js
+# 5. Advance Time Constraints Suite (26 Tests)
+node database/test_advance_time_constraints.js
 ```
-**Total Passing Automated Tests:** 124 Tests (0 Failures).
+**Total Passing Automated Tests:** 216+ Tests (0 Failures, 100% Passing).
 
 ---
 
 ## 💻 Frontend UI Features
 
 * **7 Dedicated Portal Views**: Dynamic form fields, labels, and placeholders customized for Students, Parents, Wardens, Principals, Class Advisors, Caretakers, and Gate Security.
-* **Role-Based Dynamic Dashboards**: Authenticated dashboard (`dashboard.html`) showing verified user info, avatar, role badge, upcoming capability cards, and logout controls.
+* **Role-Based Dynamic Dashboards**: Authenticated dashboard showing verified user info, avatar, role badge, upcoming capability cards, and logout controls.
 * **Real-Time Backend Diagnostics**: Live status chip displaying API uptime, MySQL connection status, and Socket.IO heartbeat.
 * **Dark & Light Mode**: Built-in theme switcher persisted in browser `localStorage`.
 * **Quick Demo Autofill**: One-click autofill chips for all 7 roles for instant testing.
@@ -401,7 +437,7 @@ node database/test_auth.js
 
 * [x] **Phase 1:** Project foundation, Express server, MySQL connection pool, relational schema, responsive multi-role UI.
 * [x] **Phase 2:** Complete JWT & bcrypt authentication, 7-role login portal, session protection, and dashboard routing.
-* [x] **Phase 3:** Outpass request lifecycle & multi-tier approval workflow (Parent -> Advisor -> Warden).
-* [x] **Phase 4:** Dynamic QR Code token generation, cryptographic tokens, server validity engine, live countdown timer, and Warden QR management.
+* [x] **Phase 3:** Exact canonical 4-tier workflow routing (Normal, One-Day Duty, Emergency, Special) with 128D Parent Face Biometrics.
+* [x] **Phase 4:** Role-segregated dynamic QR Code token generation (Principal for OD; Warden for Normal/Emergency/Special), cryptographic tokens, server validity engine, live countdown timer.
 * [ ] **Phase 5:** Gate check-in/check-out scanner interface (Watchman/Caretaker) and real-time audit logging.
 * [ ] **Phase 6:** Hardware integration (Arduino UNO & physical fingerprint sensor at the very end).

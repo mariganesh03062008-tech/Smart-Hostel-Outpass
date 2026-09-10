@@ -56,6 +56,7 @@ exports.generateQrForOutpass = async (req, res, next) => {
         o.to_datetime,
         o.status,
         o.parent_approval_status,
+        o.parent_face_verified,
         o.advisor_approval_status,
         o.warden_approval_status,
         o.principal_approval_status,
@@ -79,7 +80,24 @@ exports.generateQrForOutpass = async (req, res, next) => {
 
     const outpass = rows[0];
 
-    // 2. Strict status check: MUST be APPROVED
+    // 2. Role & Workflow Authorization Check
+    if (outpass.outpass_type === 'normal' || outpass.outpass_type === 'emergency' || outpass.outpass_type === 'special') {
+      if (req.user.role === 'principal') {
+        return res.status(403).json({
+          success: false,
+          message: `Forbidden: Principal is not authorized to generate QR codes for ${outpass.outpass_type} outpasses.`
+        });
+      }
+    } else if (outpass.outpass_type === 'one_day_duty' || outpass.outpass_type === 'duty') {
+      if (req.user.role === 'warden') {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Warden is not authorized to generate QR codes for One-Day Duty passes.'
+        });
+      }
+    }
+
+    // 3. Strict status check: MUST be APPROVED
     if (outpass.status !== 'APPROVED') {
       return res.status(400).json({
         success: false,
@@ -87,10 +105,17 @@ exports.generateQrForOutpass = async (req, res, next) => {
       });
     }
 
-    // 3. Workflow-Specific Approval Verification (Rule 13)
+    // 4. Workflow-Specific Approval Verification (Rule 13)
     if (outpass.outpass_type === 'normal') {
-      // Normal Outpass: Requires Warden final approval
+      // Normal Outpass: Requires Parent face verification AND Warden final approval
+      const isParentApproved = (outpass.parent_approval_status === 'approved' && outpass.parent_face_verified === 1);
       const isWardenApproved = outpass.approved_by_warden_id || outpass.warden_approval_status === 'approved';
+      if (!isParentApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Normal Outpass requires Parent approval with Face Biometric Verification before QR generation.'
+        });
+      }
       if (!isWardenApproved) {
         return res.status(400).json({
           success: false,
@@ -98,9 +123,16 @@ exports.generateQrForOutpass = async (req, res, next) => {
         });
       }
     } else if (outpass.outpass_type === 'one_day_duty' || outpass.outpass_type === 'duty') {
-      // One-Day Permission: Requires Class Advisor approval AND Principal final approval
+      const isParentApproved = (outpass.parent_approval_status === 'approved' && outpass.parent_face_verified === 1);
       const isAdvisorApproved = outpass.advisor_approved_by_id || outpass.advisor_approval_status === 'approved';
       const isPrincipalApproved = outpass.principal_approved_by_id || outpass.principal_approval_status === 'approved';
+
+      if (!isParentApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'One-Day Duty Pass requires Parent approval with Face Biometric Verification before QR generation.'
+        });
+      }
 
       if (!isAdvisorApproved) {
         return res.status(400).json({
@@ -113,6 +145,50 @@ exports.generateQrForOutpass = async (req, res, next) => {
         return res.status(400).json({
           success: false,
           message: 'One-Day Permission requires Principal final approval before QR generation.'
+        });
+      }
+    } else if (outpass.outpass_type === 'emergency') {
+      // Emergency Outpass: Requires Warden final approval (Parent approval NOT required)
+      const isWardenApproved = outpass.approved_by_warden_id || outpass.warden_approval_status === 'approved';
+
+      if (!isWardenApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Emergency Outpass requires Warden final approval before QR generation.'
+        });
+      }
+    } else if (outpass.outpass_type === 'special') {
+      // Special Outpass: Requires all 4 stages: Parent -> Advisor -> Principal -> Warden
+      const isParentApproved = (outpass.parent_approval_status === 'approved' && outpass.parent_face_verified === 1);
+      const isAdvisorApproved = outpass.advisor_approved_by_id || outpass.advisor_approval_status === 'approved';
+      const isPrincipalApproved = outpass.principal_approved_by_id || outpass.principal_approval_status === 'approved';
+      const isWardenApproved = outpass.approved_by_warden_id || outpass.warden_approval_status === 'approved';
+
+      if (!isParentApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Parent approval with Face Biometric Verification before QR generation.'
+        });
+      }
+
+      if (!isAdvisorApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Class Advisor approval before QR generation.'
+        });
+      }
+
+      if (!isPrincipalApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Principal review before QR generation.'
+        });
+      }
+
+      if (!isWardenApproved) {
+        return res.status(400).json({
+          success: false,
+          message: 'Special Outpass requires Warden final approval before QR generation.'
         });
       }
     }
@@ -466,6 +542,7 @@ exports.getStudentActiveOutpass = async (req, res, next) => {
       hasActiveOutpass: true,
       serverTime: serverNow.toISOString(),
       activeOutpass: {
+        id: pass.outpassId,
         outpassId: pass.outpassId,
         requestCode: pass.requestCode,
         studentName: pass.studentName,
@@ -474,7 +551,7 @@ exports.getStudentActiveOutpass = async (req, res, next) => {
         roomNo: pass.studentRoom,
         hostelBlock: pass.studentBlock,
         studentHostelStatus: pass.studentHostelStatus || (pass.exitTime ? 'OUTSIDE' : 'INSIDE'),
-        requestType: pass.requestType === 'one_day_duty' ? 'One-Day Duty' : 'Normal Outpass',
+        requestType: pass.requestType === 'emergency' ? 'Emergency Outpass' : (pass.requestType === 'special' ? 'Special Outpass' : (pass.requestType === 'one_day_duty' ? 'One-Day Duty' : 'Normal Outpass')),
         purpose: pass.purpose,
         destination: pass.destination,
         leavingDatetime: pass.leavingDatetime,

@@ -26,15 +26,7 @@ async function ensureSchema() {
     if (!colNames.includes('relationship')) {
       await pool.query('ALTER TABLE parents ADD COLUMN relationship VARCHAR(50) DEFAULT "Father" AFTER father_name');
     }
-    if (!colNames.includes('fingerprint_registered')) {
-      await pool.query('ALTER TABLE parents ADD COLUMN fingerprint_registered TINYINT(1) DEFAULT 0 AFTER password_hash');
-    }
-    if (!colNames.includes('fingerprint_reference')) {
-      await pool.query('ALTER TABLE parents ADD COLUMN fingerprint_reference VARCHAR(255) NULL AFTER fingerprint_registered');
-    }
-    if (!colNames.includes('fingerprint_registered_at')) {
-      await pool.query('ALTER TABLE parents ADD COLUMN fingerprint_registered_at DATETIME NULL AFTER fingerprint_reference');
-    }
+
   } catch (err) {
     console.warn('[DB Schema Init Warning]:', err.message);
   }

@@ -91,7 +91,7 @@ async function runWardenTests() {
   const studentGpsRes = await request('/api/outpass/student/location', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${studentToken}` },
-    body: { latitude: 13.0000000, longitude: 80.0000000, accuracy: 5.0, source: 'browser_gps' }
+    body: { latitude: 13.0000000, longitude: 80.0000000, accuracy: 5.0, captured_at: new Date().toISOString(), source: 'browser_gps' }
   });
   assert(studentGpsRes.ok, '5C. Student Live GPS Location Guard updated and active');
 
@@ -219,8 +219,8 @@ async function runWardenTests() {
       duty_description: '24-hour hackathon representation',
       leaving_date: leavingDateStr,
       leaving_time: '08:00',
-      expected_return_date: returnDateStr,
-      expected_return_time: '12:00',
+      expected_return_date: leavingDateStr,
+      expected_return_time: '14:00',
       student_phone: '9876543210'
     }
   });

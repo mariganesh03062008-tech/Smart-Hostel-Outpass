@@ -9,13 +9,19 @@ router.use(authenticateToken, authorizeRoles('class_advisor'));
 // 1. Advisor Dashboard Overview & Statistics
 router.get('/overview', outpassController.getAdvisorOverview);
 
-// 2. Pending One-Day Duty Requests Queue
-router.get('/one-day/pending', outpassController.getAdvisorPending);
+// 2. Pending Clearances (Strict Request-Type Separation)
+router.get('/one-day/pending', outpassController.getAdvisorDutyPending);
+router.get('/duty/pending', outpassController.getAdvisorDutyPending);
+router.get('/special/pending', outpassController.getAdvisorSpecialPending);
 router.get('/pending', outpassController.getAdvisorPending);
 
-// 3. Class Advisor Approval & Rejection for One-Day Permission
+// 3. Class Advisor Approval & Rejection for One-Day Permission and Special Outpass
 router.patch('/one-day/:id/approve', outpassController.advisorApprove);
 router.patch('/one-day/:id/reject', outpassController.advisorReject);
+router.patch('/duty/:id/approve', outpassController.advisorApprove);
+router.patch('/duty/:id/reject', outpassController.advisorReject);
+router.patch('/special/:id/approve', outpassController.advisorApprove);
+router.patch('/special/:id/reject', outpassController.advisorReject);
 router.patch('/:id/approve', outpassController.advisorApprove);
 router.patch('/:id/reject', outpassController.advisorReject);
 

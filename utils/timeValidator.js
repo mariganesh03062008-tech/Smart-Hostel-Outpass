@@ -3,14 +3,21 @@
  * Advance Request Time Validation Utility
  *
  * Rules:
- * 1. Normal Outpass: Submitted at least 18 hours before departure.
- * 2. One-Day Outpass / Duty: Submitted at least 12 hours before departure.
+ * 1. Normal Outpass: Student must submit at least 10 hours before departure.
+ * 2. One-Day Duty Outpass: Student must submit at least 6 hours before departure.
+ * 3. Emergency & Special Outpass: Exempt from advance-time restrictions.
  *
  * Evaluation:
- *   required_submit_time = departure_time - required_hours
+ *   required_submit_time = departure_time - required_advance_hours
  *   Allowed ONLY when: current_time <= required_submit_time
  *   If current_time > required_submit_time -> Blocked (ADVANCE_TIME_LIMIT)
+ *
+ * Note: Outpass duration (departure -> return) is INDEPENDENT of advance notice.
+ * 10h and 6h are strictly advance submission constraints, NOT duration caps.
  */
+
+const NORMAL_ADVANCE_HOURS = 10;
+const ONE_DAY_DUTY_ADVANCE_HOURS = 6;
 
 function parseDateTime(input) {
   if (!input) return null;
@@ -18,12 +25,10 @@ function parseDateTime(input) {
     return isNaN(input.getTime()) ? null : input;
   }
   if (typeof input === 'string') {
-    // Clean spaces
     const trimmed = input.trim();
-    // If format is 'YYYY-MM-DD HH:mm' or 'YYYY-MM-DD HH:mm:ss'
     const dt = new Date(trimmed);
     if (!isNaN(dt.getTime())) return dt;
-    // Try replacing space with 'T'
+    // Try replacing space with 'T' if format is 'YYYY-MM-DD HH:mm:ss'
     if (trimmed.includes(' ') && !trimmed.includes('T')) {
       const dtIso = new Date(trimmed.replace(' ', 'T'));
       if (!isNaN(dtIso.getTime())) return dtIso;
@@ -51,15 +56,26 @@ function formatReadableDateTime(d) {
 /**
  * Validates whether an outpass submission meets the required advance notice window.
  *
- * @param {string} requestType - 'normal' | 'one_day_duty' | 'duty'
+ * @param {string} requestType - 'normal' | 'one_day_duty' | 'duty' | 'emergency' | 'special'
  * @param {Date|string|number} departureTime - Selected departure date & time
  * @param {Date|string|number} [currentTime=new Date()] - Evaluation time (defaults to server time)
  * @returns {object} Validation result
  */
 function validateAdvanceSubmissionTime(requestType, departureTime, currentTime = new Date()) {
+  if (requestType === 'emergency' || requestType === 'special') {
+    const depDate = parseDateTime(departureTime);
+    const depIso = depDate ? depDate.toISOString() : null;
+    return {
+      allowed: true,
+      required_hours: 0,
+      departure_time: depIso,
+      latest_submission_time: depIso,
+      latest_submission_time_formatted: depDate ? formatReadableDateTime(depDate) : ''
+    };
+  }
+
   const isDuty = requestType === 'duty' || requestType === 'one_day_duty';
-  const requiredHours = isDuty ? 12 : 18;
-  const typeLabel = isDuty ? 'One-Day' : 'Normal';
+  const requiredHours = isDuty ? ONE_DAY_DUTY_ADVANCE_HOURS : NORMAL_ADVANCE_HOURS;
 
   const depDate = parseDateTime(departureTime);
   const curDate = parseDateTime(currentTime);
@@ -81,17 +97,21 @@ function validateAdvanceSubmissionTime(requestType, departureTime, currentTime =
   const latestSubmitMs = departureMs - requiredMs;
   const latestSubmitDate = new Date(latestSubmitMs);
 
-  // Allowed ONLY when current_time <= required_submit_time
+  // Allowed ONLY when current_time <= required_submit_time (departure_time - required_advance_hours)
   const allowed = currentMs <= latestSubmitMs;
 
   const depIso = depDate.toISOString();
   const latestSubmitIso = latestSubmitDate.toISOString();
 
   if (!allowed) {
+    const message = isDuty
+      ? 'One-Day Duty outpass must be applied at least 6 hours before the departure time.'
+      : 'Normal outpass must be applied at least 10 hours before the departure time.';
+
     return {
       allowed: false,
       code: 'ADVANCE_TIME_LIMIT',
-      message: `${typeLabel} outpass requests must be submitted at least ${requiredHours} hours before the departure time.`,
+      message,
       required_hours: requiredHours,
       departure_time: depIso,
       departure_time_formatted: formatReadableDateTime(depDate),
@@ -111,6 +131,8 @@ function validateAdvanceSubmissionTime(requestType, departureTime, currentTime =
 
 module.exports = {
   validateAdvanceSubmissionTime,
+  NORMAL_ADVANCE_HOURS,
+  ONE_DAY_DUTY_ADVANCE_HOURS,
   parseDateTime,
   formatReadableDateTime
 };

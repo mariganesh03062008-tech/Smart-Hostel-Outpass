@@ -9,6 +9,9 @@ router.post('/login', authController.login);
 // Public route: Parent Account Registration
 router.post('/register-parent', authController.registerParent);
 
+// Public route: Pre-submit Student Roll Verification
+router.get('/check-student-roll', authController.checkStudentRoll);
+
 // Public route: Student Account Registration
 router.post('/register-student', authController.registerStudent);
 router.post('/register', authController.registerStudent);

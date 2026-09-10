@@ -273,6 +273,13 @@ exports.recordStudentExit = async (req, res, next) => {
       WHERE id = ?;
     `, [serverNow, pass.qrId]);
 
+    // E. Log gate exit movement in outpass_approval_history
+    await connection.query(`
+      INSERT INTO outpass_approval_history (
+        outpass_id, student_id, role, user_id, action, message, previous_status, new_status, created_at
+      ) VALUES (?, ?, 'caretaker', ?, 'GATE_EXIT', 'Gate departure recorded by Caretaker via QR scan', 'APPROVED', 'APPROVED', NOW())
+    `, [pass.outpassId, pass.studentId, caretakerId]).catch(err => console.warn('[History Error]:', err.message));
+
     // Commit Transaction
     await connection.commit();
 

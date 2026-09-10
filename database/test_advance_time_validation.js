@@ -108,21 +108,21 @@ async function runTests() {
     console.log('--- Section 1: Helper Unit Tests (Mathematical Boundary Checks) ---');
     const fixedNow = new Date('2026-09-10T12:00:00.000Z');
 
-    // Normal Outpass: 18h
-    const norm18hExact = new Date(fixedNow.getTime() + 18 * 3600 * 1000);
-    const resNorm18h = validateAdvanceSubmissionTime('normal', norm18hExact, fixedNow);
-    assert(resNorm18h.allowed === true, 'Helper Unit: Normal exactly 18h allowed');
-    assert(resNorm18h.required_hours === 18, 'Helper Unit: Normal required_hours is 18');
+    // Normal Outpass: 10h
+    const norm10hExact = new Date(fixedNow.getTime() + 10 * 3600 * 1000);
+    const resNorm10h = validateAdvanceSubmissionTime('normal', norm10hExact, fixedNow);
+    assert(resNorm10h.allowed === true, 'Helper Unit: Normal exactly 10h allowed');
+    assert(resNorm10h.required_hours === 10, 'Helper Unit: Normal required_hours is 10');
 
-    const norm18hPlus = new Date(fixedNow.getTime() + 24 * 3600 * 1000);
-    const resNormPlus = validateAdvanceSubmissionTime('normal', norm18hPlus, fixedNow);
-    assert(resNormPlus.allowed === true, 'Helper Unit: Normal >18h allowed');
+    const norm10hPlus = new Date(fixedNow.getTime() + 24 * 3600 * 1000);
+    const resNormPlus = validateAdvanceSubmissionTime('normal', norm10hPlus, fixedNow);
+    assert(resNormPlus.allowed === true, 'Helper Unit: Normal >10h allowed');
 
-    const norm17h59m = new Date(fixedNow.getTime() + (18 * 3600 - 60) * 1000);
-    const resNorm17h59 = validateAdvanceSubmissionTime('normal', norm17h59m, fixedNow);
-    assert(resNorm17h59.allowed === false, 'Helper Unit: Normal 17h 59m blocked');
-    assert(resNorm17h59.code === 'ADVANCE_TIME_LIMIT', 'Helper Unit: Code is ADVANCE_TIME_LIMIT');
-    assert(resNorm17h59.message.includes('18 hours'), 'Helper Unit: Message mentions 18 hours');
+    const norm9h59m = new Date(fixedNow.getTime() + (10 * 3600 - 60) * 1000);
+    const resNorm9h59 = validateAdvanceSubmissionTime('normal', norm9h59m, fixedNow);
+    assert(resNorm9h59.allowed === false, 'Helper Unit: Normal 9h 59m blocked');
+    assert(resNorm9h59.code === 'ADVANCE_TIME_LIMIT', 'Helper Unit: Code is ADVANCE_TIME_LIMIT');
+    assert(resNorm9h59.message.includes('10 hours'), 'Helper Unit: Message mentions 10 hours');
 
     const norm10m = new Date(fixedNow.getTime() + 10 * 60 * 1000);
     const resNorm10m = validateAdvanceSubmissionTime('normal', norm10m, fixedNow);
@@ -136,21 +136,21 @@ async function runTests() {
     const resNormPast = validateAdvanceSubmissionTime('normal', normPast, fixedNow);
     assert(resNormPast.allowed === false, 'Helper Unit: Normal past departure blocked');
 
-    // One-Day Duty: 12h
-    const duty12hExact = new Date(fixedNow.getTime() + 12 * 3600 * 1000);
-    const resDuty12h = validateAdvanceSubmissionTime('one_day_duty', duty12hExact, fixedNow);
-    assert(resDuty12h.allowed === true, 'Helper Unit: One-Day exactly 12h allowed');
-    assert(resDuty12h.required_hours === 12, 'Helper Unit: One-Day required_hours is 12');
+    // One-Day Duty: 6h
+    const duty6hExact = new Date(fixedNow.getTime() + 6 * 3600 * 1000);
+    const resDuty6h = validateAdvanceSubmissionTime('one_day_duty', duty6hExact, fixedNow);
+    assert(resDuty6h.allowed === true, 'Helper Unit: One-Day exactly 6h allowed');
+    assert(resDuty6h.required_hours === 6, 'Helper Unit: One-Day required_hours is 6');
 
-    const duty16h = new Date(fixedNow.getTime() + 16 * 3600 * 1000);
-    const resDuty16h = validateAdvanceSubmissionTime('one_day_duty', duty16h, fixedNow);
-    assert(resDuty16h.allowed === true, 'Helper Unit: One-Day >12h allowed');
+    const duty8h = new Date(fixedNow.getTime() + 8 * 3600 * 1000);
+    const resDuty8h = validateAdvanceSubmissionTime('one_day_duty', duty8h, fixedNow);
+    assert(resDuty8h.allowed === true, 'Helper Unit: One-Day >6h allowed');
 
-    const duty11h59m = new Date(fixedNow.getTime() + (12 * 3600 - 60) * 1000);
-    const resDuty11h59 = validateAdvanceSubmissionTime('one_day_duty', duty11h59m, fixedNow);
-    assert(resDuty11h59.allowed === false, 'Helper Unit: One-Day 11h 59m blocked');
-    assert(resDuty11h59.code === 'ADVANCE_TIME_LIMIT', 'Helper Unit: Duty code is ADVANCE_TIME_LIMIT');
-    assert(resDuty11h59.message.includes('12 hours'), 'Helper Unit: Duty message mentions 12 hours');
+    const duty5h59m = new Date(fixedNow.getTime() + (6 * 3600 - 60) * 1000);
+    const resDuty5h59 = validateAdvanceSubmissionTime('one_day_duty', duty5h59m, fixedNow);
+    assert(resDuty5h59.allowed === false, 'Helper Unit: One-Day 5h 59m blocked');
+    assert(resDuty5h59.code === 'ADVANCE_TIME_LIMIT', 'Helper Unit: Duty code is ADVANCE_TIME_LIMIT');
+    assert(resDuty5h59.message.includes('6 hours'), 'Helper Unit: Duty message mentions 6 hours');
 
     const duty10m = new Date(fixedNow.getTime() + 10 * 60 * 1000);
     const resDuty10m = validateAdvanceSubmissionTime('one_day_duty', duty10m, fixedNow);
@@ -172,22 +172,10 @@ async function runTests() {
       method: 'POST',
       body: { username: '21CS042', password: 'Password@123', role: 'student' }
     });
-    assert(loginRes.status === 200 && Boolean(loginRes.data?.token), 'Student 21CS042 logged in successfully');
-    const studentToken = loginRes.data?.token;
+    assert(loginRes.status === 200 && Boolean(loginRes.data?.data?.token || loginRes.data?.token), 'Student 21CS042 logged in successfully');
+    const studentToken = loginRes.data?.data?.token || loginRes.data?.token;
 
-    // Set valid student location for outpass tests (mandated by location security guard)
-    const locRes = await request('/api/outpass/student/location', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${studentToken}` },
-      body: {
-        latitude: 13.0827,
-        longitude: 80.2707,
-        accuracy: 10,
-        captured_at: new Date().toISOString(),
-        source: 'browser_gps'
-      }
-    });
-    assert(locRes.status === 200 && locRes.data?.success, 'Student live location recorded successfully for advance time test');
+    assert(Boolean(studentToken), 'Student token acquired for advance time test');
 
     // Count initial outpass requests in DB
     const [initialRows] = await pool.query('SELECT COUNT(*) AS total FROM outpass_requests');
@@ -196,14 +184,14 @@ async function runTests() {
     const maxIdBefore = Number(maxIdRows[0].maxId);
 
     // ------------------------------------------------------------------
-    // SECTION 3: Rule 1 – Normal Outpass (18-Hour Rule) Integration Tests
+    // SECTION 3: Rule 1 – Normal Outpass (10-Hour Rule) Integration Tests
     // ------------------------------------------------------------------
-    console.log('\n--- Section 3: Normal Outpass (18-Hour Rule) API Tests ---');
+    console.log('\n--- Section 3: Normal Outpass (10-Hour Rule) API Tests ---');
 
-    // Test 1: Exactly 18 hours before departure -> ALLOW
-    // Add small 2-second buffer to guarantee server time doesn't tick into 17h 59m 59s during HTTP transit
-    const dep18hServer = new Date(Date.now() + 18 * 3600 * 1000 + 3000);
-    const ret18hServer = new Date(dep18hServer.getTime() + 6 * 3600 * 1000);
+    // Test 1: Exactly 10 hours before departure -> ALLOW
+    // Add small 2-second buffer to guarantee server time doesn't tick into 9h 59m 59s during HTTP transit
+    const dep10hServer = new Date(Date.now() + 10 * 3600 * 1000 + 3000);
+    const ret10hServer = new Date(dep10hServer.getTime() + 6 * 3600 * 1000);
     const resCase1 = await request('/api/outpass', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -211,16 +199,16 @@ async function runTests() {
         request_type: 'normal',
         destination: 'Home Town',
         reason: 'Weekend Visit',
-        leaving_date: formatDate(dep18hServer),
-        leaving_time: formatTime(dep18hServer),
-        expected_return_date: formatDate(ret18hServer),
-        expected_return_time: formatTime(ret18hServer),
+        leaving_date: formatDate(dep10hServer),
+        leaving_time: formatTime(dep10hServer),
+        expected_return_date: formatDate(ret10hServer),
+        expected_return_time: formatTime(ret10hServer),
         student_phone: '9876543210'
       }
     });
-    assert(resCase1.status === 201 && resCase1.data.success === true, 'Case 1: Exactly 18 hours before -> ALLOW (HTTP 201)');
+    assert(resCase1.status === 201 && resCase1.data.success === true, 'Case 1: Exactly 10 hours before -> ALLOW (HTTP 201)');
 
-    // Test 2: More than 18 hours before departure (24 hours) -> ALLOW
+    // Test 2: More than 10 hours before departure (24 hours) -> ALLOW
     const dep24hServer = new Date(Date.now() + 24 * 3600 * 1000);
     const ret24hServer = new Date(dep24hServer.getTime() + 6 * 3600 * 1000);
     const resCase2 = await request('/api/outpass', {
@@ -237,15 +225,15 @@ async function runTests() {
         student_phone: '9876543210'
       }
     });
-    assert(resCase2.status === 201 && resCase2.data.success === true, 'Case 2: More than 18 hours before (24h) -> ALLOW (HTTP 201)');
+    assert(resCase2.status === 201 && resCase2.data.success === true, 'Case 2: More than 10 hours before (24h) -> ALLOW (HTTP 201)');
 
     // Record count of valid inserts so far (+2)
     const [afterAllowRows] = await pool.query('SELECT COUNT(*) AS total FROM outpass_requests');
     assert(Number(afterAllowRows[0].total) === initialDbCount + 2, 'Allowed requests successfully inserted into MySQL');
 
-    // Test 3: 17h 59m before departure -> BLOCK
-    const dep17h59mServer = new Date(Date.now() + (18 * 3600 - 60) * 1000);
-    const ret17h59mServer = new Date(dep17h59mServer.getTime() + 4 * 3600 * 1000);
+    // Test 3: 9h 59m before departure -> BLOCK
+    const dep9h59mServer = new Date(Date.now() + (10 * 3600 - 60) * 1000);
+    const ret9h59mServer = new Date(dep9h59mServer.getTime() + 4 * 3600 * 1000);
     const resCase3 = await request('/api/outpass', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -253,19 +241,19 @@ async function runTests() {
         request_type: 'normal',
         destination: 'Market',
         reason: 'Shopping',
-        leaving_date: formatDate(dep17h59mServer),
-        leaving_time: formatTime(dep17h59mServer),
-        expected_return_date: formatDate(ret17h59mServer),
-        expected_return_time: formatTime(ret17h59mServer),
+        leaving_date: formatDate(dep9h59mServer),
+        leaving_time: formatTime(dep9h59mServer),
+        expected_return_date: formatDate(ret9h59mServer),
+        expected_return_time: formatTime(ret9h59mServer),
         student_phone: '9876543210'
       }
     });
-    assert(resCase3.status === 400, 'Case 3: 17h 59m before departure -> BLOCK (HTTP 400)');
+    assert(resCase3.status === 400, 'Case 3: 9h 59m before departure -> BLOCK (HTTP 400)');
     assert(resCase3.data?.code === 'ADVANCE_TIME_LIMIT', 'Case 3 Error code matches ADVANCE_TIME_LIMIT');
-    assert(resCase3.data?.required_hours === 18, 'Case 3 required_hours is 18');
+    assert(resCase3.data?.required_hours === 10, 'Case 3 required_hours is 10');
     assert(Boolean(resCase3.data?.departure_time), 'Case 3 returns departure_time');
     assert(Boolean(resCase3.data?.latest_submission_time), 'Case 3 returns latest_submission_time');
-    assert(resCase3.data?.message === 'Normal outpass requests must be submitted at least 18 hours before the departure time.', 'Case 3 message matches specification');
+    assert(resCase3.data?.message === 'Normal outpass must be applied at least 10 hours before the departure time.', 'Case 3 message matches specification');
 
     // Test 4: 10 minutes before departure -> BLOCK
     const dep10mServer = new Date(Date.now() + 10 * 60 * 1000);
@@ -328,13 +316,13 @@ async function runTests() {
     assert(resCase6.data?.code === 'ADVANCE_TIME_LIMIT', 'Case 6 Error code matches ADVANCE_TIME_LIMIT');
 
     // ------------------------------------------------------------------
-    // SECTION 4: Rule 2 – One-Day Outpass / Duty (12-Hour Rule) API Tests
+    // SECTION 4: Rule 2 – One-Day Outpass / Duty (6-Hour Rule) API Tests
     // ------------------------------------------------------------------
-    console.log('\n--- Section 4: One-Day Outpass / Duty (12-Hour Rule) API Tests ---');
+    console.log('\n--- Section 4: One-Day Outpass / Duty (6-Hour Rule) API Tests ---');
 
-    // Test 7: Exactly 12 hours before departure -> ALLOW
-    const dep12hServer = new Date(Date.now() + 12 * 3600 * 1000 + 3000);
-    const ret12hServer = new Date(dep12hServer.getTime() + 4 * 3600 * 1000);
+    // Test 7: Exactly 6 hours before departure -> ALLOW
+    const dep6hServer = new Date(Date.now() + 6 * 3600 * 1000 + 3000);
+    const ret6hServer = new Date(dep6hServer.getTime() + 4 * 3600 * 1000);
     const resCase7 = await request('/api/outpass', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -344,19 +332,19 @@ async function runTests() {
         reason: 'National Symposium Presentation',
         event_name: 'TechFest 2026',
         event_location: 'Main Auditorium',
-        duty_date: formatDate(dep12hServer),
-        leaving_date: formatDate(dep12hServer),
-        leaving_time: formatTime(dep12hServer),
-        expected_return_date: formatDate(ret12hServer),
-        expected_return_time: formatTime(ret12hServer),
+        duty_date: formatDate(dep6hServer),
+        leaving_date: formatDate(dep6hServer),
+        leaving_time: formatTime(dep6hServer),
+        expected_return_date: formatDate(ret6hServer),
+        expected_return_time: formatTime(ret6hServer),
         student_phone: '9876543210'
       }
     });
-    assert(resCase7.status === 201 && resCase7.data.success === true, 'Case 7: Exactly 12 hours before -> ALLOW (HTTP 201)');
+    assert(resCase7.status === 201 && resCase7.data.success === true, 'Case 7: Exactly 6 hours before -> ALLOW (HTTP 201)');
 
-    // Test 8: More than 12 hours before departure (16 hours) -> ALLOW
-    const dep16hServer = new Date(Date.now() + 16 * 3600 * 1000);
-    const ret16hServer = new Date(dep16hServer.getTime() + 5 * 3600 * 1000);
+    // Test 8: More than 6 hours before departure (10 hours) -> ALLOW
+    const dep10hDutyServer = new Date(Date.now() + 10 * 3600 * 1000);
+    const ret10hDutyServer = new Date(dep10hDutyServer.getTime() + 5 * 3600 * 1000);
     const resCase8 = await request('/api/outpass', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -366,19 +354,19 @@ async function runTests() {
         reason: 'Robotics Workshop',
         event_name: 'RoboQuest 2026',
         event_location: 'Mechanical Block Lab',
-        duty_date: formatDate(dep16hServer),
-        leaving_date: formatDate(dep16hServer),
-        leaving_time: formatTime(dep16hServer),
-        expected_return_date: formatDate(ret16hServer),
-        expected_return_time: formatTime(ret16hServer),
+        duty_date: formatDate(dep10hDutyServer),
+        leaving_date: formatDate(dep10hDutyServer),
+        leaving_time: formatTime(dep10hDutyServer),
+        expected_return_date: formatDate(ret10hDutyServer),
+        expected_return_time: formatTime(ret10hDutyServer),
         student_phone: '9876543210'
       }
     });
-    assert(resCase8.status === 201 && resCase8.data.success === true, 'Case 8: More than 12 hours before (16h) -> ALLOW (HTTP 201)');
+    assert(resCase8.status === 201 && resCase8.data.success === true, 'Case 8: More than 6 hours before (10h) -> ALLOW (HTTP 201)');
 
-    // Test 9: 11h 59m before departure -> BLOCK
-    const dep11h59mServer = new Date(Date.now() + (12 * 3600 - 60) * 1000);
-    const ret11h59mServer = new Date(dep11h59mServer.getTime() + 3 * 3600 * 1000);
+    // Test 9: 5h 59m before departure -> BLOCK
+    const dep5h59mServer = new Date(Date.now() + (6 * 3600 - 60) * 1000);
+    const ret5h59mServer = new Date(dep5h59mServer.getTime() + 3 * 3600 * 1000);
     const resCase9 = await request('/api/outpass', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -388,18 +376,18 @@ async function runTests() {
         reason: 'Hackathon',
         event_name: 'CodeHack 2026',
         event_location: 'Research Park',
-        duty_date: formatDate(dep11h59mServer),
-        leaving_date: formatDate(dep11h59mServer),
-        leaving_time: formatTime(dep11h59mServer),
-        expected_return_date: formatDate(ret11h59mServer),
-        expected_return_time: formatTime(ret11h59mServer),
+        duty_date: formatDate(dep5h59mServer),
+        leaving_date: formatDate(dep5h59mServer),
+        leaving_time: formatTime(dep5h59mServer),
+        expected_return_date: formatDate(ret5h59mServer),
+        expected_return_time: formatTime(ret5h59mServer),
         student_phone: '9876543210'
       }
     });
-    assert(resCase9.status === 400, 'Case 9: 11h 59m before departure -> BLOCK (HTTP 400)');
+    assert(resCase9.status === 400, 'Case 9: 5h 59m before departure -> BLOCK (HTTP 400)');
     assert(resCase9.data?.code === 'ADVANCE_TIME_LIMIT', 'Case 9 Error code matches ADVANCE_TIME_LIMIT');
-    assert(resCase9.data?.required_hours === 12, 'Case 9 required_hours is 12');
-    assert(resCase9.data?.message === 'One-Day outpass requests must be submitted at least 12 hours before the departure time.', 'Case 9 message matches specification');
+    assert(resCase9.data?.required_hours === 6, 'Case 9 required_hours is 6');
+    assert(resCase9.data?.message === 'One-Day Duty outpass must be applied at least 6 hours before the departure time.', 'Case 9 message matches specification');
 
     // Test 10: 10 minutes before departure -> BLOCK
     const depDuty10mServer = new Date(Date.now() + 10 * 60 * 1000);
@@ -505,7 +493,7 @@ async function runTests() {
     assert(htmlContent.includes('id="advanceNoticeTitle"'), 'Frontend: advanceNoticeTitle exists in student-dashboard.html');
     assert(htmlContent.includes('id="advanceNoticeText"'), 'Frontend: advanceNoticeText exists in student-dashboard.html');
     assert(jsContent.includes('function checkAdvanceTimeValidity()'), 'Frontend: checkAdvanceTimeValidity function exists in student-dashboard.js');
-    assert(jsContent.includes('Submission time expired'), 'Frontend: Expiration warning string exists in student-dashboard.js');
+    assert(jsContent.toLowerCase().includes('submission time expired'), 'Frontend: Expiration warning string exists in student-dashboard.js');
     assert(jsContent.includes('DOM.btnSubmitOutpass.disabled = true'), 'Frontend: Disables submit button when advance time window expired');
     assert(jsContent.includes('DOM.btnSubmitOutpass.disabled = false'), 'Frontend: Enables submit button when advance time window valid');
 

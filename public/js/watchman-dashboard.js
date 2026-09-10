@@ -931,18 +931,8 @@ function clearAuthAndRedirect() {
 }
 
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-
-  const btn = document.getElementById('themeToggleBtn');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const cur = document.documentElement.getAttribute('data-theme') || 'dark';
-      const next = cur === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('sh_theme', next);
-    });
-  }
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
 }
 
 // Global Window Exports

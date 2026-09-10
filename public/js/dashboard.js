@@ -253,27 +253,13 @@ function redirectToLogin() {
    4. THEME MANAGEMENT
    ========================================================== */
 function initTheme() {
-  const savedTheme = localStorage.getItem('sh_theme') || 'dark';
-  applyTheme(savedTheme);
-
-  if (elements.themeToggleBtn) {
-    elements.themeToggleBtn.addEventListener('click', () => {
-      const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const nextTheme = activeTheme === 'dark' ? 'light' : 'dark';
-      applyTheme(nextTheme);
-    });
-  }
+  applyTheme('dark');
 }
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('sh_theme', theme);
+function applyTheme(theme = 'dark') {
+  document.documentElement.setAttribute('data-theme', 'dark');
+  localStorage.setItem('sh_theme', 'dark');
 
-  if (theme === 'light') {
-    if (elements.themeIconDark) elements.themeIconDark.classList.add('hidden');
-    if (elements.themeIconLight) elements.themeIconLight.classList.remove('hidden');
-  } else {
-    if (elements.themeIconDark) elements.themeIconDark.classList.remove('hidden');
-    if (elements.themeIconLight) elements.themeIconLight.classList.add('hidden');
-  }
+  if (elements.themeIconDark) elements.themeIconDark.classList.remove('hidden');
+  if (elements.themeIconLight) elements.themeIconLight.classList.add('hidden');
 }

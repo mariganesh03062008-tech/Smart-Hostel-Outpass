@@ -314,6 +314,13 @@ exports.recordStudentReturn = async (req, res, next) => {
       WHERE id = ?;
     `, [serverNow, pass.qrId]);
 
+    // E. Log gate return movement in outpass_approval_history
+    await connection.query(`
+      INSERT INTO outpass_approval_history (
+        outpass_id, student_id, role, user_id, action, message, previous_status, new_status, created_at
+      ) VALUES (?, ?, 'watchman', ?, 'GATE_RETURN', ?, 'APPROVED', 'COMPLETED', NOW())
+    `, [pass.outpassId, pass.studentId, watchmanId, isLate ? `Late return check-in (${lateDurationMinutes} mins late)` : 'On-time return check-in']).catch(err => console.warn('[History Error]:', err.message));
+
     // Commit Transaction
     await connection.commit();
 

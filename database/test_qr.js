@@ -91,15 +91,10 @@ async function runExactFlowTests() {
 
   // Step 1: Student submits Normal Outpass
   const now = new Date();
+  const futureLeave = new Date(now.getTime() + 24 * 3600 * 1000);
+  const futureReturn = new Date(futureLeave.getTime() + 8 * 3600 * 1000);
   const thirtyMinsAgo = new Date(now.getTime() - 1000 * 60 * 30);
   const threeHoursLater = new Date(now.getTime() + 1000 * 60 * 180);
-
-  // Submit student live device GPS coordinates
-  await request('/api/outpass/student/location', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${studentToken}` },
-    body: { latitude: 13.0000000, longitude: 80.0000000, accuracy: 5.0, source: 'browser_gps' }
-  });
 
   const normalSubRes = await request('/api/outpass', {
     method: 'POST',
@@ -108,21 +103,31 @@ async function runExactFlowTests() {
       request_type: 'normal',
       destination: 'Gandhipuram, Coimbatore',
       reason: 'Weekend Family Visit',
-      leaving_date: formatLocalDate(thirtyMinsAgo),
-      leaving_time: formatLocalTime(thirtyMinsAgo),
-      expected_return_date: formatLocalDate(threeHoursLater),
-      expected_return_time: formatLocalTime(threeHoursLater),
+      leaving_date: formatLocalDate(futureLeave),
+      leaving_time: formatLocalTime(futureLeave),
+      expected_return_date: formatLocalDate(futureReturn),
+      expected_return_time: formatLocalTime(futureReturn),
       student_phone: '9876543210'
     }
   });
   assert(normalSubRes.status === 201 && normalSubRes.data.data.status === 'PENDING_PARENT', '1.1 Student submits Normal Outpass (Status: PENDING_PARENT)');
   const normalPassId = normalSubRes.data.data.id;
 
-  // Step 2: Parent verifies GPS proximity (>= 5 meters away)
-  const locVerifyRes = await request(`/api/parent/outpass/${normalPassId}/location-verify`, {
+  // Step 2: Parent registers and verifies face biometrics
+  const rawVec = new Array(128).fill(0).map((_, i) => Math.sin(i + 1));
+  const norm = Math.sqrt(rawVec.reduce((s, v) => s + v * v, 0));
+  const testFaceVector = rawVec.map(v => Number((v / norm).toFixed(6)));
+
+  await request('/api/parent/face/register', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${parentToken}` },
-    body: { latitude: 13.0004500, longitude: 80.0000000, accuracy: 4.0 }
+    body: { faceDescriptor: testFaceVector }
+  });
+
+  const faceVerifyRes = await request(`/api/parent/outpass/${normalPassId}/face-verify`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${parentToken}` },
+    body: { faceDescriptor: testFaceVector }
   });
 
   // Step 2B: Parent grants consent with verification token
@@ -130,11 +135,11 @@ async function runExactFlowTests() {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${parentToken}` },
     body: {
-      verification_token: locVerifyRes.data?.verificationToken,
+      verification_token: faceVerifyRes.data?.verificationToken,
       parent_message: 'Approved for weekend family visit.'
     }
   });
-  assert(parentApproveRes.ok && parentApproveRes.data.data.status === 'PENDING_WARDEN', '1.2 Parent grants consent (Status -> PENDING_WARDEN)');
+  assert(parentApproveRes.ok && parentApproveRes.data.data.status === 'PENDING_WARDEN', '1.2 Parent grants consent with Face Biometric verification (Status -> PENDING_WARDEN)');
 
   // Step 3: Guardrail: Cannot generate QR before Warden approval
   const preWardenGen = await request(`/api/qr/generate/${normalPassId}`, {
@@ -165,6 +170,11 @@ async function runExactFlowTests() {
   const normalQrToken = wardenGenQrRes.data.data.qrToken;
   const normalQrId = wardenGenQrRes.data.data.qrId;
 
+  // Activate QR window for active status and movement testing
+  const { pool } = require('../utils/db');
+  await pool.query('UPDATE qr_codes SET valid_from = ? WHERE id = ?', [thirtyMinsAgo, normalQrId]);
+  await pool.query('UPDATE outpass_requests SET from_datetime = ? WHERE id = ?', [thirtyMinsAgo, normalPassId]);
+
   // Step 6: Student sees QR & Countdown in Active Outpass
   const studentActiveNormal = await request('/api/student/active-outpass', {
     headers: { 'Authorization': `Bearer ${studentToken}` }
@@ -180,7 +190,7 @@ async function runExactFlowTests() {
 
   console.log('\n========================================================');
   console.log('📌 TEST 2: COMPLETE ONE-DAY DUTY WORKFLOW');
-  console.log('Student → Class Advisor → Warden → Generate QR → Student Active Outpass');
+  console.log('Student → Parent Face Verification → Class Advisor → Principal → Generate QR → Student Active Outpass');
   console.log('========================================================\n');
 
   // Step 1: Student submits One-Day Duty
@@ -193,16 +203,34 @@ async function runExactFlowTests() {
       reason: 'State Level Hackathon',
       event_name: 'Smart India Hackathon 2026',
       event_location: 'Main Auditorium',
-      duty_date: formatLocalDate(thirtyMinsAgo),
-      leaving_date: formatLocalDate(thirtyMinsAgo),
-      leaving_time: formatLocalTime(thirtyMinsAgo),
-      expected_return_date: formatLocalDate(threeHoursLater),
-      expected_return_time: formatLocalTime(threeHoursLater),
+      duty_date: formatLocalDate(new Date(now.getTime() + 14 * 3600 * 1000)),
+      leaving_date: formatLocalDate(new Date(now.getTime() + 14 * 3600 * 1000)),
+      leaving_time: formatLocalTime(new Date(now.getTime() + 14 * 3600 * 1000)),
+      expected_return_date: formatLocalDate(new Date(now.getTime() + 18 * 3600 * 1000)),
+      expected_return_time: formatLocalTime(new Date(now.getTime() + 18 * 3600 * 1000)),
       student_phone: '9876543210'
     }
   });
-  assert(dutySubRes.status === 201 && dutySubRes.data.data.status === 'PENDING_ADVISOR', '2.1 Student submits One-Day Duty (Status: PENDING_ADVISOR)');
+  assert(dutySubRes.status === 201 && dutySubRes.data.data.status === 'PENDING_PARENT', '2.1 Student submits One-Day Duty (Status: PENDING_PARENT)');
   const dutyPassId = dutySubRes.data.data.id;
+
+  // Step 1B: Parent verifies face & approves One-Day Duty
+  const dutyFaceVerify = await request(`/api/parent/outpass/${dutyPassId}/face-verify`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${parentToken}` },
+    body: { faceDescriptor: testFaceVector }
+  });
+  assert(dutyFaceVerify.ok && dutyFaceVerify.data.faceVerified, '2.1B Parent Face Verification for One-Day Duty');
+
+  const dutyParentApprove = await request(`/api/parent/outpass/${dutyPassId}/approve`, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Bearer ${parentToken}` },
+    body: {
+      verification_token: dutyFaceVerify.data.verificationToken,
+      parent_message: 'Approved to participate in Hackathon event.'
+    }
+  });
+  assert(dutyParentApprove.ok && dutyParentApprove.data.data.status === 'PENDING_ADVISOR', '2.1C Parent Approves OD (Status -> PENDING_ADVISOR)');
 
   // Step 2: Class Advisor approves OD request
   const advisorApproveRes = await request(`/api/outpass/${dutyPassId}/advisor-approve`, {

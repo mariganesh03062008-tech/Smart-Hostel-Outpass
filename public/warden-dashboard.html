@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/warden-dashboard.css">
   <link rel="stylesheet" href="css/notifications.css">
+  <link rel="stylesheet" href="css/dashboard-theme.css">
 </head>
 <body>
   <div class="app-wrapper">
@@ -104,8 +105,20 @@
 
           <button class="warden-nav-btn" data-tab="normal-requests">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            <span>Normal Outpass Requests</span>
+            <span>Normal Outpasses</span>
             <span class="nav-badge-pill amber" id="navBadgeNormal" style="display:none;">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="emergency-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="#ef4444" stroke-width="2" fill="none"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>Emergency Outpasses</span>
+            <span class="nav-badge-pill" id="navBadgeEmergency" style="display:none; background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.5);">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="special-requests">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="#a78bfa" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Special Outpasses</span>
+            <span class="nav-badge-pill" id="navBadgeSpecial" style="display:none; background:rgba(139,92,246,0.2); color:#a78bfa; border:1px solid rgba(139,92,246,0.5);">0</span>
           </button>
 
           <button class="warden-nav-btn" data-tab="duty-requests">
@@ -132,9 +145,26 @@
             <span>Reports</span>
           </button>
 
+          <button class="warden-nav-btn" data-tab="registered-students" onclick="switchTab('registered-students')">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Registered Students</span>
+            <span class="nav-badge-pill cyan" id="navBadgeRegisteredStudents" style="display:inline-block; background:rgba(6,182,212,0.2); color:#22d3ee; border:1px solid rgba(6,182,212,0.4);">0</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="parent-face-management" onclick="switchTab('parent-face-management')">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="9" cy="9" r="1"></circle><circle cx="15" cy="9" r="1"></circle><path d="M10 13c.5.5 1.5 1 2 1s1.5-.5 2-1"></path></svg>
+            <span>Parent Face Management</span>
+          </button>
+
+
           <button class="warden-nav-btn" data-tab="profile">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             <span>Profile</span>
+          </button>
+
+          <button class="warden-nav-btn" data-tab="settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
           </button>
         </aside>
 
@@ -142,7 +172,7 @@
         <div class="dash-tab-content">
           
           <!-- TAB 1: DASHBOARD OVERVIEW -->
-          <section class="tab-section active" id="tab-overview">
+          <section class="tab-section warden-section active" id="tab-overview">
             
             <!-- 6 Overview Metric Cards -->
             <div class="warden-overview-grid">
@@ -211,6 +241,61 @@
                 <div class="metric-count" id="statStudentsOutside">0</div>
                 <small style="color:var(--text-muted); font-size:0.75rem;">Checked out at gate</small>
               </div>
+
+              <!-- 7th Metric Card: Registered Students -->
+              <div class="warden-metric-card card-indigo" onclick="switchTab('registered-students')" style="cursor:pointer;">
+                <div class="card-top">
+                  <span class="metric-label">Registered Students</span>
+                  <div class="metric-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  </div>
+                </div>
+                <div class="metric-count" id="statRegisteredTotal">0</div>
+                <small style="color:var(--primary); font-size:0.75rem; font-weight:600;">Year Census & Directory →</small>
+              </div>
+            </div>
+
+            <!-- Overview Year Census Quick Widget -->
+            <div class="overview-census-widget">
+              <div class="overview-census-header">
+                <div class="overview-census-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Hostel Enrollment by Academic Year</span>
+                </div>
+                <button type="button" class="btn-secondary-link" onclick="switchTab('registered-students')" style="font-size:0.8rem; color:var(--primary); background:none; border:none; cursor:pointer; font-weight:600;">
+                  Open Full Directory & Year Census →
+                </button>
+              </div>
+              <div class="overview-census-chips">
+                <div class="overview-year-chip" onclick="switchTab('registered-students', '1')">
+                  <div>
+                    <span class="year-pill year-pill-1">1st Year</span>
+                    <div class="chip-label" style="margin-top:0.25rem;">Freshmen</div>
+                  </div>
+                  <div class="chip-count" id="statOverviewYear1" style="color:#34d399;">0</div>
+                </div>
+                <div class="overview-year-chip" onclick="switchTab('registered-students', '2')">
+                  <div>
+                    <span class="year-pill year-pill-2">2nd Year</span>
+                    <div class="chip-label" style="margin-top:0.25rem;">Sophomores</div>
+                  </div>
+                  <div class="chip-count" id="statOverviewYear2" style="color:#60a5fa;">0</div>
+                </div>
+                <div class="overview-year-chip" onclick="switchTab('registered-students', '3')">
+                  <div>
+                    <span class="year-pill year-pill-3">3rd Year</span>
+                    <div class="chip-label" style="margin-top:0.25rem;">Pre-Final Year</div>
+                  </div>
+                  <div class="chip-count" id="statOverviewYear3" style="color:#a78bfa;">0</div>
+                </div>
+                <div class="overview-year-chip" onclick="switchTab('registered-students', '4')">
+                  <div>
+                    <span class="year-pill year-pill-4">4th Year</span>
+                    <div class="chip-label" style="margin-top:0.25rem;">Final Year</div>
+                  </div>
+                  <div class="chip-count" id="statOverviewYear4" style="color:#fbbf24;">0</div>
+                </div>
+              </div>
             </div>
 
             <!-- Recent Activity Table -->
@@ -247,22 +332,52 @@
           </section>
 
           <!-- TAB 2: NORMAL OUTPASS REQUESTS -->
-          <section class="tab-section" id="tab-normal-requests">
+          <section class="tab-section warden-section" id="tab-normal-requests">
             <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
               <div>
-                <span class="portal-badge">Warden Review Queue</span>
-                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Pending Normal Outpasses</h2>
-                <p style="font-size:0.84rem; color:var(--text-secondary);">Review student requests and provide official authorization or rejection.</p>
+                <span class="portal-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border-color:rgba(245,158,11,0.3);">Normal Outpass Queue</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem;">Pending Normal Outpasses (Parent Approved)</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Review student requests that have completed parent biometric consent and authorize gate issuance.</p>
               </div>
             </div>
 
             <div class="queue-card-grid" id="normalQueueContainer">
-              <!-- Populated dynamically via warden-dashboard.js -->
+              <!-- Populated dynamically via warden-dashboard.js: ONLY canonical type 'normal' -->
+            </div>
+          </section>
+
+          <!-- TAB 2B: EMERGENCY OUTPASS REQUESTS (DIRECT WARDEN APPROVAL) -->
+          <section class="tab-section warden-section" id="tab-emergency-requests">
+            <div class="table-header-bar" style="background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.25); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(239,68,68,0.2); color:#ef4444; border-color:rgba(239,68,68,0.5); font-weight:700;">🚨 Direct Warden Authority</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem; color:#ef4444;">Emergency Outpass Requests</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Immediate urgent requests (Medical/Family/Personal). Bypasses parent approval. Approving immediately generates the secure gate QR code.</p>
+              </div>
+            </div>
+
+            <div class="queue-card-grid" id="emergencyQueueContainer">
+              <!-- Populated dynamically via warden-dashboard.js: ONLY canonical type 'emergency' -->
+            </div>
+          </section>
+
+          <!-- TAB 2C: SPECIAL OUTPASS REQUESTS (4-TIER FINAL APPROVAL) -->
+          <section class="tab-section warden-section" id="tab-special-requests">
+            <div class="table-header-bar" style="background:rgba(139,92,246,0.05); border:1px solid rgba(139,92,246,0.25); border-radius:var(--radius-lg); margin-bottom:1rem;">
+              <div>
+                <span class="portal-badge" style="background:rgba(139,92,246,0.2); color:#a78bfa; border-color:rgba(139,92,246,0.5); font-weight:700;">⭐ Tier 4 Final Sanction</span>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin-top:0.25rem; color:#a78bfa;">Special Outpass Requests (Pre-Cleared by Parent, Advisor & Principal)</h2>
+                <p style="font-size:0.84rem; color:var(--text-secondary);">Planned academic / multi-day events. Pre-authorized by Parent (Face Biometrics), Class Advisor & Principal. Warden grant activates QR issuance.</p>
+              </div>
+            </div>
+
+            <div class="queue-card-grid" id="specialQueueContainer">
+              <!-- Populated dynamically via warden-dashboard.js: ONLY canonical type 'special' -->
             </div>
           </section>
 
           <!-- TAB 3: ONE-DAY DUTY REQUESTS -->
-          <section class="tab-section" id="tab-duty-requests">
+          <section class="tab-section warden-section" id="tab-duty-requests">
             <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); margin-bottom:1rem;">
               <div>
                 <span class="portal-badge" style="background:rgba(168,85,247,0.15); color:#c084fc; border-color:rgba(168,85,247,0.3);">Academic Duty Queue</span>
@@ -277,7 +392,7 @@
           </section>
 
           <!-- TAB 4: ACTIVE OUTPASSES -->
-          <section class="tab-section" id="tab-active-passes">
+          <section class="tab-section warden-section" id="tab-active-passes">
             <div class="table-container">
               <div class="table-header-bar">
                 <div>
@@ -309,7 +424,7 @@
           </section>
 
           <!-- TAB 6: EXTENSION REQUESTS -->
-          <section class="tab-section" id="tab-extension-requests">
+          <section class="tab-section warden-section" id="tab-extension-requests">
             <div class="table-container">
               <div class="table-header-bar">
                 <div>
@@ -395,7 +510,7 @@
           </section>
 
           <!-- TAB 7: WARDEN REPORTS & ANALYTICS -->
-          <section class="tab-section" id="tab-reports">
+          <section class="tab-section warden-section" id="tab-reports">
             <div class="reports-dashboard">
 
               <!-- 1. Report Header Panel -->
@@ -731,8 +846,177 @@
           </section>
 
 
+          <!-- TAB: REGISTERED STUDENTS & YEAR CENSUS -->
+          <section class="tab-section warden-section" id="tab-registered-students">
+            
+            <!-- Header Bar -->
+            <div class="report-header-card" style="margin-bottom:1.25rem;">
+              <div class="report-header-left">
+                <div class="report-header-badge">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Student Registry & Year Census</span>
+                </div>
+                <h2 style="font-size:1.4rem; font-weight:800; color:var(--text-primary); margin:0.35rem 0;">Hostel Student Census by Year</h2>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0;">Live directory of all registered hostel residents categorized by academic year, room numbers, parent contacts, and outpass activity.</p>
+              </div>
+              <div class="report-header-actions">
+                <button type="button" class="secondary-btn" onclick="exportRegisteredStudentsCSV()">
+                  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                  <span>Export CSV</span>
+                </button>
+                <button type="button" class="primary-btn" onclick="loadWardenRegisteredStudents()">
+                  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  <span>Refresh Registry</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 5 Year Census Metric Cards -->
+            <div class="census-year-grid">
+              
+              <!-- Total Registered -->
+              <div class="census-metric-card census-card-total" onclick="filterByYear('all')" style="cursor:pointer;" title="Filter by All Years">
+                <div class="census-card-header">
+                  <span class="census-card-title">Total Registered</span>
+                  <div class="census-card-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  </div>
+                </div>
+                <div class="census-card-value" id="censusTotalStudents">0</div>
+                <div class="census-card-sub">Enrolled hostel residents</div>
+              </div>
+
+              <!-- 1st Year -->
+              <div class="census-metric-card census-card-year1" onclick="filterByYear('1')" style="cursor:pointer;" title="Filter by 1st Year">
+                <div class="census-card-header">
+                  <span class="census-card-title">1st Year (Freshmen)</span>
+                  <div class="census-card-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="8" r="5"></circle><path d="M3 21v-2a7 7 0 0 1 14 0v2"></path></svg>
+                  </div>
+                </div>
+                <div class="census-card-value" id="censusYear1Count" style="color:#34d399;">0</div>
+                <div class="census-card-sub" id="censusYear1Pct">0% of total hostel</div>
+              </div>
+
+              <!-- 2nd Year -->
+              <div class="census-metric-card census-card-year2" onclick="filterByYear('2')" style="cursor:pointer;" title="Filter by 2nd Year">
+                <div class="census-card-header">
+                  <span class="census-card-title">2nd Year (Sophomore)</span>
+                  <div class="census-card-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                  </div>
+                </div>
+                <div class="census-card-value" id="censusYear2Count" style="color:#60a5fa;">0</div>
+                <div class="census-card-sub" id="censusYear2Pct">0% of total hostel</div>
+              </div>
+
+              <!-- 3rd Year -->
+              <div class="census-metric-card census-card-year3" onclick="filterByYear('3')" style="cursor:pointer;" title="Filter by 3rd Year">
+                <div class="census-card-header">
+                  <span class="census-card-title">3rd Year (Pre-Final)</span>
+                  <div class="census-card-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                  </div>
+                </div>
+                <div class="census-card-value" id="censusYear3Count" style="color:#a78bfa;">0</div>
+                <div class="census-card-sub" id="censusYear3Pct">0% of total hostel</div>
+              </div>
+
+              <!-- 4th Year -->
+              <div class="census-metric-card census-card-year4" onclick="filterByYear('4')" style="cursor:pointer;" title="Filter by 4th Year">
+                <div class="census-card-header">
+                  <span class="census-card-title">4th Year (Final Year)</span>
+                  <div class="census-card-icon">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                  </div>
+                </div>
+                <div class="census-card-value" id="censusYear4Count" style="color:#fbbf24;">0</div>
+                <div class="census-card-sub" id="censusYear4Pct">0% of total hostel</div>
+              </div>
+
+            </div>
+
+            <!-- Department Year-wise Distribution Cards -->
+            <div class="report-section-card" style="margin-bottom:1.25rem;">
+              <div class="card-header-clean" style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0;">
+                  Department-Wise Enrollment & Year Distribution
+                </h3>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Cross-tabulation by Branch & Class</span>
+              </div>
+              <div id="censusDeptMatrixGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:0.75rem; margin-top:1rem;">
+                <div style="padding:1rem; text-align:center; color:var(--text-muted);">Loading departmental census...</div>
+              </div>
+            </div>
+
+            <!-- Interactive Filters & Search Bar -->
+            <div class="census-filter-bar">
+              <!-- Year Filter Pills -->
+              <div class="census-year-pills-group" id="censusYearPills">
+                <button type="button" class="census-filter-pill-btn active" data-year="all" onclick="filterByYear('all')">All Years</button>
+                <button type="button" class="census-filter-pill-btn" data-year="1" onclick="filterByYear('1')">1st Year</button>
+                <button type="button" class="census-filter-pill-btn" data-year="2" onclick="filterByYear('2')">2nd Year</button>
+                <button type="button" class="census-filter-pill-btn" data-year="3" onclick="filterByYear('3')">3rd Year</button>
+                <button type="button" class="census-filter-pill-btn" data-year="4" onclick="filterByYear('4')">4th Year</button>
+              </div>
+
+              <!-- Department Dropdown -->
+              <select id="regStudentDeptFilter" class="census-select-filter" onchange="onCensusFilterChange()">
+                <option value="all">All Departments</option>
+              </select>
+
+              <!-- Block Dropdown -->
+              <select id="regStudentBlockFilter" class="census-select-filter" onchange="onCensusFilterChange()">
+                <option value="all">All Hostel Blocks</option>
+              </select>
+
+              <!-- Live Search -->
+              <input type="text" id="regStudentSearchInput" class="census-search-input" placeholder="Search by name, roll no, room..." oninput="onCensusSearchInput(event)">
+            </div>
+
+            <!-- Student Registry Table -->
+            <div class="table-container">
+              <div class="table-header-bar">
+                <div>
+                  <h3 style="margin:0; font-size:1rem; font-weight:700;">Hostel Students Directory</h3>
+                  <p id="censusResultsCountText" style="font-size:0.8rem; color:var(--text-secondary); margin:0.2rem 0 0 0;">Showing registered hostel residents</p>
+                </div>
+                <div id="censusPaginationControls" style="display:flex; align-items:center; gap:0.5rem;">
+                  <!-- Pagination buttons injected here -->
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Year of Study</th>
+                      <th>Department & Section</th>
+                      <th>Room & Block</th>
+                      <th>Parent / Guardian</th>
+                      <th>Hostel Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="censusStudentsTableBody">
+                    <tr>
+                      <td colspan="7" class="empty-state-cell">
+                        <div class="empty-state-content">
+                          <span>Loading registered hostel students...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </section>
+
+
           <!-- TAB 8: WARDEN PROFILE -->
-          <section class="tab-section" id="tab-profile">
+          <section class="tab-section warden-section" id="tab-profile">
             <div class="profile-details-card">
               <div class="card-header">
                 <div class="card-title">
@@ -771,10 +1055,133 @@
             </div>
           </section>
 
-        </div>
+          <!-- TAB 9: WARDEN SETTINGS -->
+          <section class="tab-section warden-section" id="tab-settings">
+            <div class="profile-details-card">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                  <span>Warden Administration Settings</span>
+                </div>
+                <span class="security-chip">Hostel Security Preferences</span>
+              </div>
 
+              <div class="profile-grid">
+                <div class="profile-field">
+                  <span class="field-label">Portal Theme Mode</span>
+                  <span class="field-value">Dark Mode (High Contrast Security)</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Real-Time Sync</span>
+                  <span class="field-value">Socket.IO Live Push Active</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Emergency Alerts</span>
+                  <span class="field-value">Instant Audio & Visual Notification</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Gate Pass Verification</span>
+                  <span class="field-value">HMAC Encrypted QR (HOSTEL-QR)</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Biometric Verification Requirement</span>
+                  <span class="field-value">Parent Face Matching (D &le; 0.45)</span>
+                </div>
+                <div class="profile-field">
+                  <span class="field-label">Session Security</span>
+                  <span class="field-value">JWT 24h Expiry • HTTP Bearer Token</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 10: PARENT FACE MANAGEMENT -->
+          <section class="tab-section warden-section" id="tab-parent-face-management">
+            <div class="table-header-bar" style="margin-bottom:1.5rem;">
+              <div>
+                <h2 style="font-family:'Outfit'; font-size:1.35rem; margin:0; display:flex; align-items:center; gap:0.5rem;">
+                  <span>PARENT FACE MANAGEMENT</span>
+                </h2>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;">
+                  Authoritative parent identity and biometric registration control. Search by parent mobile number to inspect face registration status or execute controlled revocation.
+                </p>
+              </div>
+            </div>
+
+            <!-- Search Card -->
+            <div class="profile-details-card" style="margin-bottom:1.5rem;">
+              <div class="card-header">
+                <div class="card-title">
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <span>Search Parent</span>
+                </div>
+                <span class="security-chip">Warden Only</span>
+              </div>
+              <div style="padding:1.25rem;">
+                <form id="formWardenParentSearch" onsubmit="handleWardenParentSearch(event)" style="display:flex; gap:0.75rem; flex-wrap:wrap; max-width:600px;">
+                  <div style="flex:1; min-width:240px; position:relative;">
+                    <input 
+                      type="tel" 
+                      id="inputWardenParentMobile" 
+                      placeholder="Enter Parent Mobile Number (e.g. 9876543210)" 
+                      style="width:100%; padding:0.65rem 1rem; background:rgba(11,17,20,0.8); border:1px solid rgba(255,255,255,0.12); border-radius:var(--radius-md); color:#f8fafc; font-size:0.92rem; outline:none;" 
+                      required
+                    />
+                  </div>
+                  <button type="submit" class="primary-btn" id="btnWardenSearchParent" style="padding:0.65rem 1.4rem; font-size:0.88rem; font-weight:700; background:linear-gradient(135deg, #0d9488 0%, #06b6d4 100%); color:#fff; border:none; border-radius:var(--radius-md); cursor:pointer;">
+                    SEARCH
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Search Results Container -->
+            <div id="wardenParentSearchResults" style="display:none;">
+              <!-- Dynamically populated by warden-dashboard.js -->
+            </div>
+
+            <div id="wardenParentSearchEmpty" style="display:none; text-align:center; padding:3rem; background:var(--bg-surface); border:1px dashed rgba(255,255,255,0.12); border-radius:var(--radius-lg); color:var(--text-secondary);">
+              <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="1.5" fill="none" style="margin-bottom:0.75rem; opacity:0.6;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <h4 style="margin:0; font-size:1.05rem; color:#f8fafc;">No Parent Found</h4>
+              <p style="margin:0.25rem 0 0; font-size:0.85rem;">No parent record found matching the entered mobile number.</p>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
+
+    <!-- Warden Revoke Face Confirmation Modal -->
+    <div class="modal-overlay hidden" id="wardenRevokeFaceModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center;">
+      <div class="modal-container" style="background:#10181c; border:1px solid rgba(239,68,68,0.3); border-radius:16px; width:90%; max-width:480px; padding:1.75rem; color:#f8fafc; box-shadow:0 20px 50px rgba(0,0,0,0.7);">
+        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+          <div style="background:rgba(239,68,68,0.15); color:#f87171; width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; font-weight:700;">Revoke Parent Face Registration</h3>
+            <p style="margin:0.15rem 0 0; font-size:0.8rem; color:#94a3b8;">Warden Biometric Access Control</p>
+          </div>
+        </div>
+        <p style="font-size:0.9rem; color:#cbd5e1; line-height:1.5; margin:0 0 1rem;">
+          Are you sure you want to revoke the registered face for this parent?
+        </p>
+        <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:0.75rem; font-size:0.82rem; color:#fca5a5; margin-bottom:1.25rem;">
+          • The existing face registration will immediately become INVALID.<br>
+          • The parent cannot approve outpasses using the old face.<br>
+          • Parent account and student relationships will NOT be deleted.<br>
+          • The parent will be required to register a new face before approving future outpasses.
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" class="secondary-btn" onclick="closeWardenRevokeModal()" style="padding:0.5rem 1.1rem; border-radius:8px; background:rgba(255,255,255,0.08); color:#f8fafc; border:1px solid rgba(255,255,255,0.12); cursor:pointer;">
+            CANCEL
+          </button>
+          <button type="button" id="btnConfirmRevokeFace" onclick="executeWardenRevokeFace()" style="padding:0.5rem 1.25rem; border-radius:8px; background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#ffffff; border:none; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(239,68,68,0.4);">
+            REVOKE FACE
+          </button>
+        </div>
+      </div>
+    </div>
+
 
     <!-- Footer -->
     <footer class="app-footer">
@@ -933,6 +1340,28 @@
         <button class="btn-reject" id="btnConfirmRevokeQr">Confirm Revocation</button>
       </div>
     </div>
+  <!-- STUDENT DETAILS MODAL -->
+  <div class="modal-overlay" id="studentDetailsModal">
+    <div class="modal-container" style="max-width: 580px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <div class="student-avatar-initial" id="modalStudentAvatar">S</div>
+          <div>
+            <h3 id="modalStudentName" style="margin:0; font-size:1.15rem; color:var(--text-primary);">Student Name</h3>
+            <div id="modalStudentRegNo" style="font-size:0.8rem; color:var(--text-muted); font-family:monospace;">REG NO</div>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('studentDetailsModal')">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalStudentBody" style="padding: 1.25rem 1rem; display:flex; flex-direction:column; gap:1rem;">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="secondary-btn" onclick="closeModal('studentDetailsModal')">Close</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast Notification Container -->
@@ -941,5 +1370,6 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/warden-dashboard.js"></script>
+  <script src="js/dashboard-bg.js"></script>
 </body>
 </html>

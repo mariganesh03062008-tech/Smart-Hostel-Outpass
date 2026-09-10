@@ -129,10 +129,12 @@ const studentRoutes = require('./routes/student');
 app.use('/api/student', studentRoutes);
 const outpassController = require('./controllers/outpassController');
 app.get('/api/student/active-outpass', authenticateToken, authorizeRoles('student'), qrController.getStudentActiveOutpass);
-app.post('/api/student/location', authenticateToken, authorizeRoles('student'), outpassController.updateStudentLocation);
-app.get('/api/student/location', authenticateToken, authorizeRoles('student'), outpassController.getStudentLocation);
 app.get('/api/warden/students/search', authenticateToken, authorizeRoles('warden'), outpassController.searchWardenStudents);
 app.get('/api/warden/parent-messages', authenticateToken, authorizeRoles('warden'), outpassController.getWardenParentMessages);
+app.get('/api/warden/registered-students/stats', authenticateToken, authorizeRoles('warden'), outpassController.getWardenRegisteredStudentsStats);
+app.get('/api/warden/registered-students', authenticateToken, authorizeRoles('warden'), outpassController.getWardenRegisteredStudents);
+app.get('/api/warden/parents/search', authenticateToken, authorizeRoles('warden'), outpassController.searchWardenParentByMobile);
+app.post('/api/warden/parents/revoke-face', authenticateToken, authorizeRoles('warden'), outpassController.revokeParentFace);
 
 // Dedicated clean dashboard page routes (supporting both with and without .html)
 const dashboardPages = [
@@ -149,6 +151,11 @@ dashboardPages.forEach(page => {
   app.get(`/${page}`, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', `${page}.html`));
   });
+});
+
+// Explicit client page routes for welcome screen and login portal
+app.get(['/login', '/welcome'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // 404 handler for unmatched API routes

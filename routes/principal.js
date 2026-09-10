@@ -14,11 +14,20 @@ router.get('/overview', principalController.getPrincipalOverview);
 // 2. Normal Outpass Monitoring (Read-Only)
 router.get('/normal-outpasses', principalController.getNormalOutpasses);
 
-// 3. One-Day Permission Queue (For Principal Decision)
+// 3. One-Day Permission Queue (For Principal Decision - Strictly One-Day Duty)
 router.get('/one-day-permissions', principalController.getPendingOneDayPermissions);
 router.get('/one-day/pending', principalController.getPendingOneDayPermissions);
+
+// 3B. Special Outpass Permission Queue (Strictly Special Outpass Tier 3)
+router.get('/special-permissions', principalController.getPendingSpecialPermissions);
+router.get('/special/pending', principalController.getPendingSpecialPermissions);
+
 router.patch('/one-day/:id/approve', outpassController.principalApprove);
 router.patch('/one-day/:id/reject', outpassController.principalReject);
+router.patch('/duty/:id/approve', outpassController.principalApprove);
+router.patch('/duty/:id/reject', outpassController.principalReject);
+router.patch('/special/:id/approve', outpassController.principalApprove);
+router.patch('/special/:id/reject', outpassController.principalReject);
 router.patch('/:id/approve', outpassController.principalApprove);
 router.patch('/:id/reject', outpassController.principalReject);
 
