@@ -153,6 +153,50 @@ function initPrincipalSession() {
   if (themeBtn) {
     themeBtn.addEventListener('click', toggleAppTheme);
   }
+
+  // Initialize Socket.IO connection
+  initPrincipalSocket(authToken);
+}
+
+let principalSocket = null;
+function initPrincipalSocket(token) {
+  if (principalSocket || typeof window.io === 'undefined') return;
+  try {
+    principalSocket = window.io({
+      auth: { token },
+      query: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    principalSocket.on('connect', () => {
+      console.log('[Principal Socket] Connected to real-time gateway');
+      principalSocket.emit('authenticate', token);
+    });
+
+    principalSocket.on('notification:new', (notif) => {
+      console.log('[Principal Socket] Notification received:', notif);
+      loadPrincipalOverview(true);
+      if (currentTab === 'one-day-permission') loadOneDayPermissions(true);
+      if (currentTab === 'special-permission') loadSpecialPermissions(true);
+    });
+
+    principalSocket.on('principal:pending_approval', (data) => {
+      console.log('[Principal Socket] New pending approval:', data);
+      loadPrincipalOverview(true);
+      if (currentTab === 'one-day-permission') loadOneDayPermissions(true);
+      if (currentTab === 'special-permission') loadSpecialPermissions(true);
+      showToast(`New ${data.type === 'special' ? 'Special Outpass' : 'One-Day Permission'} awaiting your approval`, 'info');
+    });
+
+    principalSocket.on('advisor:decision', (data) => {
+      console.log('[Principal Socket] Advisor decision received:', data);
+      loadPrincipalOverview(true);
+      if (currentTab === 'one-day-permission') loadOneDayPermissions(true);
+      if (currentTab === 'special-permission') loadSpecialPermissions(true);
+    });
+  } catch (e) {
+    console.warn('[Principal Socket Error]:', e);
+  }
 }
 
 async function handleSignOut() {

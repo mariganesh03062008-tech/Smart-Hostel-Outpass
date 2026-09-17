@@ -412,7 +412,7 @@ exports.getPendingOneDayPermissions = async (req, res, next) => {
     }
 
     // Partitioned response: also fetch specialRequests using strict Tier 1 (Parent Face) and Tier 2 (Advisor) filter
-    let specialWhere = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.parent_face_verified = 1 AND o.advisor_approval_status = 'approved'`;
+    let specialWhere = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1) AND o.advisor_approval_status = 'approved'`;
     const spParams = [];
 
     if (status && status !== 'all') {
@@ -498,7 +498,7 @@ exports.getPendingSpecialPermissions = async (req, res, next) => {
   try {
     const { status = 'PENDING_PRINCIPAL', department, search } = req.query;
 
-    let whereClause = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND o.parent_face_verified = 1 AND o.advisor_approval_status = 'approved'`;
+    let whereClause = `o.outpass_type = 'special' AND o.parent_approval_status = 'approved' AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1) AND o.advisor_approval_status = 'approved'`;
     const params = [];
 
     if (status && status !== 'all') {

@@ -116,6 +116,27 @@ exports.createOutpass = async (req, res, next) => {
     const isEmergency = outpassType === 'emergency';
     const isSpecial = outpassType === 'special';
 
+    // If student lacks class_advisor_id and is applying for duty or special outpass, resolve and assign
+    if ((isDuty || isSpecial) && !student.class_advisor_id) {
+      const [advByDept] = await pool.query(
+        "SELECT id FROM staff WHERE role IN ('class_advisor', 'advisor') AND department = ? ORDER BY id ASC LIMIT 1",
+        [student.department]
+      );
+      if (advByDept.length > 0) {
+        student.class_advisor_id = advByDept[0].id;
+      } else {
+        const [anyAdv] = await pool.query(
+          "SELECT id FROM staff WHERE role IN ('class_advisor', 'advisor') ORDER BY id ASC LIMIT 1"
+        );
+        if (anyAdv.length > 0) {
+          student.class_advisor_id = anyAdv[0].id;
+        }
+      }
+      if (student.class_advisor_id) {
+        await pool.query('UPDATE students SET class_advisor_id = ? WHERE id = ?', [student.class_advisor_id, student.id]);
+      }
+    }
+
     // 2. Common Required Field Validation
     if (!reason || typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({
@@ -1375,6 +1396,28 @@ exports.principalApprove = async (req, res, next) => {
       }).catch(err => console.warn('[Notif Error]:', err.message));
     }
 
+    if (req.io) {
+      req.io.to('role_principal').emit('principal:decision', {
+        id: requestId,
+        requestCode: request.request_code,
+        status: nextStatus,
+        action: 'approved'
+      });
+      if (isSpecial) {
+        req.io.to('role_warden').emit('warden:pending_approval', {
+          id: requestId,
+          requestCode: request.request_code,
+          studentName: request.studentName,
+          status: 'PENDING_WARDEN'
+        });
+      }
+      req.io.to(`user_student_${request.student_id}`).emit('student:outpass_updated', {
+        id: requestId,
+        requestCode: request.request_code,
+        status: nextStatus
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: isSpecial
@@ -1569,7 +1612,9 @@ exports.getAdvisorOverview = async (req, res, next) => {
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.status = 'PENDING_ADVISOR'
-        AND (o.outpass_type = 'one_day_duty' OR o.outpass_type = 'duty')
+        AND o.outpass_type IN ('one_day_duty', 'duty', 'one_day')
+        AND o.parent_approval_status = 'approved'
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?));
     `, [advisorId, advisorDept]);
 
@@ -1581,7 +1626,7 @@ exports.getAdvisorOverview = async (req, res, next) => {
       WHERE o.status = 'PENDING_ADVISOR'
         AND o.outpass_type = 'special'
         AND o.parent_approval_status = 'approved'
-        AND o.parent_face_verified = 1
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?));
     `, [advisorId, advisorDept]);
 
@@ -1680,6 +1725,10 @@ exports.getAdvisorDutyPending = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.student_id AS studentId,
+        s.id AS studentTableId,
+        s.class_advisor_id AS classAdvisorId,
+        s.class_advisor_id,
         'one_day_duty' AS requestType,
         'one_day_duty' AS outpass_type,
         o.event_name AS eventName,
@@ -1694,6 +1743,8 @@ exports.getAdvisorDutyPending = async (req, res, next) => {
         o.to_datetime AS returnDatetime,
         o.status,
         o.advisor_approval_status AS advisorStatus,
+        o.parent_approval_status AS parentApprovalStatus,
+        o.parent_face_verified AS parentFaceVerified,
         o.created_at AS submittedDate,
         s.reg_no AS studentRegNo,
         s.name AS studentName,
@@ -1706,9 +1757,9 @@ exports.getAdvisorDutyPending = async (req, res, next) => {
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.status = 'PENDING_ADVISOR'
-        AND o.outpass_type IN ('one_day_duty', 'duty')
+        AND o.outpass_type IN ('one_day_duty', 'duty', 'one_day')
         AND o.parent_approval_status = 'approved'
-        AND o.parent_face_verified = 1
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at ASC
     `, [advisorId, advisorDept]);
@@ -1754,6 +1805,10 @@ exports.getAdvisorSpecialPending = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.student_id AS studentId,
+        s.id AS studentTableId,
+        s.class_advisor_id AS classAdvisorId,
+        s.class_advisor_id,
         'special' AS requestType,
         'special' AS outpass_type,
         o.special_type AS specialType,
@@ -1771,7 +1826,7 @@ exports.getAdvisorSpecialPending = async (req, res, next) => {
         o.parent_approval_status AS parentApprovalStatus,
         o.parent_face_verified AS parentFaceVerified,
         CASE 
-          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          WHEN (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1) THEN 'VERIFIED' 
           ELSE 'UNVERIFIED' 
         END AS faceVerificationResult,
         COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
@@ -1797,7 +1852,7 @@ exports.getAdvisorSpecialPending = async (req, res, next) => {
       WHERE o.status = 'PENDING_ADVISOR'
         AND o.outpass_type = 'special'
         AND o.parent_approval_status = 'approved'
-        AND o.parent_face_verified = 1
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at ASC
     `, [advisorId, advisorDept]);
@@ -1852,6 +1907,10 @@ exports.getAdvisorPending = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.student_id AS studentId,
+        s.id AS studentTableId,
+        s.class_advisor_id AS classAdvisorId,
+        s.class_advisor_id,
         'one_day_duty' AS requestType,
         'one_day_duty' AS outpass_type,
         o.event_name AS eventName,
@@ -1866,6 +1925,8 @@ exports.getAdvisorPending = async (req, res, next) => {
         o.to_datetime AS returnDatetime,
         o.status,
         o.advisor_approval_status AS advisorStatus,
+        o.parent_approval_status AS parentApprovalStatus,
+        o.parent_face_verified AS parentFaceVerified,
         o.created_at AS submittedDate,
         s.reg_no AS studentRegNo,
         s.name AS studentName,
@@ -1878,7 +1939,9 @@ exports.getAdvisorPending = async (req, res, next) => {
       FROM outpass_requests o
       INNER JOIN students s ON o.student_id = s.id
       WHERE o.status = 'PENDING_ADVISOR'
-        AND o.outpass_type IN ('one_day_duty', 'duty')
+        AND o.outpass_type IN ('one_day_duty', 'duty', 'one_day')
+        AND o.parent_approval_status = 'approved'
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at ASC
     `, [advisorId, advisorDept]);
@@ -1888,6 +1951,10 @@ exports.getAdvisorPending = async (req, res, next) => {
       SELECT 
         o.id,
         o.request_code AS requestCode,
+        o.student_id AS studentId,
+        s.id AS studentTableId,
+        s.class_advisor_id AS classAdvisorId,
+        s.class_advisor_id,
         'special' AS requestType,
         'special' AS outpass_type,
         o.special_type AS specialType,
@@ -1905,7 +1972,7 @@ exports.getAdvisorPending = async (req, res, next) => {
         o.parent_approval_status AS parentApprovalStatus,
         o.parent_face_verified AS parentFaceVerified,
         CASE 
-          WHEN o.parent_face_verified = 1 THEN 'VERIFIED' 
+          WHEN (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1) THEN 'VERIFIED' 
           ELSE 'UNVERIFIED' 
         END AS faceVerificationResult,
         COALESCE(o.parent_approval_message, pm.message_body) AS parentMessage,
@@ -1931,7 +1998,7 @@ exports.getAdvisorPending = async (req, res, next) => {
       WHERE o.status = 'PENDING_ADVISOR'
         AND o.outpass_type = 'special'
         AND o.parent_approval_status = 'approved'
-        AND o.parent_face_verified = 1
+        AND (o.parent_face_verified = 1 OR o.parent_biometric_verified = 1)
         AND ((s.class_advisor_id IS NOT NULL AND s.class_advisor_id = ?) OR (s.class_advisor_id IS NULL AND s.department = ?))
       ORDER BY o.created_at ASC
     `, [advisorId, advisorDept]);
@@ -2188,6 +2255,27 @@ exports.advisorApprove = async (req, res, next) => {
       linkUrl: '/student-dashboard.html',
       io: req.io
     }).catch(err => console.warn('[Notif Error]:', err.message));
+
+    if (req.io) {
+      req.io.to('role_principal').emit('principal:pending_approval', {
+        id: requestId,
+        requestCode: request.request_code,
+        type: request.outpass_type,
+        studentName: request.studentName,
+        status: 'PENDING_PRINCIPAL'
+      });
+      req.io.to(`user_class_advisor_${advisorId}`).emit('advisor:decision', {
+        id: requestId,
+        requestCode: request.request_code,
+        status: 'PENDING_PRINCIPAL',
+        action: 'approved'
+      });
+      req.io.to(`user_student_${request.student_id}`).emit('student:outpass_updated', {
+        id: requestId,
+        requestCode: request.request_code,
+        status: 'PENDING_PRINCIPAL'
+      });
+    }
 
     return res.status(200).json({
       success: true,

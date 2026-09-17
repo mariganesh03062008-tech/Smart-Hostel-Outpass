@@ -582,10 +582,30 @@ exports.approveOutpass = async (req, res, next) => {
       ? parent_message.trim()
       : 'Approved';
 
-    const isSpecial = request.outpass_type === 'special';
-    const isDuty = request.outpass_type === 'one_day_duty' || request.outpass_type === 'duty';
-    const isEmergency = request.outpass_type === 'emergency';
+    const canonicalType = normalizeOutpassType(request.outpass_type);
+    const isSpecial = canonicalType === 'special';
+    const isDuty = canonicalType === 'one_day_duty';
+    const isEmergency = canonicalType === 'emergency';
     const nextStatus = (isSpecial || isDuty) ? 'PENDING_ADVISOR' : 'PENDING_WARDEN';
+
+    // Ensure student has an exact class_advisor_id assigned
+    let targetAdvisorId = request.class_advisor_id;
+    if ((isSpecial || isDuty) && !targetAdvisorId) {
+      const [advMatches] = await pool.query(
+        'SELECT id FROM staff WHERE role = "class_advisor" AND (department = ? OR department LIKE ?) ORDER BY id ASC LIMIT 1',
+        [request.studentDept, `%${(request.studentDept || '').split(' ')[0]}%`]
+      );
+      if (advMatches.length > 0) {
+        targetAdvisorId = advMatches[0].id;
+      } else {
+        const [anyAdv] = await pool.query('SELECT id FROM staff WHERE role = "class_advisor" ORDER BY id ASC LIMIT 1');
+        if (anyAdv.length > 0) targetAdvisorId = anyAdv[0].id;
+      }
+      if (targetAdvisorId) {
+        await pool.query('UPDATE students SET class_advisor_id = ? WHERE id = ?', [targetAdvisorId, request.student_id]);
+        request.class_advisor_id = targetAdvisorId;
+      }
+    }
 
     await pool.query(`
       UPDATE outpass_requests
@@ -595,15 +615,18 @@ exports.approveOutpass = async (req, res, next) => {
         parent_approved_by_id = ?,
         parent_approved_at = ?,
         parent_face_verified = 1,
+        parent_biometric_verified = 1,
         parent_face_verified_at = ?,
         parent_verified_mobile = ?,
-        parent_approval_message = ?
+        parent_approval_message = ?,
+        advisor_approval_status = CASE WHEN ? IN ('one_day_duty', 'special') THEN 'pending' ELSE advisor_approval_status END
       WHERE id = ?
     `, [
       nextStatus,
       parentId, now, now,
       verifiedParentMobile,
       cleanParentMessage,
+      canonicalType,
       requestId
     ]);
 
@@ -629,7 +652,8 @@ exports.approveOutpass = async (req, res, next) => {
 
     // Emit real-time WebSocket event
     if (req.io) {
-      if (!isDuty) {
+      // Normal Outpass: routes to Warden
+      if (canonicalType === 'normal') {
         req.io.to('role_warden').emit('parent:decision', {
           outpassId: Number(requestId),
           decision: 'APPROVED',
@@ -645,30 +669,43 @@ exports.approveOutpass = async (req, res, next) => {
           timestamp: now.toISOString()
         });
       }
+
+      // One-Day Duty and Special Outpass: notify ONLY the designated Class Advisor
       if (isSpecial || isDuty) {
-        req.io.to('role_advisor').emit('parent:decision', {
+        const advisorRoom = targetAdvisorId ? `user_class_advisor_${targetAdvisorId}` : 'role_class_advisor';
+        const advisorPayload = {
           outpassId: Number(requestId),
+          requestCode: request.request_code,
+          outpassType: canonicalType,
+          requestType: canonicalType,
           decision: 'APPROVED',
           studentId: request.student_id,
           studentName: request.studentName,
+          studentRegNo: request.studentRegNo,
+          advisorId: targetAdvisorId,
+          parentMessage: cleanParentMessage,
           nextStatus: 'PENDING_ADVISOR',
           timestamp: now.toISOString()
-        });
+        };
+        req.io.to(advisorRoom).emit('advisor:pending_approval', advisorPayload);
+        req.io.to(advisorRoom).emit('parent:decision', advisorPayload);
       }
     }
 
     if (isDuty) {
       // Forward to Class Advisor (One-Day Duty strictly bypasses Warden)
-      await notificationService.notifyAdvisor({
-        advisorId: request.class_advisor_id,
-        department: request.studentDept,
-        title: 'One-Day Duty Pass Requires Advisor Review',
-        message: `Parent consent granted (Face Verified) for One-Day Duty Pass (${request.request_code}) of student ${request.studentName}. Forwarded for your review.`,
-        type: 'ADVISOR_PENDING',
-        referenceId: requestId,
-        linkUrl: '/advisor-dashboard.html',
-        io: req.io
-      }).catch(err => console.warn('[Notif Error]:', err.message));
+      if (targetAdvisorId) {
+        await notificationService.notifyAdvisor({
+          advisorId: targetAdvisorId,
+          department: request.studentDept,
+          title: 'One-Day Duty Pass Requires Advisor Review',
+          message: `Parent consent granted (Face Verified) for One-Day Duty Pass (${request.request_code}) of student ${request.studentName}. Forwarded for your review.`,
+          type: 'ADVISOR_PENDING',
+          referenceId: requestId,
+          linkUrl: '/advisor-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
 
       await notificationService.notifyStudent({
         studentId: request.student_id,
@@ -690,23 +727,26 @@ exports.approveOutpass = async (req, res, next) => {
           parentApprovedAt: now.toISOString(),
           parentVerifiedMobile: verifiedParentMobile,
           faceVerified: true,
-          parentMessage: cleanParentMessage
+          parentMessage: cleanParentMessage,
+          classAdvisorId: targetAdvisorId
         }
       });
     }
 
     if (isSpecial) {
-      // Forward to Class Advisor
-      await notificationService.notifyAdvisor({
-        advisorId: request.class_advisor_id,
-        department: request.studentDept,
-        title: 'Special Outpass Requires Advisor Review',
-        message: `Parent consent granted (Face Verified) for Special Outpass (${request.request_code}) of student ${request.studentName}. Forwarded for your academic clearance.`,
-        type: 'ADVISOR_PENDING',
-        referenceId: requestId,
-        linkUrl: '/advisor-dashboard.html',
-        io: req.io
-      }).catch(err => console.warn('[Notif Error]:', err.message));
+      // Forward to Class Advisor (Special Outpass strictly bypasses Warden until after Principal)
+      if (targetAdvisorId) {
+        await notificationService.notifyAdvisor({
+          advisorId: targetAdvisorId,
+          department: request.studentDept,
+          title: 'Special Outpass Requires Advisor Review',
+          message: `Parent consent granted (Face Verified) for Special Outpass (${request.request_code}) of student ${request.studentName}. Forwarded for your academic clearance.`,
+          type: 'ADVISOR_PENDING',
+          referenceId: requestId,
+          linkUrl: '/advisor-dashboard.html',
+          io: req.io
+        }).catch(err => console.warn('[Notif Error]:', err.message));
+      }
 
       await notificationService.notifyStudent({
         studentId: request.student_id,
@@ -728,7 +768,8 @@ exports.approveOutpass = async (req, res, next) => {
           parentApprovedAt: now.toISOString(),
           parentVerifiedMobile: verifiedParentMobile,
           faceVerified: true,
-          parentMessage: cleanParentMessage
+          parentMessage: cleanParentMessage,
+          classAdvisorId: targetAdvisorId
         }
       });
     }

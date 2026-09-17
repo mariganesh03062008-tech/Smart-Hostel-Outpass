@@ -154,10 +154,46 @@ async function verifyAdvisorSession() {
     populateAdvisorHeader(currentAdvisor);
 
     await refreshAdvisorData();
+    initAdvisorSocket(token, currentAdvisor.id);
 
   } catch (err) {
     console.error('[Advisor Dash Error]:', err);
     showToast('Failed to load dashboard data. Please check your connection.', 'error');
+  }
+}
+
+let advisorSocket = null;
+function initAdvisorSocket(token, advisorId) {
+  if (advisorSocket || typeof window.io === 'undefined') return;
+  try {
+    advisorSocket = window.io({
+      auth: { token },
+      query: { token },
+      transports: ['websocket', 'polling']
+    });
+
+    advisorSocket.on('connect', () => {
+      console.log('[Advisor Socket] Connected to real-time gateway');
+      advisorSocket.emit('authenticate', token);
+    });
+
+    advisorSocket.on('notification:new', (notif) => {
+      console.log('[Advisor Socket] Notification received:', notif);
+      refreshAdvisorData();
+    });
+
+    advisorSocket.on('advisor:pending_approval', (data) => {
+      console.log('[Advisor Socket] New pending approval:', data);
+      refreshAdvisorData();
+      showToast(`New ${data.type === 'special' ? 'Special Outpass' : 'One-Day Duty'} request pending your review!`, 'info');
+    });
+
+    advisorSocket.on('parent:decision', (data) => {
+      console.log('[Advisor Socket] Parent decision received:', data);
+      refreshAdvisorData();
+    });
+  } catch (e) {
+    console.warn('[Advisor Socket Error]:', e);
   }
 }
 
